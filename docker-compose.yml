@@ -1,0 +1,105 @@
+# PRAXIS / RegPilot — full local stack (proposal §8 technology selection)
+# Postgres 16 (system of record) + Redis Streams (queue) + ChromaDB (vector store)
+# + FastAPI (api) + LangGraph worker. Ollama runs on the host (gpu/metal access),
+# reached via host.docker.internal.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: praxis
+      POSTGRES_PASSWORD: praxis
+      POSTGRES_DB: praxis
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U praxis"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  chromadb:
+    image: chromadb/chroma:0.5.20
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadata:/chroma/chroma
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8080
+    ports:
+      - "8080:8080"
+    environment:
+      PRAXIS_DATABASE_URL: postgresql+psycopg2://praxis:praxis@postgres:5432/praxis
+      PRAXIS_REDIS_URL: redis://redis:6379/0
+      PRAXIS_CHROMA_HOST: chromadb
+      PRAXIS_CHROMA_PORT: "8000"
+      PRAXIS_OLLAMA_HOST: http://host.docker.internal:11434
+      PRAXIS_DOC_STORE_PATH: /app/data/documents
+      PRAXIS_CORPUS_PATH: /app/data/corpus
+      PRAXIS_EXPORT_PATH: /app/data/exports
+      PRAXIS_ORG_CONFIG_PATH: /app/data/org_config.json
+    volumes:
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m ingestion.worker
+    environment:
+      PRAXIS_DATABASE_URL: postgresql+psycopg2://praxis:praxis@postgres:5432/praxis
+      PRAXIS_REDIS_URL: redis://redis:6379/0
+      PRAXIS_CHROMA_HOST: chromadb
+      PRAXIS_CHROMA_PORT: "8000"
+      PRAXIS_OLLAMA_HOST: http://host.docker.internal:11434
+      PRAXIS_DOC_STORE_PATH: /app/data/documents
+      PRAXIS_CORPUS_PATH: /app/data/corpus
+      PRAXIS_EXPORT_PATH: /app/data/exports
+      PRAXIS_ORG_CONFIG_PATH: /app/data/org_config.json
+    volumes:
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+
+volumes:
+  pgdata:
+  redisdata:
+  chromadata:
