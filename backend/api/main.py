@@ -11,7 +11,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import routes_compliance, routes_documents, routes_obligations
+from api import (
+    routes_activity,
+    routes_compliance,
+    routes_copilot,
+    routes_documents,
+    routes_obligations,
+)
 from config import settings
 from db.session import init_db
 from rag import corpus_index
@@ -46,6 +52,8 @@ app.add_middleware(
 app.include_router(routes_documents.router)
 app.include_router(routes_obligations.router)
 app.include_router(routes_compliance.router)
+app.include_router(routes_activity.router)
+app.include_router(routes_copilot.router)
 
 
 @app.get("/api/health")
