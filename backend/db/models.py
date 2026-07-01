@@ -174,6 +174,18 @@ class AuditLog(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
+class ObligationComment(Base):
+    """Reviewer comments on an obligation (collaboration in the review workspace)."""
+
+    __tablename__ = "obligation_comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    obligation_id: Mapped[str] = mapped_column(ForeignKey("obligations.id"), index=True)
+    author: Mapped[str] = mapped_column(String(128), default="compliance_officer")
+    body: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class SectionFingerprint(Base):
     """Per-section content hash for incremental processing (diff engine).
 
