@@ -1,0 +1,52 @@
+{
+  "firm_name": "Meridian Securities Pvt. Ltd.",
+  "firm_type": "stockbroker",
+  "intermediary_classes": ["stockbroker", "depository_participant"],
+  "functional_areas": {
+    "operations": {
+      "label": "Operations",
+      "primary_owner": "Head of Operations",
+      "owner_email": "ops.head@meridiansec.example",
+      "workflow_template": "operations_process_change"
+    },
+    "technology": {
+      "label": "Technology / IT",
+      "primary_owner": "Chief Technology Officer",
+      "owner_email": "cto@meridiansec.example",
+      "workflow_template": "technology_systems_change"
+    },
+    "compliance": {
+      "label": "Compliance",
+      "primary_owner": "Chief Compliance Officer",
+      "owner_email": "cco@meridiansec.example",
+      "workflow_template": "compliance_policy_update"
+    },
+    "legal": {
+      "label": "Legal & Secretarial",
+      "primary_owner": "Company Secretary",
+      "owner_email": "cs@meridiansec.example",
+      "workflow_template": "board_resolution_filing"
+    },
+    "finance": {
+      "label": "Finance & Risk",
+      "primary_owner": "Chief Risk Officer",
+      "owner_email": "cro@meridiansec.example",
+      "workflow_template": "risk_control_change"
+    },
+    "client_services": {
+      "label": "Client Services",
+      "primary_owner": "Head of Client Servicing",
+      "owner_email": "clientservices.head@meridiansec.example",
+      "workflow_template": "client_communication"
+    },
+    "human_resources": {
+      "label": "Human Resources",
+      "primary_owner": "Head of HR",
+      "owner_email": "hr.head@meridiansec.example",
+      "workflow_template": "staff_training"
+    }
+  },
+  "default_reviewer": "Chief Compliance Officer",
+  "default_reviewer_email": "cco@meridiansec.example",
+  "implementation_buffer_days": 7
+}
