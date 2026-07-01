@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.DS_Store
+
+# TypeScript / Vite build info
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
