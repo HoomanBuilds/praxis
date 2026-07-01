@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="frontend/public/logo.png" alt="PRAXIS" width="96" />
+  <img src="frontend/public/ChatGPT Image Jul 1, 2026, 06_10_08 PM (1).png" alt="PRAXIS" width="300" />
 </p>
 
-<h1 align="center">PRAXIS</h1>
+
 <p align="center"><b>The agentic compliance platform for India's securities market.</b></p>
 
 <p align="center">
