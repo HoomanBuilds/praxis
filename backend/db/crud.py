@@ -43,6 +43,42 @@ def record_audit(
     return entry
 
 
+def create_comment(session: Session, obligation_id: str, author: str, body: str) -> models.ObligationComment:
+    row = models.ObligationComment(obligation_id=obligation_id, author=author or "compliance_officer", body=body)
+    session.add(row)
+    session.flush()
+    record_audit(
+        session, action="comment.added", resource_type="obligation", resource_id=obligation_id,
+        actor=author or "compliance_officer", after={"comment": body[:200]},
+    )
+    return row
+
+
+def list_comments(session: Session, obligation_id: str) -> list[models.ObligationComment]:
+    return list(
+        session.scalars(
+            select(models.ObligationComment)
+            .where(models.ObligationComment.obligation_id == obligation_id)
+            .order_by(models.ObligationComment.created_at.asc())
+        )
+    )
+
+
+def list_activity(
+    session: Session, limit: int = 60, resource_id: Optional[str] = None
+) -> list[models.AuditLog]:
+    """Recent audit-log entries, newest first — the source of the live activity feed."""
+    stmt = select(models.AuditLog).order_by(models.AuditLog.timestamp.desc()).limit(limit)
+    if resource_id:
+        stmt = (
+            select(models.AuditLog)
+            .where(models.AuditLog.resource_id == resource_id)
+            .order_by(models.AuditLog.timestamp.desc())
+            .limit(limit)
+        )
+    return list(session.scalars(stmt))
+
+
 # ---------------------------------------------------------------------------
 # Documents
 # ---------------------------------------------------------------------------
