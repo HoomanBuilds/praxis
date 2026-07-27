@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 import schemas
+from api.deps import require_api_key
 from api.serializers import obligation_to_dict
 from db import crud
 from db.session import get_db
@@ -19,12 +20,16 @@ def list_obligations(
     document_id: str | None = Query(None),
     status: str | None = Query(None),
     functional_area: str | None = Query(None),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     session: Session = Depends(get_db),
 ):
     rows = crud.list_obligations(
         session, document_id=document_id, status=status, functional_area=functional_area
     )
-    return [obligation_to_dict(o) for o in rows]
+    total = len(rows)
+    page = rows[offset : offset + limit]
+    return {"items": [obligation_to_dict(o) for o in page], "total": total, "offset": offset, "limit": limit}
 
 
 @router.get("/{obligation_id}")
@@ -36,17 +41,27 @@ def get_obligation(obligation_id: str, session: Session = Depends(get_db)):
 
 
 @router.post("/{obligation_id}/approve")
-def approve(obligation_id: str, action: schemas.ReviewAction, session: Session = Depends(get_db)):
+def approve(
+    obligation_id: str,
+    action: schemas.ReviewAction,
+    session: Session = Depends(get_db),
+    actor: str = Depends(require_api_key),
+):
     ob = _require(session, obligation_id)
-    crud.review_obligation(session, ob, approve=True, reviewer=action.reviewer, note=action.note)
+    crud.review_obligation(session, ob, approve=True, reviewer=actor, note=action.note)
     session.commit()
     return obligation_to_dict(ob)
 
 
 @router.post("/{obligation_id}/reject")
-def reject(obligation_id: str, action: schemas.ReviewAction, session: Session = Depends(get_db)):
+def reject(
+    obligation_id: str,
+    action: schemas.ReviewAction,
+    session: Session = Depends(get_db),
+    actor: str = Depends(require_api_key),
+):
     ob = _require(session, obligation_id)
-    crud.review_obligation(session, ob, approve=False, reviewer=action.reviewer, note=action.note)
+    crud.review_obligation(session, ob, approve=False, reviewer=actor, note=action.note)
     session.commit()
     return obligation_to_dict(ob)
 
@@ -135,9 +150,14 @@ def get_comments(obligation_id: str, session: Session = Depends(get_db)):
 
 
 @router.post("/{obligation_id}/comments")
-def add_comment(obligation_id: str, comment: CommentIn, session: Session = Depends(get_db)):
+def add_comment(
+    obligation_id: str,
+    comment: CommentIn,
+    session: Session = Depends(get_db),
+    actor: str = Depends(require_api_key),
+):
     _require(session, obligation_id)
-    row = crud.create_comment(session, obligation_id, comment.author, comment.body)
+    row = crud.create_comment(session, obligation_id, actor, comment.body)
     session.commit()
     return {"id": row.id, "author": row.author, "body": row.body,
             "created_at": row.created_at.isoformat() if row.created_at else None}
