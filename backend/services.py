@@ -91,7 +91,7 @@ def process_document(session: Session, document_id: str) -> dict:
 
     # Idempotent re-processing: drop any prior extraction (cascades to rules/tasks/evidence).
     for stale in crud.list_obligations(session, document_id=doc.id):
-        session.delete(stale)
+        crud.delete_obligation(session, stale)
     session.flush()
 
     crud.set_document_status(session, doc, "extracting")
