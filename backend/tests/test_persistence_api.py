@@ -57,9 +57,11 @@ def test_api_list_and_filter_obligations(seeded):
     client = TestClient(app)
     r = client.get("/api/obligations", params={"document_id": seeded["doc_id"]})
     assert r.status_code == 200
-    assert len(r.json()) == 2
+    body = r.json()
+    assert body["total"] == 2
+    assert len(body["items"]) == 2
     r2 = client.get("/api/obligations", params={"functional_area": "technology"})
-    assert any(o["identifier"] == "TST-OB-002" for o in r2.json())
+    assert any(o["identifier"] == "TST-OB-002" for o in r2.json()["items"])
 
 
 def test_api_approve_endpoint(seeded):
