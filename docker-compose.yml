@@ -51,7 +51,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      PRAXIS_DATABASE_URL: postgresql+psycopg2://praxis:praxis@postgres:5432/praxis
+      PRAXIS_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-praxis}:${POSTGRES_PASSWORD:-praxis}@postgres:5432/${POSTGRES_DB:-praxis}
       PRAXIS_REDIS_URL: redis://redis:6379/0
       PRAXIS_CHROMA_HOST: chromadb
       PRAXIS_CHROMA_PORT: "8000"
@@ -78,7 +78,7 @@ services:
       dockerfile: backend/Dockerfile
     command: python -m ingestion.worker
     environment:
-      PRAXIS_DATABASE_URL: postgresql+psycopg2://praxis:praxis@postgres:5432/praxis
+      PRAXIS_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-praxis}:${POSTGRES_PASSWORD:-praxis}@postgres:5432/${POSTGRES_DB:-praxis}
       PRAXIS_REDIS_URL: redis://redis:6379/0
       PRAXIS_CHROMA_HOST: chromadb
       PRAXIS_CHROMA_PORT: "8000"
