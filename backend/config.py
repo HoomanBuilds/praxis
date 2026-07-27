@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     ocr_trigger_quality: float = 0.80
     obligation_confidence_min: float = 0.65
 
+    # --- Authentication ---
+    api_key: str = ""  # Empty = auth disabled (local dev / tests). Set a value to enforce.
+
+    # --- Audit ---
+    audit_retention_days: int = 2555  # ~7 years, SEBI requirement
+
     # --- Retrieval ---
     retrieval_top_k: int = 6
     rrf_k: int = 60
