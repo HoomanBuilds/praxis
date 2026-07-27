@@ -89,9 +89,11 @@ def process_document(session: Session, document_id: str) -> dict:
     if not doc:
         raise ValueError(f"Document {document_id} not found")
 
-    # Idempotent re-processing: drop any prior extraction (cascades to rules/tasks/evidence).
+    # Idempotent re-processing: drop only pending/rejected extractions (cascades to rules/tasks/evidence).
+    # Approved/edited obligations are preserved to avoid data loss.
     for stale in crud.list_obligations(session, document_id=doc.id):
-        crud.delete_obligation(session, stale)
+        if stale.status not in (ObligationStatus.APPROVED.value, ObligationStatus.EDITED.value):
+            crud.delete_obligation(session, stale)
     session.flush()
 
     crud.set_document_status(session, doc, "extracting")
