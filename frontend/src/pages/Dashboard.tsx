@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -109,13 +109,14 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { data: summary } = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
   const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
-  const { data: activity } = useQuery({ queryKey: ["activity"], queryFn: () => api.activity(40), refetchInterval: 8000 });
+  const { data: activity } = useQuery({ queryKey: ["activity"], queryFn: () => api.activity(8), refetchInterval: 8000 });
   const { data: tasks } = useQuery({ queryKey: ["tasks", "all"], queryFn: () => api.listTasks() });
   const { data: kg } = useQuery({ queryKey: ["kg"], queryFn: () => api.knowledgeGraph() });
 
   const latestProcessed = documents?.find((d) => d.funnel);
   const today = new Date().toISOString().slice(0, 10);
   const overdue = (tasks ?? []).filter((t) => t.deadline && t.deadline < today && t.status !== "completed").length;
+  const recentActivity = (activity ?? []).slice(0, 6);
 
   return (
     <div className="space-y-6">
@@ -136,12 +137,15 @@ export default function Dashboard() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2"><Boxes className="h-4 w-4" /> AI Activity Feed</CardTitle>
-            <Badge variant="muted" className="gap-1"><span className="h-1.5 w-1.5 rounded-full bg-success pulse-dot" /> live</Badge>
+            <div className="flex items-center gap-3">
+              <Badge variant="muted" className="gap-1"><span className="h-1.5 w-1.5 rounded-full bg-success pulse-dot" /> live</Badge>
+              <Link to="/audit" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">View logs <ArrowRight className="h-3 w-3" /></Link>
+            </div>
           </CardHeader>
           <CardContent>
-            {activity?.length ? (
+            {recentActivity.length ? (
               <div className="space-y-0">
-                {activity.map((ev, i) => {
+                {recentActivity.map((ev, i) => {
                   const meta = ACTION_META[ev.action] || { icon: Boxes, tone: "text-muted-foreground" };
                   return (
                     <div key={ev.id} className="flex gap-3">
@@ -149,7 +153,7 @@ export default function Dashboard() {
                         <div className="h-7 w-7 rounded-full border bg-background grid place-items-center">
                           <meta.icon className={cn("h-3.5 w-3.5", meta.tone)} />
                         </div>
-                        {i < activity.length - 1 && <div className="w-px flex-1 bg-border" />}
+                        {i < recentActivity.length - 1 && <div className="w-px flex-1 bg-border" />}
                       </div>
                       <div className="pb-4 min-w-0 flex-1 -mt-0.5">
                         <div className="flex items-center justify-between gap-2">

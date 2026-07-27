@@ -62,7 +62,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* Sidebar (inside the shell) */}
         <aside className="w-60 shrink-0 border-r flex flex-col px-3 py-4 overflow-y-auto">
           <div className="px-2 mb-6 flex items-center gap-2">
-            <Logo className="h-8 w-8 rounded-lg object-cover" />
+            <Logo className="h-7 w-7 text-foreground" />
             <span className="text-lg font-semibold tracking-tight lowercase">praxis</span>
           </div>
           <nav className="space-y-4 flex-1">
@@ -114,15 +114,6 @@ export function Layout({ children }: { children: ReactNode }) {
             </button>
             <div className="ml-auto flex items-center gap-1.5">
               <ThemeToggle />
-              <button
-                onClick={copilot.toggle}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-xl border px-3 h-9 text-sm transition-colors",
-                  copilot.open ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground hover:text-foreground hover:border-primary/40"
-                )}
-              >
-                <Bot className="h-3.5 w-3.5" /> Copilot
-              </button>
               <Link to="/audit" title="Audit trail" className="relative grid h-9 w-9 place-items-center rounded-xl border bg-secondary text-muted-foreground hover:text-foreground transition-colors">
                 <Bell className="h-4 w-4" />
               </Link>
