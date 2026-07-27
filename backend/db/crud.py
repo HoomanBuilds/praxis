@@ -6,7 +6,7 @@ talks to the ORM directly; it goes through these helpers so audit logging is cen
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import select
@@ -30,6 +30,8 @@ def record_audit(
     actor: str = "system",
     before: Optional[dict] = None,
     after: Optional[dict] = None,
+    prompt_version: Optional[str] = None,
+    prompt_hash: Optional[str] = None,
 ) -> models.AuditLog:
     entry = models.AuditLog(
         action=action,
@@ -174,6 +176,19 @@ def get_obligation(session: Session, obligation_id: str) -> Optional[models.Obli
     return session.get(models.Obligation, obligation_id)
 
 
+def delete_obligation(session: Session, obligation: models.Obligation) -> None:
+    """Delete an obligation and cascade to rules, tasks, evidence via ORM cascade."""
+    record_audit(
+        session,
+        action="obligation.deleted",
+        resource_type="obligation",
+        resource_id=obligation.id,
+        actor="system",
+        after={"description": obligation.description[:200], "document_id": obligation.document_id},
+    )
+    session.delete(obligation)
+
+
 def list_obligations(
     session: Session,
     *,
@@ -206,7 +221,7 @@ def review_obligation(
     )
     obligation.needs_review = False
     obligation.reviewer = reviewer
-    obligation.reviewed_at = datetime.utcnow()
+    obligation.reviewed_at = datetime.now(timezone.utc)
     session.flush()
     record_audit(
         session,
@@ -239,7 +254,7 @@ def edit_obligation(
         obligation.modification_type = edit.modification_type.value
     obligation.status = schemas.ObligationStatus.EDITED.value
     obligation.reviewer = reviewer
-    obligation.reviewed_at = datetime.utcnow()
+    obligation.reviewed_at = datetime.now(timezone.utc)
     session.flush()
     record_audit(
         session,
