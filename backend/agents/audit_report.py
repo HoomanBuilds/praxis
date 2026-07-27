@@ -9,7 +9,7 @@ inspection.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import select
@@ -105,7 +105,7 @@ def build_audit_package(
 
     package = {
         "scope": scope,
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "obligation_count": len(items),
         "summary": _summary(items),
         "items": items,
@@ -117,7 +117,7 @@ def build_audit_package(
     }
 
     Path(settings.export_path).mkdir(parents=True, exist_ok=True)
-    stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     base = f"audit_{scope}_{stamp}"
     if "pdf" in formats:
         package["files"]["pdf"] = _render_pdf(package, Path(settings.export_path) / f"{base}.pdf")

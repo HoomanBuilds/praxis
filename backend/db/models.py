@@ -7,7 +7,7 @@ application layer: code only ever inserts rows.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     JSON,
@@ -55,7 +55,7 @@ class Document(Base):
     funnel: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     obligations: Mapped[list["Obligation"]] = relationship(
@@ -87,7 +87,7 @@ class Obligation(Base):
     reviewer: Mapped[str | None] = mapped_column(String(128), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
     document: Mapped["Document"] = relationship(back_populates="obligations")
     rules: Mapped[list["Rule"]] = relationship(
@@ -115,7 +115,7 @@ class Rule(Base):
     evidence_type: Mapped[str] = mapped_column(String(255), default="")
     schema_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
     obligation: Mapped["Obligation"] = relationship(back_populates="rules")
 
@@ -138,7 +138,7 @@ class Task(Base):
     status: Mapped[str] = mapped_column(String(32), default="not_started", index=True)
     depends_on_task_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
     obligation: Mapped["Obligation"] = relationship(back_populates="tasks")
 
@@ -154,7 +154,7 @@ class EvidenceRequirement(Base):
     collector: Mapped[str] = mapped_column(String(128), default="")
     retention_period: Mapped[str] = mapped_column(String(64), default="5 years")
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
     obligation: Mapped["Obligation"] = relationship(back_populates="evidence_requirements")
 
@@ -171,7 +171,7 @@ class AuditLog(Base):
     resource_id: Mapped[str] = mapped_column(String(64), default="", index=True)
     before: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     after: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc), index=True)
 
 
 class ObligationComment(Base):
@@ -183,7 +183,7 @@ class ObligationComment(Base):
     obligation_id: Mapped[str] = mapped_column(ForeignKey("obligations.id"), index=True)
     author: Mapped[str] = mapped_column(String(128), default="compliance_officer")
     body: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
 
 class SectionFingerprint(Base):
@@ -201,4 +201,4 @@ class SectionFingerprint(Base):
     content_hash: Mapped[str] = mapped_column(String(64), index=True)
     document_id: Mapped[str] = mapped_column(String(32), default="")
     heading: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
