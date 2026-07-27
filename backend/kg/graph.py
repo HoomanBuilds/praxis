@@ -13,6 +13,19 @@ def _node(nodes: dict, node_id: str, node_type: str, label: str, **props) -> str
     return node_id
 
 
+def _risk_score(ob: models.Obligation) -> tuple[str, str]:
+    """Compute a risk level and label from objective signals."""
+    if ob.status == "rejected":
+        return ("critical", "Rejected — non-compliant")
+    if ob.status == "pending_review" and ob.confidence < 0.5:
+        return ("high", "Low confidence, unreviewed")
+    if ob.confidence < 0.65:
+        return ("medium", "Below confidence threshold")
+    if ob.needs_review:
+        return ("low", "Awaiting review")
+    return ("minimal", "Approved / compliant")
+
+
 def build_graph(session: Session, document_id: str | None = None) -> dict:
     """Return {nodes, edges, stats}. Scope to one document or the whole firm."""
     nodes: dict[str, dict] = {}
@@ -37,6 +50,13 @@ def build_graph(session: Session, document_id: str | None = None) -> dict:
             dept_id = _node(nodes, f"dept:{ob.functional_area}", "department",
                             ob.functional_area.replace("_", " ").title())
             edges.append({"source": ob_id, "target": dept_id, "type": "ASSIGNED_TO"})
+
+            # Risk node — derived from objective compliance signals.
+            risk_level, risk_label = _risk_score(ob)
+            risk_id = f"risk:{ob.id}"
+            _node(nodes, risk_id, "risk", risk_label, level=risk_level,
+                  confidence=ob.confidence, status=ob.status)
+            edges.append({"source": ob_id, "target": risk_id, "type": "HAS_RISK"})
 
             if ob.linked_prior_obligation_id:
                 prior_id = f"ob:{ob.linked_prior_obligation_id}"
@@ -71,6 +91,7 @@ def build_graph(session: Session, document_id: str | None = None) -> dict:
             "edge_count": len(edges),
             "nodes_by_type": type_counts,
             "cross_document_modifies": sum(1 for e in edges if e["type"] == "MODIFIES"),
+            "risk_nodes": sum(1 for n in nodes.values() if n["type"] == "risk"),
         },
     }
 
