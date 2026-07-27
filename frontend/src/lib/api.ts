@@ -1,13 +1,17 @@
 import type {
   ActivityEvent,
+  ApiKeyT,
   CommentT,
   CopilotResponse,
   DashboardSummary,
   DocumentT,
   EvidenceRequirement,
   ExplainResult,
+  Filing,
   KnowledgeGraph,
   Obligation,
+  OrgConfig,
+  RiskItem,
   Rule,
   SearchResults,
   Task,
@@ -123,4 +127,36 @@ export const api = {
   createWatchSource: (data: { name: string; url: string; source_type: string }) =>
     req<unknown>("/watch/sources", { method: "POST", body: JSON.stringify(data) }),
   listWatchHits: () => req<unknown[]>("/watch/hits"),
+
+  updateTask: (id: string, patch: { primary_owner?: string; owner_email?: string; status?: string }) =>
+    req<Task>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  riskRegister: (params: { risk_level?: string; functional_area?: string; status?: string } = {}) => {
+    const qs = new URLSearchParams(params as Record<string, string>);
+    return req<RiskItem[]>(`/risk-register?${qs}`);
+  },
+
+  getOrgConfig: () => req<OrgConfig>("/org-config"),
+  updateOrgConfig: (patch: { firm_name?: string; firm_type?: string; intermediary_classes?: string[] }) =>
+    req<OrgConfig>("/org-config", { method: "PUT", body: JSON.stringify(patch) }),
+  getFunctionalAreas: () => req<Record<string, { label: string; primary_owner: string; owner_email: string; workflow_template: string }>>("/org-config/functional-areas"),
+  updateFunctionalAreas: (areas: Record<string, { label: string; primary_owner: string; owner_email: string; workflow_template: string }>) =>
+    req<Record<string, unknown>>("/org-config/functional-areas", { method: "PUT", body: JSON.stringify({ functional_areas: areas }) }),
+
+  listFilings: (params: { obligation_id?: string; status?: string } = {}) => {
+    const qs = new URLSearchParams(params as Record<string, string>);
+    return req<Filing[]>(`/filings?${qs}`);
+  },
+  createFiling: (data: { obligation_id: string; task_id?: string; filing_type: string; notes?: string }) =>
+    req<Filing>("/filings", { method: "POST", body: JSON.stringify(data) }),
+  updateFiling: (id: string, patch: { status?: string; submitted_at?: string; confirmation_reference?: string }) =>
+    req<Filing>(`/filings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  listApiKeys: () => req<ApiKeyT[]>("/api-keys"),
+  createApiKey: (label: string) =>
+    req<{ id: string; label: string; key: string }>(`/api-keys`, { method: "POST", body: JSON.stringify({ label }) }),
+  revokeApiKey: (id: string) => req<unknown>(`/api-keys/${id}/revoke`, { method: "POST" }),
+
+  retentionStatus: () => req<{ retention_days: number; audit_log_entries: number; oldest_entry: string | null }>("/data/retention-status"),
+  exportAudit: () => req<{ files: Record<string, string>; generated_at: string; obligation_count: number }>("/data/export", { method: "POST" }),
 };

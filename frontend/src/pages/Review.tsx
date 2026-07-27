@@ -11,11 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { ObligationArtifacts } from "@/components/ObligationArtifacts";
 import { titleCase } from "@/lib/utils";
+import { AREAS } from "@/lib/constants";
 import {
   ArrowLeft, Check, X, Pencil, ChevronDown, ChevronRight, Zap, FileDown, Loader2, AlertTriangle, Maximize2,
 } from "lucide-react";
-
-const AREAS = ["operations", "technology", "compliance", "legal", "finance", "client_services", "human_resources", "other"];
 
 function ObligationRow({ ob, generated }: { ob: Obligation; generated: boolean }) {
   const qc = useQueryClient();

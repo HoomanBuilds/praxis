@@ -1,10 +1,15 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabList, TabTrigger, TabContent } from "@/components/ui/tabs";
 import { ChevronLeft, ChevronRight, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { AREAS, TASK_STATUSES } from "@/lib/constants";
+import { titleCase } from "@/lib/utils";
+import { api } from "@/lib/api";
 
 interface CalEvent {
   id: string;
@@ -15,6 +20,8 @@ interface CalEvent {
   owner: string;
   resource_type: string;
   resource_id: string;
+  functional_area?: string;
+  obligation_id?: string;
 }
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -29,6 +36,15 @@ export default function Calendar() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [view, setView] = useState("grid");
+  const [area, setArea] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const qc = useQueryClient();
+
+  const updateTask = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: { primary_owner?: string; status?: string } }) => api.updateTask(id, patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["calendar"] }),
+  });
 
   const fromStr = `${year}-${String(month + 1).padStart(2, "0")}-01`;
   const lastDay = daysInMonth(year, month);
@@ -44,15 +60,27 @@ export default function Calendar() {
   });
 
   const events = data?.events ?? [];
+
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => {
+      if (area !== "all" && e.type === "task") {
+        const taskArea = e.functional_area ?? "compliance";
+        if (taskArea !== area) return false;
+      }
+      if (filterStatus !== "all" && e.status !== filterStatus) return false;
+      return true;
+    });
+  }, [events, area, filterStatus]);
+
   const eventsByDay = useMemo(() => {
     const m = new Map<string, CalEvent[]>();
-    for (const e of events) {
+    for (const e of filteredEvents) {
       const day = e.date.slice(8, 10);
       if (!m.has(day)) m.set(day, []);
       m.get(day)!.push(e);
     }
     return m;
-  }, [events]);
+  }, [filteredEvents]);
 
   const prev = () => {
     if (month === 0) { setYear(year - 1); setMonth(11); }
@@ -66,6 +94,7 @@ export default function Calendar() {
   const firstDayOfWeek = new Date(year, month, 1).getDay();
   const totalDays = daysInMonth(year, month);
   const todayStr = today.toISOString().slice(0, 10);
+  const overdueCount = filteredEvents.filter((e) => e.type === "task" && e.date < todayStr && e.status !== "completed").length;
 
   return (
     <div className="space-y-5">
@@ -74,12 +103,23 @@ export default function Calendar() {
         <p className="text-sm text-muted-foreground">Task and obligation deadlines at a glance.</p>
       </div>
 
+      {overdueCount > 0 && <Badge variant="destructive">{overdueCount} tasks overdue</Badge>}
+
       <Card>
         <CardHeader className="flex-row items-center justify-between pb-2">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={prev}><ChevronLeft className="h-4 w-4" /></Button>
             <CardTitle className="text-sm">{MONTH_NAMES[month]} {year}</CardTitle>
             <Button variant="ghost" size="icon" onClick={next}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={area} onChange={(e) => setArea(e.target.value)} className="h-8 rounded-lg border bg-card px-2 text-xs">
+              {AREAS.map((a) => <option key={a} value={a}>{a === "all" ? "All depts" : titleCase(a)}</option>)}
+            </select>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-8 rounded-lg border bg-card px-2 text-xs">
+              <option value="all">All statuses</option>
+              {TASK_STATUSES.map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
+            </select>
           </div>
         </CardHeader>
         <CardContent>
@@ -102,23 +142,27 @@ export default function Calendar() {
                     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${day}`;
                     const dayEvents = eventsByDay.get(day) ?? [];
                     const isToday = dateStr === todayStr;
+                    const isOverdue = dayEvents.some((e) => e.type === "task" && e.date < todayStr && e.status !== "completed");
+                    const hasTasks = dayEvents.some((e) => e.type === "task");
                     return (
-                      <div key={i} className={`bg-card min-h-[5rem] p-1.5 ${isToday ? "ring-1 ring-foreground/20" : ""}`}>
+                      <div key={i}
+                        className={`bg-card min-h-[5rem] p-1.5 relative ${hasTasks ? "cursor-pointer hover:bg-accent/40" : ""} ${isToday ? "ring-1 ring-foreground/20" : ""}`}
+                        onClick={hasTasks ? () => setSelectedDay(day) : undefined}
+                      >
                         <div className={`text-xs mb-1 ${isToday ? "font-bold" : "text-muted-foreground"}`}>{i + 1}</div>
-                        {dayEvents.slice(0, 3).map((e) => (
-                          <div key={e.id} className="text-[10px] truncate rounded px-1 py-0.5 mb-0.5 bg-secondary">
-                            {e.title.slice(0, 24)}
+                        {dayEvents.length > 0 && (
+                          <div className={`absolute bottom-1.5 right-1.5 h-5 min-w-[1.25rem] flex items-center justify-center rounded-full text-[10px] font-medium px-1 ${isOverdue ? "bg-foreground text-background" : "bg-secondary text-foreground"}`}>
+                            {dayEvents.length}
                           </div>
-                        ))}
-                        {dayEvents.length > 3 && <div className="text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</div>}
+                        )}
                       </div>
                     );
                   })}
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {events.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">No deadlines this month.</div>}
-                  {events.map((e) => (
+                  {filteredEvents.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">No deadlines this month.</div>}
+                  {filteredEvents.map((e) => (
                     <div key={e.id} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
                       <div className="text-xs text-muted-foreground w-16 shrink-0">{e.date.slice(5)}</div>
                       <div className="flex-1 min-w-0">
@@ -135,6 +179,54 @@ export default function Calendar() {
           </Tabs>
         </CardContent>
       </Card>
+
+      <Dialog open={selectedDay !== null} onOpenChange={() => setSelectedDay(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedDay && `${MONTH_NAMES[month]} ${parseInt(selectedDay)}, ${year}`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {selectedDay && (eventsByDay.get(selectedDay) ?? []).map((e) => (
+              <div key={e.id} className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-sm font-medium">{e.title}</div>
+                  <Badge variant={e.type === "task" ? "secondary" : "muted"}>{e.type}</Badge>
+                </div>
+                {e.type === "task" && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      className="h-7 text-xs flex-1"
+                      value={e.owner}
+                      placeholder="Owner"
+                      onChange={(ev) => updateTask.mutate({ id: e.resource_id, patch: { primary_owner: ev.target.value } })}
+                    />
+                    <select
+                      className="h-7 text-xs rounded border bg-card px-1"
+                      value={e.status}
+                      onChange={(ev) => updateTask.mutate({ id: e.resource_id, patch: { status: ev.target.value } })}
+                    >
+                      {TASK_STATUSES.map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Badge variant={e.status === "completed" ? "success" : e.status === "not_started" ? "muted" : "warning"}>
+                    {e.status.replace("_", " ")}
+                  </Badge>
+                  {e.type === "obligation" && (
+                    <a href={`/obligations/${e.resource_id}`} className="text-xs text-muted-foreground hover:text-foreground">View obligation</a>
+                  )}
+                </div>
+              </div>
+            ))}
+            {selectedDay && (eventsByDay.get(selectedDay) ?? []).length === 0 && (
+              <div className="text-sm text-muted-foreground text-center py-4">Nothing due on this day.</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

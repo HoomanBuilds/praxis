@@ -101,6 +101,9 @@ class Obligation(Base):
     evidence_requirements: Mapped[list["EvidenceRequirement"]] = relationship(
         back_populates="obligation", cascade="all, delete-orphan"
     )
+    filings: Mapped[list["Filing"]] = relationship(
+        back_populates="obligation", cascade="all, delete-orphan"
+    )
 
 
 class Rule(Base):
@@ -252,6 +255,31 @@ class WatchSource(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Filing(Base):
+    __tablename__ = "filings"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    obligation_id: Mapped[str] = mapped_column(ForeignKey("obligations.id"), index=True)
+    task_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    filing_type: Mapped[str] = mapped_column(String(128), default="")
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    confirmation_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="not_filed", index=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    obligation: Mapped["Obligation"] = relationship(back_populates="filings")
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    label: Mapped[str] = mapped_column(String(255), default="")
+    key_hash: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    created_by: Mapped[str] = mapped_column(String(128), default="system")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class WatchHit(Base):

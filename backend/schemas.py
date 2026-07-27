@@ -291,3 +291,57 @@ class AuditReportRequest(BaseModel):
     obligation_id: Optional[str] = None
     document_id: Optional[str] = None
     formats: list[str] = Field(default_factory=lambda: ["pdf", "xlsx"])
+
+
+# ---------------------------------------------------------------------------
+# Task updates
+# ---------------------------------------------------------------------------
+
+
+class TaskUpdate(BaseModel):
+    status: Optional[str] = None
+    primary_owner: Optional[str] = None
+    owner_email: Optional[str] = None
+    deadline: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Filing
+# ---------------------------------------------------------------------------
+
+
+class FilingCreate(BaseModel):
+    obligation_id: str
+    task_id: Optional[str] = None
+    filing_type: str = ""
+    notes: str = ""
+
+
+class FilingUpdate(BaseModel):
+    status: Optional[str] = None
+    confirmation_reference: Optional[str] = None
+    notes: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Org config
+# ---------------------------------------------------------------------------
+
+
+class OrgConfigUpdate(BaseModel):
+    firm_name: Optional[str] = None
+    firm_type: Optional[str] = None
+    intermediary_classes: Optional[list[str]] = None
+
+
+class FunctionalAreasUpdate(BaseModel):
+    functional_areas: list[dict]
+
+
+# ---------------------------------------------------------------------------
+# API keys
+# ---------------------------------------------------------------------------
+
+
+class ApiKeyCreate(BaseModel):
+    label: str = ""

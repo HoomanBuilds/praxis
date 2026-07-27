@@ -3,7 +3,7 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, ScrollText, ListChecks, ClipboardList, Share2, Bot, BarChart3,
   FileBarChart, History, Settings as SettingsIcon, Search, Command, Bell,
-  FileCheck, CalendarClock, Radar, LogOut,
+  FileCheck, CalendarClock, Radar, LogOut, Shield, FileOutput,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -25,12 +25,14 @@ const navGroups: { heading: string; items: { to: string; label: string; icon: an
       { to: "/tasks", label: "Tasks", icon: ClipboardList },
       { to: "/evidence", label: "Evidence Center", icon: FileCheck },
       { to: "/calendar", label: "Calendar", icon: CalendarClock },
+      { to: "/filings", label: "Filing Tracker", icon: FileOutput },
     ],
   },
   {
     heading: "Intelligence",
     items: [
       { to: "/knowledge-graph", label: "Knowledge Graph", icon: Share2 },
+      { to: "/risk-register", label: "Risk Register", icon: Shield },
       { to: "/copilot", label: "AI Copilot", icon: Bot },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
       { to: "/watch", label: "Watch", icon: Radar },

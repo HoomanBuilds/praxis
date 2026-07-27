@@ -84,3 +84,17 @@ def evidence_to_dict(e: models.EvidenceRequirement) -> dict:
         "collector": e.collector,
         "retention_period": e.retention_period,
     }
+
+
+def filing_to_dict(f: models.Filing) -> dict:
+    return {
+        "id": f.id,
+        "obligation_id": f.obligation_id,
+        "task_id": f.task_id,
+        "filing_type": f.filing_type,
+        "status": f.status,
+        "submitted_at": f.submitted_at.isoformat() if f.submitted_at else None,
+        "confirmation_reference": f.confirmation_reference,
+        "notes": f.notes,
+        "created_at": f.created_at.isoformat() if f.created_at else None,
+    }

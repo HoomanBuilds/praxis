@@ -502,3 +502,150 @@ def mark_hit_reviewed(session: Session, hit_id: str) -> Optional[models.WatchHit
         h.is_reviewed = True
         session.flush()
     return h
+
+
+# --- Task updates ---
+
+
+def update_task(session: Session, task_id: str, updates: schemas.TaskUpdate, actor: str = "system") -> Optional[models.Task]:
+    task = session.get(models.Task, task_id)
+    if not task:
+        return None
+    before = {"status": task.status, "primary_owner": task.primary_owner, "deadline": str(task.deadline) if task.deadline else None}
+    if updates.status is not None:
+        task.status = updates.status
+    if updates.primary_owner is not None:
+        task.primary_owner = updates.primary_owner
+    if updates.owner_email is not None:
+        task.owner_email = updates.owner_email
+    if updates.deadline is not None:
+        from datetime import date as _date
+        task.deadline = _date.fromisoformat(updates.deadline) if updates.deadline else None
+    session.flush()
+    record_audit(session, action="task.updated", resource_type="task", resource_id=task_id, actor=actor, before=before, after={"status": task.status})
+    return task
+
+
+# --- Filings ---
+
+
+def create_filing(session: Session, *, obligation_id: str, task_id: Optional[str] = None, filing_type: str = "", notes: str = "", actor: str = "system") -> models.Filing:
+    f = models.Filing(obligation_id=obligation_id, task_id=task_id, filing_type=filing_type, notes=notes)
+    session.add(f)
+    session.flush()
+    record_audit(session, action="filing.created", resource_type="filing", resource_id=f.id, actor=actor, after={"obligation_id": obligation_id, "filing_type": filing_type})
+    return f
+
+
+def list_filings(session: Session, status: Optional[str] = None) -> list[models.Filing]:
+    stmt = select(models.Filing)
+    if status:
+        stmt = stmt.where(models.Filing.status == status)
+    return list(session.scalars(stmt.order_by(models.Filing.created_at.desc())))
+
+
+def get_filing(session: Session, filing_id: str) -> Optional[models.Filing]:
+    return session.get(models.Filing, filing_id)
+
+
+def update_filing(session: Session, filing_id: str, updates: schemas.FilingUpdate, actor: str = "system") -> Optional[models.Filing]:
+    f = session.get(models.Filing, filing_id)
+    if not f:
+        return None
+    if updates.status is not None:
+        f.status = updates.status
+    if updates.confirmation_reference is not None:
+        f.confirmation_reference = updates.confirmation_reference
+    if updates.notes is not None:
+        f.notes = updates.notes
+    session.flush()
+    return f
+
+
+def submit_filing(session: Session, filing_id: str, confirmation_reference: str, actor: str = "system") -> Optional[models.Filing]:
+    f = session.get(models.Filing, filing_id)
+    if not f:
+        return None
+    from datetime import datetime, timezone as _tz
+    f.status = "filed"
+    f.submitted_at = datetime.now(_tz.utc)
+    f.confirmation_reference = confirmation_reference
+    session.flush()
+    record_audit(session, action="filing.submitted", resource_type="filing", resource_id=f.id, actor=actor, after={"confirmation_reference": confirmation_reference})
+    return f
+
+
+# --- API Keys ---
+
+
+def _hash_api_key(key: str) -> str:
+    import hashlib
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def create_api_key(session: Session, *, label: str, created_by: str = "system") -> tuple[models.ApiKey, str]:
+    """Create an API key. Returns (row, raw_key) — raw_key shown once then discarded."""
+    import secrets
+    raw_key = f"pk_{secrets.token_urlsafe(32)}"
+    row = models.ApiKey(label=label, key_hash=_hash_api_key(raw_key), created_by=created_by)
+    session.add(row)
+    session.flush()
+    record_audit(session, action="api_key.created", resource_type="api_key", resource_id=row.id, actor=created_by, after={"label": label})
+    return row, raw_key
+
+
+def list_api_keys(session: Session, include_revoked: bool = False) -> list[models.ApiKey]:
+    stmt = select(models.ApiKey)
+    if not include_revoked:
+        stmt = stmt.where(models.ApiKey.revoked_at.is_(None))
+    return list(session.scalars(stmt.order_by(models.ApiKey.created_at.desc())))
+
+
+def revoke_api_key(session: Session, key_id: str, actor: str = "system") -> Optional[models.ApiKey]:
+    from datetime import datetime, timezone as _tz
+    row = session.get(models.ApiKey, key_id)
+    if not row:
+        return None
+    row.revoked_at = datetime.now(_tz.utc)
+    session.flush()
+    record_audit(session, action="api_key.revoked", resource_type="api_key", resource_id=key_id, actor=actor)
+    return row
+
+
+def get_api_key_by_hash(session: Session, key_hash: str) -> Optional[models.ApiKey]:
+    from datetime import datetime, timezone as _tz
+    row = session.scalar(select(models.ApiKey).where(models.ApiKey.key_hash == key_hash, models.ApiKey.revoked_at.is_(None)))
+    if row:
+        row.last_used_at = datetime.now(_tz.utc)
+        session.flush()
+    return row
+
+
+# --- Org config ---
+
+
+import json as _json
+from pathlib import Path as _Path
+
+
+def _org_config_path() -> _Path:
+    from config import settings
+    return _Path(settings.org_config_path)
+
+
+def read_org_config() -> dict:
+    p = _org_config_path()
+    if not p.exists():
+        return {"firm_name": "", "firm_type": "", "intermediary_classes": [], "functional_areas": []}
+    return _json.loads(p.read_text())
+
+
+def write_org_config(data: dict) -> None:
+    p = _org_config_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(_json.dumps(data, indent=2))
+    try:
+        from agents.workflow_mapping import load_org_config
+        load_org_config.cache_clear()
+    except Exception:
+        pass

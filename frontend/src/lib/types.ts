@@ -216,3 +216,46 @@ export interface WatchHitT {
   is_reviewed: boolean;
   created_at: string | null;
 }
+
+export interface Filing {
+  id: string;
+  obligation_id: string;
+  task_id: string | null;
+  filing_type: string;
+  submitted_at: string | null;
+  confirmation_reference: string | null;
+  status: string;
+  notes: string;
+  created_at: string | null;
+}
+
+export interface ApiKeyT {
+  id: string;
+  label: string;
+  created_by: string;
+  created_at: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+export interface RiskItem {
+  id: string;
+  identifier: string;
+  description: string;
+  functional_area: string;
+  confidence: number;
+  status: string;
+  needs_review: boolean;
+  risk_level: string;
+  risk_label: string;
+}
+
+export interface OrgConfig {
+  firm_name: string;
+  firm_type: string;
+  intermediary_classes: string[];
+  functional_areas: Record<string, { label: string; primary_owner: string; owner_email: string; workflow_template: string }>;
+  default_reviewer: string;
+  default_reviewer_email: string;
+  implementation_buffer_days: number;
+}

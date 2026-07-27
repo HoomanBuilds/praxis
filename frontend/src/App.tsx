@@ -20,6 +20,12 @@ const Login = lazy(() => import("@/pages/Login"));
 const Users = lazy(() => import("@/pages/Users"));
 const EvidenceCenter = lazy(() => import("@/pages/EvidenceCenter"));
 const Calendar = lazy(() => import("@/pages/Calendar"));
+const RiskRegister = lazy(() => import("@/pages/RiskRegister"));
+const FirmProfile = lazy(() => import("@/pages/FirmProfile"));
+const Departments = lazy(() => import("@/pages/Departments"));
+const Filings = lazy(() => import("@/pages/Filings"));
+const ApiKeys = lazy(() => import("@/pages/ApiKeys"));
+const DataRetention = lazy(() => import("@/pages/DataRetention"));
 const Watch = lazy(() => import("@/pages/Watch"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
 
@@ -60,6 +66,12 @@ function AppRoutes() {
           <Route path="/audit" element={<AuditTrail />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/users" element={<Users />} />
+          <Route path="/settings/firm" element={<FirmProfile />} />
+          <Route path="/settings/departments" element={<Departments />} />
+          <Route path="/settings/api-keys" element={<ApiKeys />} />
+          <Route path="/settings/data" element={<DataRetention />} />
+          <Route path="/risk-register" element={<RiskRegister />} />
+          <Route path="/filings" element={<Filings />} />
           <Route path="/evidence" element={<EvidenceCenter />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/watch" element={<Watch />} />

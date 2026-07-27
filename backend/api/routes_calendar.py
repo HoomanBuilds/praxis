@@ -37,6 +37,8 @@ def get_calendar(
             "owner": t.primary_owner,
             "resource_type": "task",
             "resource_id": t.id,
+            "obligation_id": t.obligation_id,
+            "functional_area": t.functional_area,
         })
 
     for o in obligations:
@@ -56,6 +58,8 @@ def get_calendar(
             "owner": "",
             "resource_type": "obligation",
             "resource_id": o.id,
+            "obligation_id": o.id,
+            "functional_area": o.functional_area,
         })
 
     events.sort(key=lambda e: e["date"])

@@ -13,13 +13,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api import (
     routes_activity,
+    routes_api_keys,
     routes_auth,
     routes_calendar,
     routes_compliance,
     routes_copilot,
+    routes_data,
     routes_documents,
+    routes_filings,
     routes_notifications,
     routes_obligations,
+    routes_org_config,
+    routes_tasks,
     routes_users,
     routes_watch,
 )
@@ -77,6 +82,11 @@ app.include_router(routes_users.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_calendar.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_watch.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_notifications.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_tasks.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_org_config.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_filings.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_api_keys.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_data.router, dependencies=[Depends(require_api_key)])
 
 
 @app.get("/api/health")

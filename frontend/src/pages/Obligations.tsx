@@ -6,10 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { titleCase } from "@/lib/utils";
+import { AREAS, OBLIGATION_STATUSES } from "@/lib/constants";
 import { AlertTriangle, ListChecks } from "lucide-react";
-
-const AREAS = ["all", "operations", "technology", "compliance", "legal", "finance", "client_services", "human_resources"];
-const STATUSES = ["all", "pending_review", "approved", "edited", "rejected"];
 
 export default function Obligations() {
   const navigate = useNavigate();
@@ -39,7 +37,7 @@ export default function Obligations() {
             {AREAS.map((a) => <option key={a} value={a}>{a === "all" ? "All departments" : titleCase(a)}</option>)}
           </select>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border bg-card px-3">
-            {STATUSES.map((s) => <option key={s} value={s}>{s === "all" ? "All statuses" : titleCase(s)}</option>)}
+            {OBLIGATION_STATUSES.map((s) => <option key={s} value={s}>{s === "all" ? "All statuses" : titleCase(s)}</option>)}
           </select>
         </div>
       </div>
