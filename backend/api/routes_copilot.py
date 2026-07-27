@@ -6,8 +6,8 @@ over the obligation index) and instructs the local model to answer only from tha
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from db import crud, models
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api", tags=["copilot"])
 
 
 class CopilotRequest(BaseModel):
-    question: str
+    question: str = Field(..., min_length=3, max_length=2000)
     document_id: str | None = None
     obligation_id: str | None = None
 
@@ -30,6 +30,10 @@ SYSTEM_PROMPT = (
     "enough information to answer, say so plainly and state what is missing. Never invent "
     "regulations, numbers, obligations, owners or deadlines that are not in the context."
 )
+
+import hashlib
+PROMPT_VERSION = "1.0.0"
+PROMPT_HASH = hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:12]
 
 
 def _obligation_block(session: Session, ob: models.Obligation) -> str:

@@ -8,7 +8,7 @@ context record.
 """
 from __future__ import annotations
 
-from llm import StructuredOutputError, structured_complete
+from llm import LLMResult, StructuredOutputError, structured_complete
 from rag import vector_store
 from rag.hybrid_search import hybrid_search
 from schemas import (
@@ -26,6 +26,10 @@ SYSTEM_PROMPT = (
     "stated (ISO YYYY-MM-DD); and a one-paragraph summary. Base every judgement strictly "
     "on the provided text; do not invent details."
 )
+
+import hashlib
+PROMPT_VERSION = "1.0.0"
+PROMPT_HASH = hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:12]
 
 
 def _resolve_citations(parsed: ParsedDocument) -> list[ResolvedCitation]:
@@ -65,9 +69,10 @@ def extract_regulatory_context(parsed: ParsedDocument, reference: str = "") -> R
         "Return the regulatory context as JSON."
     )
     try:
-        llm_ctx: RegulatoryContextLLM = structured_complete(
+        result: LLMResult = structured_complete(
             SYSTEM_PROMPT, user_prompt, RegulatoryContextLLM
         )
+        llm_ctx: RegulatoryContextLLM = result.parsed
     except StructuredOutputError:
         # Fall back to a minimal, clearly-flagged context rather than failing the pipeline.
         llm_ctx = RegulatoryContextLLM(summary="Automatic context extraction failed; review required.")

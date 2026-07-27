@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import uuid
 
-from llm import StructuredOutputError, structured_complete
+from llm import LLMResult, StructuredOutputError, structured_complete
 from schemas import ComplianceRule, ComplianceRuleLLM, Obligation, RuleType
 
 SYSTEM_PROMPT = (
@@ -30,6 +30,10 @@ SYSTEM_PROMPT = (
     "system report, policy document, training record)."
 )
 
+import hashlib
+PROMPT_VERSION = "1.0.0"
+PROMPT_HASH = hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:12]
+
 
 def _rule_id() -> str:
     return uuid.uuid4().hex
@@ -44,9 +48,10 @@ def generate_rule(obligation: Obligation) -> ComplianceRule:
         "Produce the compliance rule as JSON."
     )
     try:
-        llm_rule: ComplianceRuleLLM = structured_complete(
+        result: LLMResult = structured_complete(
             SYSTEM_PROMPT, user_prompt, ComplianceRuleLLM
         )
+        llm_rule: ComplianceRuleLLM = result.parsed
     except StructuredOutputError:
         llm_rule = ComplianceRuleLLM(
             rule_type=RuleType.PROCESS_ADHERENCE,

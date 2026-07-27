@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 
 from config import settings
-from llm import StructuredOutputError, structured_complete
+from llm import LLMResult, StructuredOutputError, structured_complete
 from preprocessing import rule_extractor
 from rag import embeddings as emb
 from rag import vector_store
@@ -63,6 +63,10 @@ SYSTEM_PROMPT = (
     "- deadline_hint: any stated timeline/deadline phrase copied verbatim, else null.\n\n"
     "If the paragraph contains no obligation, return an empty list."
 )
+
+import hashlib
+PROMPT_VERSION = "1.0.0"
+PROMPT_HASH = hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:12]
 
 _DEDUP_SIMILARITY = 0.90
 _MANDATORY_VERB_RE = re.compile(
@@ -137,10 +141,10 @@ def _llm_extract_section(section: ParsedSection) -> list[ObligationLLM]:
         "Extract the compliance obligation(s) as JSON."
     )
     try:
-        result: ObligationExtractionResult = structured_complete(
+        result: LLMResult = structured_complete(
             SYSTEM_PROMPT, user_prompt, ObligationExtractionResult
         )
-        return result.obligations
+        return result.parsed.obligations
     except StructuredOutputError:
         return [
             ObligationLLM(
