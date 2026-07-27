@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import (
@@ -18,6 +18,7 @@ from api import (
     routes_documents,
     routes_obligations,
 )
+from api.deps import require_api_key
 from config import settings
 from db.session import init_db
 from rag import corpus_index
@@ -49,11 +50,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(routes_documents.router)
-app.include_router(routes_obligations.router)
-app.include_router(routes_compliance.router)
-app.include_router(routes_activity.router)
-app.include_router(routes_copilot.router)
+app.include_router(routes_documents.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_obligations.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_compliance.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_activity.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_copilot.router, dependencies=[Depends(require_api_key)])
 
 
 @app.get("/api/health")
