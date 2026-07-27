@@ -7,9 +7,9 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: praxis
-      POSTGRES_PASSWORD: praxis
-      POSTGRES_DB: praxis
+      POSTGRES_USER: ${POSTGRES_USER:-praxis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-praxis}
+      POSTGRES_DB: ${POSTGRES_DB:-praxis}
     ports:
       - "5432:5432"
     volumes:
