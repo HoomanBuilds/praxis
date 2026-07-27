@@ -40,6 +40,8 @@ def record_audit(
         resource_id=resource_id,
         before=before,
         after=after,
+        prompt_version=prompt_version,
+        prompt_hash=prompt_hash,
     )
     session.add(entry)
     return entry
