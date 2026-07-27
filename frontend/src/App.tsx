@@ -1,7 +1,8 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Layout } from "@/components/Layout";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Documents = lazy(() => import("@/pages/Documents"));
@@ -15,6 +16,12 @@ const Analytics = lazy(() => import("@/pages/Analytics"));
 const Reports = lazy(() => import("@/pages/Reports"));
 const AuditTrail = lazy(() => import("@/pages/AuditTrail"));
 const Settings = lazy(() => import("@/pages/Settings"));
+const Login = lazy(() => import("@/pages/Login"));
+const Users = lazy(() => import("@/pages/Users"));
+const EvidenceCenter = lazy(() => import("@/pages/EvidenceCenter"));
+const Calendar = lazy(() => import("@/pages/Calendar"));
+const Watch = lazy(() => import("@/pages/Watch"));
+const Notifications = lazy(() => import("@/pages/Notifications"));
 
 function PageLoader() {
   return (
@@ -24,27 +31,52 @@ function PageLoader() {
   );
 }
 
+function AppRoutes() {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+  return (
+    <Layout>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/documents" element={<Documents />} />
+          <Route path="/documents/:id/review" element={<Review />} />
+          <Route path="/obligations" element={<Obligations />} />
+          <Route path="/obligations/:id" element={<ObligationWorkspace />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
+          <Route path="/copilot" element={<CopilotPage />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/audit" element={<AuditTrail />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/users" element={<Users />} />
+          <Route path="/evidence" element={<EvidenceCenter />} />
+          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/watch" element={<Watch />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </Layout>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
-      <Layout>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/documents/:id/review" element={<Review />} />
-            <Route path="/obligations" element={<Obligations />} />
-            <Route path="/obligations/:id" element={<ObligationWorkspace />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
-            <Route path="/copilot" element={<CopilotPage />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/audit" element={<AuditTrail />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </Suspense>
-      </Layout>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

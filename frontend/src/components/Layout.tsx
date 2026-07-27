@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, ScrollText, ListChecks, ClipboardList, Share2, Bot, BarChart3,
-  FileBarChart, History, Settings as SettingsIcon, Search, Command, Bell, ChevronsUpDown,
+  FileBarChart, History, Settings as SettingsIcon, Search, Command, Bell,
+  FileCheck, CalendarClock, Radar, LogOut,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -12,6 +13,7 @@ import { CopilotSidebar } from "@/components/CopilotSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { useCopilot } from "@/context/CopilotContext";
+import { useAuth } from "@/context/AuthContext";
 
 const navGroups: { heading: string; items: { to: string; label: string; icon: any; end?: boolean }[] }[] = [
   {
@@ -21,6 +23,8 @@ const navGroups: { heading: string; items: { to: string; label: string; icon: an
       { to: "/documents", label: "Regulations", icon: ScrollText },
       { to: "/obligations", label: "Obligations", icon: ListChecks },
       { to: "/tasks", label: "Tasks", icon: ClipboardList },
+      { to: "/evidence", label: "Evidence Center", icon: FileCheck },
+      { to: "/calendar", label: "Calendar", icon: CalendarClock },
     ],
   },
   {
@@ -29,6 +33,7 @@ const navGroups: { heading: string; items: { to: string; label: string; icon: an
       { to: "/knowledge-graph", label: "Knowledge Graph", icon: Share2 },
       { to: "/copilot", label: "AI Copilot", icon: Bot },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
+      { to: "/watch", label: "Watch", icon: Radar },
     ],
   },
   {
@@ -44,6 +49,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: health } = useQuery({ queryKey: ["health"], queryFn: api.health, staleTime: 60000 });
   const location = useLocation();
   const copilot = useCopilot();
+  const { user, logout } = useAuth();
   const llmUp = Boolean(health?.["llm"] && (health["llm"] as any).available);
 
   const navItem = (active: boolean) =>
@@ -114,16 +120,18 @@ export function Layout({ children }: { children: ReactNode }) {
             </button>
             <div className="ml-auto flex items-center gap-1.5">
               <ThemeToggle />
-              <Link to="/audit" title="Audit trail" className="relative grid h-9 w-9 place-items-center rounded-xl border bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+              <Link to="/notifications" title="Notifications" className="relative grid h-9 w-9 place-items-center rounded-xl border bg-secondary text-muted-foreground hover:text-foreground transition-colors">
                 <Bell className="h-4 w-4" />
               </Link>
               <div className="flex items-center gap-2 pl-1.5">
-                <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 grid place-items-center text-xs font-semibold text-primary">CO</div>
+                <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 grid place-items-center text-xs font-semibold text-primary">{user?.name?.charAt(0)?.toUpperCase() ?? "U"}</div>
                 <div className="hidden sm:block leading-tight">
-                  <div className="text-xs font-medium">Compliance Officer</div>
-                  <div className="text-[10px] text-muted-foreground">Reviewer</div>
+                  <div className="text-xs font-medium">{user?.name || "User"}</div>
+                  <div className="text-[10px] text-muted-foreground">{user?.role?.replace("_", " ") || "Viewer"}</div>
                 </div>
-                <ChevronsUpDown className="hidden sm:block h-3.5 w-3.5 text-muted-foreground" />
+                <button onClick={logout} title="Sign out" className="grid h-9 w-9 place-items-center rounded-xl border bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                  <LogOut className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </header>

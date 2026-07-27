@@ -53,9 +53,10 @@ export const api = {
   generate: (id: string, autoApprove = false) =>
     req<any>(`/documents/${id}/generate?auto_approve=${autoApprove}`, { method: "POST" }),
 
-  listObligations: (params: { document_id?: string; status?: string; functional_area?: string } = {}) => {
+  listObligations: async (params: { document_id?: string; status?: string; functional_area?: string } = {}) => {
     const qs = new URLSearchParams(params as Record<string, string>);
-    return req<Obligation[]>(`/obligations?${qs}`);
+    const res = await req<{ items: Obligation[]; total: number; offset: number; limit: number }>(`/obligations?${qs}`);
+    return res.items;
   },
   getObligation: (id: string) => req<Obligation>(`/obligations/${id}`),
   approveObligation: (id: string, reviewer = "compliance_officer", note = "") =>
@@ -100,4 +101,26 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ scope, ...ids, formats: ["pdf", "xlsx"] }),
     }),
+
+  login: (email: string, password: string) =>
+    fetch(`${BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }).then((r) => { if (!r.ok) throw new Error("Login failed"); return r.json(); }),
+
+  getMe: () => req<{ id: string; email: string; name: string; role: string }>("/auth/me"),
+
+  listUsers: () => req<{ id: string; email: string; name: string; role: string; is_active: boolean; created_at: string | null }[]>("/users"),
+  createUser: (data: { email: string; name: string; password: string; role: string }) =>
+    req<unknown>("/users", { method: "POST", body: JSON.stringify(data) }),
+
+  listNotifications: () => req<{ items: unknown[]; total: number }>("/notifications"),
+  markNotificationRead: (id: string) => req<unknown>(`/notifications/${id}/read`, { method: "POST" }),
+  markAllNotificationsRead: () => req<unknown>("/notifications/read-all", { method: "POST" }),
+
+  listWatchSources: () => req<unknown[]>("/watch/sources"),
+  createWatchSource: (data: { name: string; url: string; source_type: string }) =>
+    req<unknown>("/watch/sources", { method: "POST", body: JSON.stringify(data) }),
+  listWatchHits: () => req<unknown[]>("/watch/hits"),
 };

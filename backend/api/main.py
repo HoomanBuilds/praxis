@@ -13,24 +13,41 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api import (
     routes_activity,
+    routes_auth,
+    routes_calendar,
     routes_compliance,
     routes_copilot,
     routes_documents,
+    routes_notifications,
     routes_obligations,
+    routes_users,
+    routes_watch,
 )
 from api.deps import require_api_key
 from config import settings
-from db.session import init_db
+from db import crud, models
+from db.session import get_db, init_db, session_scope
 from rag import corpus_index
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    with session_scope() as session:
+        if not crud.get_user_by_email(session, "admin@praxis.local"):
+            from db.models import hash_password
+            admin = models.User(
+                email="admin@praxis.local",
+                name="Admin",
+                hashed_password=hash_password("admin123"),
+                role="admin",
+            )
+            session.add(admin)
+            session.commit()
     try:
         if corpus_index.corpus_size() == 0:
             corpus_index.index_corpus(reset=True)
-    except Exception as exc:  # corpus indexing is best-effort at startup
+    except Exception as exc:
         print(f"[api] corpus index skipped: {exc}")
     yield
 
@@ -55,6 +72,11 @@ app.include_router(routes_obligations.router, dependencies=[Depends(require_api_
 app.include_router(routes_compliance.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_activity.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_copilot.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_auth.router)
+app.include_router(routes_users.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_calendar.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_watch.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_notifications.router, dependencies=[Depends(require_api_key)])
 
 
 @app.get("/api/health")

@@ -175,3 +175,44 @@ export interface KnowledgeGraph {
     cross_document_modifies: number;
   };
 }
+
+export interface UserT {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  is_active: boolean;
+  created_at: string | null;
+}
+
+export interface NotificationT {
+  id: string;
+  title: string;
+  body: string;
+  category: string;
+  resource_type: string;
+  resource_id: string;
+  is_read: boolean;
+  created_at: string | null;
+}
+
+export interface WatchSourceT {
+  id: string;
+  name: string;
+  url: string;
+  source_type: string;
+  is_active: boolean;
+  last_checked_at: string | null;
+  created_at: string | null;
+}
+
+export interface WatchHitT {
+  id: string;
+  source_id: string;
+  title: string;
+  url: string;
+  summary: string;
+  relevance_score: number;
+  is_reviewed: boolean;
+  created_at: string | null;
+}

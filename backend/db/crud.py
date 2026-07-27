@@ -382,3 +382,123 @@ def list_evidence_requirements(
     if obligation_id:
         stmt = stmt.where(models.EvidenceRequirement.obligation_id == obligation_id)
     return list(session.scalars(stmt))
+
+
+# --- Users ---
+
+
+def create_user(session: Session, email: str, name: str, password: str, role: str = "viewer") -> models.User:
+    from db.models import hash_password
+    user = models.User(email=email, name=name, hashed_password=hash_password(password), role=role)
+    session.add(user)
+    session.flush()
+    record_audit(session, action="user.created", resource_type="user", resource_id=user.id, after={"email": email, "role": role})
+    return user
+
+
+def get_user_by_email(session: Session, email: str) -> Optional[models.User]:
+    return session.scalar(select(models.User).where(models.User.email == email))
+
+
+def get_user(session: Session, user_id: str) -> Optional[models.User]:
+    return session.get(models.User, user_id)
+
+
+def list_users(session: Session) -> list[models.User]:
+    return list(session.scalars(select(models.User).order_by(models.User.created_at.desc())))
+
+
+def update_user_role(session: Session, user: models.User, role: str, actor: str = "system") -> models.User:
+    before = {"role": user.role}
+    user.role = role
+    session.flush()
+    record_audit(session, action="user.role_changed", resource_type="user", resource_id=user.id, actor=actor, before=before, after={"role": role})
+    return user
+
+
+def deactivate_user(session: Session, user: models.User, actor: str = "system") -> models.User:
+    user.is_active = False
+    session.flush()
+    record_audit(session, action="user.deactivated", resource_type="user", resource_id=user.id, actor=actor)
+    return user
+
+
+# --- Notifications ---
+
+
+def create_notification(session: Session, *, user_id: str, title: str, body: str, category: str = "system", resource_type: str = "", resource_id: str = "") -> models.Notification:
+    n = models.Notification(user_id=user_id, title=title, body=body, category=category, resource_type=resource_type, resource_id=resource_id)
+    session.add(n)
+    session.flush()
+    return n
+
+
+def list_notifications(session: Session, user_id: str, unread_only: bool = False) -> list[models.Notification]:
+    stmt = select(models.Notification).where(models.Notification.user_id == user_id)
+    if unread_only:
+        stmt = stmt.where(models.Notification.is_read == False)
+    return list(session.scalars(stmt.order_by(models.Notification.created_at.desc()).limit(100)))
+
+
+def mark_notification_read(session: Session, notification_id: str) -> Optional[models.Notification]:
+    n = session.get(models.Notification, notification_id)
+    if n:
+        n.is_read = True
+        session.flush()
+    return n
+
+
+def mark_all_notifications_read(session: Session, user_id: str) -> int:
+    from sqlalchemy import update
+    stmt = update(models.Notification).where(models.Notification.user_id == user_id, models.Notification.is_read == False).values(is_read=True)
+    result = session.execute(stmt)
+    session.flush()
+    return result.rowcount
+
+
+# --- Watch Sources / Hits ---
+
+
+def create_watch_source(session: Session, *, name: str, url: str, source_type: str = "regulatory") -> models.WatchSource:
+    src = models.WatchSource(name=name, url=url, source_type=source_type)
+    session.add(src)
+    session.flush()
+    record_audit(session, action="watch.source_added", resource_type="watch_source", resource_id=src.id, after={"name": name})
+    return src
+
+
+def list_watch_sources(session: Session) -> list[models.WatchSource]:
+    return list(session.scalars(select(models.WatchSource).order_by(models.WatchSource.created_at.desc())))
+
+
+def delete_watch_source(session: Session, source_id: str) -> bool:
+    src = session.get(models.WatchSource, source_id)
+    if not src:
+        return False
+    session.delete(src)
+    session.flush()
+    return True
+
+
+def create_watch_hit(session: Session, *, source_id: str, title: str, url: str, summary: str, relevance_score: float = 0.0) -> models.WatchHit:
+    h = models.WatchHit(source_id=source_id, title=title, url=url, summary=summary, relevance_score=relevance_score)
+    session.add(h)
+    session.flush()
+    return h
+
+
+def list_watch_hits(session: Session, source_id: Optional[str] = None, reviewed_only: Optional[bool] = None) -> list[models.WatchHit]:
+    stmt = select(models.WatchHit)
+    if source_id:
+        stmt = stmt.where(models.WatchHit.source_id == source_id)
+    if reviewed_only is not None:
+        stmt = stmt.where(models.WatchHit.is_reviewed == reviewed_only)
+    return list(session.scalars(stmt.order_by(models.WatchHit.created_at.desc()).limit(100)))
+
+
+def mark_hit_reviewed(session: Session, hit_id: str) -> Optional[models.WatchHit]:
+    h = session.get(models.WatchHit, hit_id)
+    if h:
+        h.is_reviewed = True
+        session.flush()
+    return h
