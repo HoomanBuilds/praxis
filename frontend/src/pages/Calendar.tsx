@@ -81,58 +81,58 @@ export default function Calendar() {
             <CardTitle className="text-sm">{MONTH_NAMES[month]} {year}</CardTitle>
             <Button variant="ghost" size="icon" onClick={next}><ChevronRight className="h-4 w-4" /></Button>
           </div>
+        </CardHeader>
+        <CardContent>
           <Tabs value={view} onValueChange={setView}>
             <TabList>
               <TabTrigger value="grid">Grid</TabTrigger>
               <TabTrigger value="list">List</TabTrigger>
             </TabList>
+            <TabContent value={view}>
+              {view === "grid" ? (
+                <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
+                  {DAY_NAMES.map((d) => (
+                    <div key={d} className="bg-secondary px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase">{d}</div>
+                  ))}
+                  {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                    <div key={`empty-${i}`} className="bg-card min-h-[5rem]" />
+                  ))}
+                  {Array.from({ length: totalDays }).map((_, i) => {
+                    const day = String(i + 1).padStart(2, "0");
+                    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${day}`;
+                    const dayEvents = eventsByDay.get(day) ?? [];
+                    const isToday = dateStr === todayStr;
+                    return (
+                      <div key={i} className={`bg-card min-h-[5rem] p-1.5 ${isToday ? "ring-1 ring-foreground/20" : ""}`}>
+                        <div className={`text-xs mb-1 ${isToday ? "font-bold" : "text-muted-foreground"}`}>{i + 1}</div>
+                        {dayEvents.slice(0, 3).map((e) => (
+                          <div key={e.id} className="text-[10px] truncate rounded px-1 py-0.5 mb-0.5 bg-secondary">
+                            {e.title.slice(0, 24)}
+                          </div>
+                        ))}
+                        {dayEvents.length > 3 && <div className="text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {events.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">No deadlines this month.</div>}
+                  {events.map((e) => (
+                    <div key={e.id} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
+                      <div className="text-xs text-muted-foreground w-16 shrink-0">{e.date.slice(5)}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{e.title}</div>
+                        {e.owner && <div className="text-xs text-muted-foreground">{e.owner}</div>}
+                      </div>
+                      <Badge variant={e.type === "task" ? "secondary" : "muted"}>{e.type}</Badge>
+                      <Badge variant={e.status === "completed" ? "success" : e.status === "not_started" ? "muted" : "warning"}>{e.status.replace("_", " ")}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabContent>
           </Tabs>
-        </CardHeader>
-        <CardContent>
-          <TabContent value={view}>
-            {view === "grid" ? (
-              <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-                {DAY_NAMES.map((d) => (
-                  <div key={d} className="bg-secondary px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase">{d}</div>
-                ))}
-                {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                  <div key={`empty-${i}`} className="bg-card min-h-[5rem]" />
-                ))}
-                {Array.from({ length: totalDays }).map((_, i) => {
-                  const day = String(i + 1).padStart(2, "0");
-                  const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${day}`;
-                  const dayEvents = eventsByDay.get(day) ?? [];
-                  const isToday = dateStr === todayStr;
-                  return (
-                    <div key={i} className={`bg-card min-h-[5rem] p-1.5 ${isToday ? "ring-1 ring-foreground/20" : ""}`}>
-                      <div className={`text-xs mb-1 ${isToday ? "font-bold" : "text-muted-foreground"}`}>{i + 1}</div>
-                      {dayEvents.slice(0, 3).map((e) => (
-                        <div key={e.id} className="text-[10px] truncate rounded px-1 py-0.5 mb-0.5 bg-secondary">
-                          {e.title.slice(0, 24)}
-                        </div>
-                      ))}
-                      {dayEvents.length > 3 && <div className="text-[10px] text-muted-foreground">+{dayEvents.length - 3} more</div>}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {events.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">No deadlines this month.</div>}
-                {events.map((e) => (
-                  <div key={e.id} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
-                    <div className="text-xs text-muted-foreground w-16 shrink-0">{e.date.slice(5)}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{e.title}</div>
-                      {e.owner && <div className="text-xs text-muted-foreground">{e.owner}</div>}
-                    </div>
-                    <Badge variant={e.type === "task" ? "secondary" : "muted"}>{e.type}</Badge>
-                    <Badge variant={e.status === "completed" ? "success" : e.status === "not_started" ? "muted" : "warning"}>{e.status.replace("_", " ")}</Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabContent>
         </CardContent>
       </Card>
     </div>
