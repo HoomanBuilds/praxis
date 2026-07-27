@@ -108,15 +108,18 @@ def get_document_file(document_id: str, session: Session = Depends(get_db)):
 
 
 @router.post("/{document_id}/process")
-def process(document_id: str, session: Session = Depends(get_db)):
-    """Run Phase A (extraction) synchronously — no-worker path."""
+def process(
+    document_id: str,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    session: Session = Depends(get_db),
+):
+    """Run Phase A (extraction) — offloaded to background to avoid LLM timeout."""
     document_id = _validate_doc_id(document_id)
-    try:
-        result = services.process_document(session, document_id)
-        session.commit()
-        return result
-    except ValueError as exc:
-        raise HTTPException(404, str(exc))
+    doc = crud.get_document(session, document_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    background_tasks.add_task(_run_process_in_bg, document_id)
+    return {"document_id": document_id, "status": "queued", "message": "Phase A processing started in background"}
 
 
 @router.post("/{document_id}/generate")
