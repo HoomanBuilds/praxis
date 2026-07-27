@@ -9,6 +9,7 @@ failure raises ``StructuredOutputError`` so the caller can route the item to hum
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -20,6 +21,13 @@ T = TypeVar("T", bound=BaseModel)
 
 class StructuredOutputError(RuntimeError):
     """Raised when the model cannot produce schema-valid output after retries."""
+
+
+@dataclass
+class LLMResult:
+    """Result from a structured LLM call, including the raw pre-validation response."""
+    parsed: BaseModel
+    raw: str
 
 
 def _get_chat_model(format_schema: dict | None = None, temperature: float | None = None):
@@ -42,6 +50,8 @@ def _get_chat_model(format_schema: dict | None = None, temperature: float | None
 def _content_to_str(content) -> str:
     if isinstance(content, str):
         return content
+    if isinstance(content, bytes):
+        return content.decode("utf-8", errors="replace")
     if isinstance(content, list):  # some providers return content parts
         return "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in content)
     return str(content)
@@ -53,8 +63,9 @@ def structured_complete(
     schema: Type[T],
     retries: int = 1,
     temperature: float | None = None,
-) -> T:
-    """Return a validated instance of ``schema`` from the model."""
+) -> LLMResult:
+    """Return a validated instance of ``schema`` from the model, wrapped in ``LLMResult``
+    which also carries the raw pre-validation response for audit logging (C4)."""
     from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
     schema_json = schema.model_json_schema()
@@ -67,7 +78,8 @@ def structured_complete(
         raw = _content_to_str(response.content).strip()
         try:
             data = json.loads(raw)
-            return schema.model_validate(data)
+            parsed = schema.model_validate(data)
+            return LLMResult(parsed=parsed, raw=raw)
         except (json.JSONDecodeError, ValidationError) as exc:
             last_error = exc
             messages.append(AIMessage(content=raw))
