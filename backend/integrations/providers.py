@@ -486,8 +486,12 @@ def summarize(type_: str, cfg: dict) -> str:
     if type_ == "email":
         return (cfg.get("from_address") or "").strip() or (cfg.get("host") or "").strip()
     if type_ == "slack":
+        # Show the webhook's host so it's visibly a real endpoint, never the token.
         url = (cfg.get("webhook_url") or "").strip()
-        return "Slack webhook" if url else ""
+        if not url:
+            return ""
+        host = url.split("://", 1)[-1].split("/", 1)[0]
+        return f"Slack · {host}" if host else "Slack webhook"
     if type_ == "jira":
         return (cfg.get("site") or "").rstrip("/")
     if type_ == "calendar":
@@ -495,5 +499,6 @@ def summarize(type_: str, cfg: dict) -> str:
     if type_ == "drive":
         return "Google Drive (PRAXIS folder)"
     if type_ == "docusign":
-        return "DocuSign sandbox"
+        account = (cfg.get("account_id") or "").strip()
+        return f"DocuSign sandbox · {account}" if account else "DocuSign sandbox"
     return ""

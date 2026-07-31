@@ -45,11 +45,25 @@ def test_email_connect_success_then_disconnect(monkeypatch):
     state = {i["type"]: i for i in client.get("/api/integrations").json()}
     assert state["email"]["status"] == "connected"
     assert state["email"]["configured_as"] == "noreply@example.com"
+    assert state["email"]["last_used_at"]  # "Last tested" stamped by the connect test
 
     d = client.post("/api/integrations/email/disconnect")
     assert d.status_code == 200
     state = {i["type"]: i for i in client.get("/api/integrations").json()}
     assert state["email"]["status"] == "not_connected"
+
+
+def test_slack_summarize_shows_webhook_host_not_secret(monkeypatch):
+    """configured_as must surface a real endpoint (the webhook host) and never the token."""
+    monkeypatch.setattr(providers, "test_connection", lambda type_, cfg: {"message": "ok"})
+    client = TestClient(_app())
+    r = client.post("/api/integrations/slack/connect", json={"fields": {
+        "webhook_url": "https://hooks.slack.com/services/T000/B000/secret-token",
+    }})
+    assert r.status_code == 200
+    state = {i["type"]: i for i in client.get("/api/integrations").json()}
+    assert state["slack"]["configured_as"] == "Slack · hooks.slack.com"
+    assert "secret-token" not in state["slack"]["configured_as"]
 
 
 def test_first_connect_failure_keeps_card_not_connected(monkeypatch):

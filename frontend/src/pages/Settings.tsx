@@ -38,9 +38,21 @@ const INTEGRATION_META: Record<string, { name: string; desc: string; tier: strin
 const SCORES_DESC = "Track investor grievance redress status against SCORES filings. SEBI has no public SCORES API — the reference is entered manually by your compliance officer.";
 
 function statusBadge(status: string) {
-  if (status === "connected") return <Badge variant="success">Connected</Badge>;
+  if (status === "connected") return <Badge variant="success"><Check className="h-3 w-3" /> Verified</Badge>;
   if (status === "error") return <Badge variant="destructive">Error</Badge>;
   return <Badge variant="muted">Not connected</Badge>;
+}
+
+function fmtTime(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export default function Settings() {
@@ -224,6 +236,9 @@ function IntegrationsPanel() {
                       )}
                       {integ.status === "connected" && (
                         <span className="text-success">→ {integ.configured_as}</span>
+                      )}
+                      {integ.status === "connected" && integ.last_used_at && (
+                        <div className="text-muted-foreground mt-0.5">Last tested: {fmtTime(integ.last_used_at)}</div>
                       )}
                     </div>
                   )}

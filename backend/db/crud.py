@@ -707,6 +707,9 @@ def set_integration(
         row.configured_as = configured_as
         row.last_error = None
     row.connected_at = row.connected_at if was_connected and row.connected_at else now
+    # Every successful test-on-connect refreshes "last tested" — the card surfaces
+    # it so the verified-at-a-glance claim stays honest and current.
+    row.last_used_at = now if status == "connected" else row.last_used_at
     session.flush()
     record_audit(
         session,
