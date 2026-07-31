@@ -1,4 +1,4 @@
-# PRAXIS / RegPilot — full local stack (proposal §8 technology selection)
+# PRAXIS — full local stack (proposal §8 technology selection)
 # Postgres 16 (system of record) + Redis Streams (queue) + ChromaDB (vector store)
 # + FastAPI (api) + LangGraph worker. Ollama runs on the host (gpu/metal access),
 # reached via host.docker.internal.

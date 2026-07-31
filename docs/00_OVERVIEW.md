@@ -1,8 +1,8 @@
-# 00 · Overview — PRAXIS / RegPilot
+# 00 · Overview — PRAXIS
 
 > **SEBI TechSprint 2026 · Problem Statement 2 — Agentic Compliance**
 
-**PRAXIS** (short for *Praxis — from obligation to evidence*, also shipped as **RegPilot**) is an
+**PRAXIS** (short for *Praxis — from obligation to evidence*) is an
 agentic compliance platform that reads SEBI circulars, extracts the regulatory obligations they
 impose, translates them into machine-evaluable rules, assignable workflow tasks, and evidence
 requirements, and tracks execution end-to-end — with a human-in-the-loop review gate before

@@ -1,4 +1,4 @@
-# PRAXIS / RegPilot — backend dependencies (Python 3.11)
+# PRAXIS — backend dependencies (Python 3.11)
 
 # --- Agent orchestration + LLM ---
 langgraph>=0.2.0

@@ -1,4 +1,4 @@
-"""Typed schemas for PRAXIS / RegPilot.
+"""Typed schemas for PRAXIS.
 
 Two layers live here:
 

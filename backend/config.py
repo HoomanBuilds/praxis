@@ -1,4 +1,4 @@
-"""Central configuration for PRAXIS / RegPilot.
+"""Central configuration for PRAXIS.
 
 All settings are read from environment variables (prefix ``PRAXIS_``) with local-dev
 defaults, so the system runs out of the box for CLI use and is overridden by

@@ -23,7 +23,7 @@ from db import crud
 from db.session import init_db, session_scope
 from rag import corpus_index
 
-app = typer.Typer(add_completion=False, help="PRAXIS / RegPilot — agentic compliance pipeline")
+app = typer.Typer(add_completion=False, help="PRAXIS — agentic compliance pipeline")
 console = Console()
 
 

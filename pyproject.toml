@@ -1,4 +1,4 @@
-# PRAXIS / RegPilot — the backend runs via PYTHONPATH=backend (see README / Makefile),
+# PRAXIS — the backend runs via PYTHONPATH=backend (see README / Makefile),
 # so no installable-package configuration is needed; this file carries tooling config only.
 
 [tool.pytest.ini_options]

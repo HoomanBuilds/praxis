@@ -1,4 +1,4 @@
-"""Shared FastAPI dependencies for PRAXIS / RegPilot.
+"""Shared FastAPI dependencies for PRAXIS.
 
 Provides authentication via ``X-API-Key`` header and exposes the authenticated
 actor identity for downstream audit logging.

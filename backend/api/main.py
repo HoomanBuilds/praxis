@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="PRAXIS / RegPilot API",
+    title="PRAXIS API",
     description="Agentic compliance platform for SEBI-regulated intermediaries",
     version="0.1.0",
     lifespan=lifespan,
@@ -122,4 +122,4 @@ def health():
 
 @app.get("/")
 def root():
-    return {"name": "PRAXIS / RegPilot", "docs": "/docs", "health": "/api/health"}
+    return {"name": "PRAXIS", "docs": "/docs", "health": "/api/health"}

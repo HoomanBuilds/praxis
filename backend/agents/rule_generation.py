@@ -1,7 +1,7 @@
 """Rule Generation Agent (proposal §6.2.4).
 
 Translates each approved obligation into a machine-evaluable compliance rule in the
-RegPilot rule schema. A rule has a type (deadline / threshold / documentation /
+PRAXIS rule schema. A rule has a type (deadline / threshold / documentation /
 periodic-filing / process-adherence), an evaluation criterion, a timeline, a verbatim
 threshold where the text states one, and the evidence type required. Where an obligation
 states no precise value (e.g. "adequate systems and controls"), the rule is marked

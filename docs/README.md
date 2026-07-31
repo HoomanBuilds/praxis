@@ -1,4 +1,4 @@
-# PRAXIS / RegPilot — Documentation
+# PRAXIS — Documentation
 
 **An agentic compliance platform for India's securities market**
 SEBI Securities Market TechSprint 2026 · Problem Statement 2 (Agentic Compliance)
