@@ -279,6 +279,7 @@ class ObligationEdit(BaseModel):
     description: Optional[str] = None
     functional_area: Optional[FunctionalArea] = None
     modification_type: Optional[ModificationType] = None
+    scores_reference: Optional[str] = None
 
 
 class ReviewAction(BaseModel):

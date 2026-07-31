@@ -16,8 +16,13 @@ import { X, ArrowRight } from "lucide-react";
 const COLORS: Record<string, string> = {
   regulation: "#111111", obligation: "#333333", department: "#4d4d4d",
   rule: "#666666", task: "#808080", owner: "#999999", evidence: "#b3b3b3",
+  risk: "#c2410c",
 };
-const RADIUS: Record<string, number> = { regulation: 13, department: 10, owner: 9 };
+const RADIUS: Record<string, number> = { regulation: 13, department: 10, owner: 9, risk: 9 };
+const RISK_COLORS: Record<string, string> = {
+  minimal: "#16a34a", low: "#65a30d", medium: "#d97706",
+  high: "#dc2626", critical: "#7f1d1d",
+};
 const HIDDEN_KEYS = new Set(["id", "type", "label", "x", "y", "vx", "vy", "index", "fx", "fy"]);
 type SimNode = GraphNode & SimulationNodeDatum;
 const W = 820, H = 620;
@@ -65,6 +70,7 @@ export default function KnowledgeGraphPage() {
 
   const visible = (id: string) => positioned && !hidden.has(positioned.get(id)!.type);
   const selNode = selected && positioned ? positioned.get(selected) : null;
+  const fill = (n: SimNode) => n.type === "risk" && n.level ? RISK_COLORS[n.level as string] ?? COLORS.risk : COLORS[n.type] ?? "#808080";
 
   return (
     <div className="space-y-5">
@@ -130,9 +136,9 @@ export default function KnowledgeGraphPage() {
                   return (
                     <g key={n.id} transform={`translate(${n.x},${n.y})`} opacity={dim ? 0.2 : 1}
                       className="cursor-pointer" onClick={(ev) => { ev.stopPropagation(); setSelected(n.id); }}>
-                      {isSel && <circle r={r + 5} fill="none" stroke={COLORS[n.type] ?? "#808080"} strokeWidth={1.5} opacity={0.5} />}
-                      <circle r={r} fill={COLORS[n.type] ?? "#808080"} stroke="hsl(var(--card))" strokeWidth={2} />
-                      {(isSel || isNbr || n.type === "regulation" || n.type === "department" || n.type === "owner") && (
+                      {isSel && <circle r={r + 5} fill="none" stroke={fill(n)} strokeWidth={1.5} opacity={0.5} />}
+                      <circle r={r} fill={fill(n)} stroke="hsl(var(--card))" strokeWidth={2} />
+                      {(isSel || isNbr || n.type === "regulation" || n.type === "department" || n.type === "owner" || n.type === "risk") && (
                         <text x={0} y={r + 11} textAnchor="middle" className="fill-foreground pointer-events-none" style={{ fontSize: 9 }}>
                           {n.label.length > 20 ? n.label.slice(0, 20) + "…" : n.label}
                         </text>

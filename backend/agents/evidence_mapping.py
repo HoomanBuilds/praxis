@@ -54,7 +54,10 @@ def map_evidence(
         doc_type, content = _TEMPLATES[rule_type]
         # Prefer the rule's own evidence_type when the model named a specific artefact.
         if rule and rule.evidence_type and rule.evidence_type.lower() not in {"manual evidence", ""}:
-            doc_type = rule.evidence_type
+            candidate = rule.evidence_type.lower()
+            # Guard against the model emitting a placeholder instead of an artefact.
+            if candidate not in {"none", "n/a", "na", "null", "not applicable"}:
+                doc_type = rule.evidence_type
 
         cfg = _area_config(org, ob.functional_area.value)
         requirements.append(

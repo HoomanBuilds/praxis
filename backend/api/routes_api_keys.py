@@ -14,20 +14,17 @@ router = APIRouter(prefix="/api/api-keys", tags=["api-keys"])
 @router.get("")
 def list_api_keys(session: Session = Depends(get_db)):
     keys = crud.list_api_keys(session)
-    return {
-        "api_keys": [
-            {
-                "id": k.id,
-                "label": k.label,
-                "created_by": k.created_by,
-                "created_at": k.created_at.isoformat() if k.created_at else None,
-                "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
-                "revoked_at": k.revoked_at.isoformat() if k.revoked_at else None,
-            }
-            for k in keys
-        ],
-        "total": len(keys),
-    }
+    return [
+        {
+            "id": k.id,
+            "label": k.label,
+            "created_by": k.created_by,
+            "created_at": k.created_at.isoformat() if k.created_at else None,
+            "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+            "revoked_at": k.revoked_at.isoformat() if k.revoked_at else None,
+        }
+        for k in keys
+    ]
 
 
 @router.post("")

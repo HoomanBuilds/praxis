@@ -50,6 +50,7 @@ export interface Obligation {
   needs_review: boolean;
   reviewer: string | null;
   reviewed_at: string | null;
+  scores_reference?: string | null;
 }
 
 export interface Rule {
@@ -77,6 +78,29 @@ export interface Task {
   deadline: string | null;
   status: string;
   depends_on_task_id: string | null;
+  jira_issue_key?: string | null;
+  docusign_envelope_id?: string | null;
+}
+
+export interface IntegrationField {
+  name: string;
+  label: string;
+  placeholder: string;
+  type: string;
+  required?: boolean;
+}
+
+export interface Integration {
+  type: string;
+  status: "not_connected" | "connected" | "error";
+  connected_at: string | null;
+  last_used_at: string | null;
+  last_error: string | null;
+  configured_as: string;
+  fields: IntegrationField[];
+  feed_configured?: boolean;
+  oauth_configured?: boolean;
+  keycloak_configured?: boolean;
 }
 
 export interface EvidenceRequirement {
@@ -86,6 +110,11 @@ export interface EvidenceRequirement {
   required_content: string;
   collector: string;
   retention_period: string;
+  uploaded_at?: string | null;
+  upload_target?: string;
+  file_name?: string;
+  file_path?: string;
+  external_url?: string;
 }
 
 export interface DashboardSummary {
@@ -227,6 +256,7 @@ export interface Filing {
   status: string;
   notes: string;
   created_at: string | null;
+  obligation_summary?: { identifier?: string } | null;
 }
 
 export interface ApiKeyT {

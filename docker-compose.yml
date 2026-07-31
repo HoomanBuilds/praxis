@@ -99,7 +99,28 @@ services:
       chromadb:
         condition: service_started
 
+  # SSO — demo Keycloak realm (Tier 1). The realm is imported on first boot from
+  # ./data/keycloak/. Validated against THIS test IdP, not a firm's live enterprise AD.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: dev-file
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./data/keycloak:/opt/keycloak/data/import
+      - keycloakdata:/opt/keycloak/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/realms/praxis/.well-known/openid-configuration || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
 volumes:
   pgdata:
   redisdata:
   chromadata:
+  keycloakdata:

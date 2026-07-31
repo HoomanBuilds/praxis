@@ -1,0 +1,60 @@
+{
+  "realm": "praxis",
+  "displayName": "PRAXIS demo SSO",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "rememberMe": false,
+  "accessTokenLifespan": 300,
+  "clients": [
+    {
+      "clientId": "praxis-web",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "praxis-demo-secret",
+      "redirectUris": ["http://localhost:8080/api/auth/sso/callback"],
+      "webOrigins": ["http://localhost:5173"],
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:5173/login"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@praxis.local",
+      "email": "admin@praxis.local",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "Praxis",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "officer@praxis.local",
+      "email": "officer@praxis.local",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Compliance",
+      "lastName": "Officer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "officer123",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

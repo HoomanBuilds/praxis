@@ -11,11 +11,12 @@ interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
+  ssoLogin: (token: string, user: AuthUser) => void;
   logout: () => void;
   isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextValue>({ user: null, token: null, login: async () => {}, logout: () => {}, isAuthenticated: false });
+const AuthContext = createContext<AuthContextValue>({ user: null, token: null, login: async () => {}, ssoLogin: () => {}, logout: () => {}, isAuthenticated: false });
 
 const STORAGE_KEY = "praxis_auth";
 
@@ -52,8 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const ssoLogin = useCallback((token: string, user: AuthUser) => {
+    localStorage.setItem("praxis_token", token);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    setToken(token);
+    setUser(user);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: Boolean(user && token) }}>
+    <AuthContext.Provider value={{ user, token, login, ssoLogin, logout, isAuthenticated: Boolean(user && token) }}>
       {children}
     </AuthContext.Provider>
   );

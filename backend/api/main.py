@@ -21,9 +21,11 @@ from api import (
     routes_data,
     routes_documents,
     routes_filings,
+    routes_integrations,
     routes_notifications,
     routes_obligations,
     routes_org_config,
+    routes_sso,
     routes_tasks,
     routes_users,
     routes_watch,
@@ -54,6 +56,11 @@ async def lifespan(app: FastAPI):
             corpus_index.index_corpus(reset=True)
     except Exception as exc:
         print(f"[api] corpus index skipped: {exc}")
+    try:
+        from integrations import notify
+        notify.start_overdue_sweep()
+    except Exception as exc:
+        print(f"[api] overdue sweep skipped: {exc}")
     yield
 
 
@@ -78,6 +85,7 @@ app.include_router(routes_compliance.router, dependencies=[Depends(require_api_k
 app.include_router(routes_activity.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_copilot.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_auth.router)
+app.include_router(routes_sso.router)
 app.include_router(routes_users.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_calendar.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_watch.router, dependencies=[Depends(require_api_key)])
@@ -87,6 +95,7 @@ app.include_router(routes_org_config.router, dependencies=[Depends(require_api_k
 app.include_router(routes_filings.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_api_keys.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_data.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_integrations.router, dependencies=[Depends(require_api_key)])
 
 
 @app.get("/api/health")

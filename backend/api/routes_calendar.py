@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,32 @@ from db import models
 from db.session import get_db
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
+
+
+@router.get("/feed.ics")
+def calendar_feed(
+    token: str = Query(...),
+    session: Session = Depends(get_db),
+):
+    """Subscribable RFC-5545 feed — paste the URL into Outlook / Google Calendar.
+
+    The token is the secret stored (encrypted) when the Calendar integration was
+    connected; without it the feed 403s so firm deadlines stay private.
+    """
+    from integrations.crypto import decrypt_config
+
+    row = session.scalar(select(models.Integration).where(models.Integration.type == "calendar"))
+    if not row or row.status != "connected":
+        raise HTTPException(404, "Calendar integration is not connected")
+    cfg = decrypt_config(row.config)
+    import secrets as _secrets
+
+    if not cfg.get("feed_token") or not _secrets.compare_digest(cfg["feed_token"], token):
+        raise HTTPException(403, "Invalid feed token")
+    from db import crud
+    crud.touch_integration(session, "calendar")
+    from integrations.providers import build_ics_feed
+    return Response(content=build_ics_feed(session), media_type="text/calendar")
 
 
 @router.get("")

@@ -41,6 +41,7 @@ def obligation_to_dict(o: models.Obligation) -> dict:
         "needs_review": o.needs_review,
         "reviewer": o.reviewer,
         "reviewed_at": o.reviewed_at.isoformat() if o.reviewed_at else None,
+        "scores_reference": o.scores_reference,
     }
 
 
@@ -72,6 +73,8 @@ def task_to_dict(t: models.Task) -> dict:
         "deadline": str(t.deadline) if t.deadline else None,
         "status": t.status,
         "depends_on_task_id": t.depends_on_task_id,
+        "jira_issue_key": t.jira_issue_key,
+        "docusign_envelope_id": t.docusign_envelope_id,
     }
 
 
@@ -83,6 +86,11 @@ def evidence_to_dict(e: models.EvidenceRequirement) -> dict:
         "required_content": e.required_content,
         "collector": e.collector,
         "retention_period": e.retention_period,
+        "uploaded_at": e.uploaded_at.isoformat() if e.uploaded_at else None,
+        "upload_target": e.upload_target,
+        "file_name": e.file_name,
+        "file_path": e.file_path,
+        "external_url": e.external_url,
     }
 
 

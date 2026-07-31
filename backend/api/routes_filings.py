@@ -29,7 +29,7 @@ def list_filings(status: str | None = Query(None), session: Session = Depends(ge
             "created_at": f.created_at.isoformat() if f.created_at else None,
             "obligation_summary": obligation_to_dict(o) if o else None,
         })
-    return {"filings": out, "total": len(out)}
+    return out
 
 
 @router.post("")

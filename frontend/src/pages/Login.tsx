@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -6,11 +7,36 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, ssoLogin } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("sso_token");
+    if (!token) return;
+    const rawUser = params.get("sso_user");
+    let user;
+    try {
+      user = rawUser ? JSON.parse(rawUser) : null;
+    } catch {
+      user = null;
+    }
+    if (user && user.email) {
+      ssoLogin(token, user);
+      window.history.replaceState({}, "", "/login");
+      navigate("/", { replace: true });
+    } else {
+      setError("SSO sign-in failed — try again.");
+    }
+  }, [ssoLogin, navigate]);
+
+  const startSso = () => {
+    window.location.href = "/api/auth/sso/authorize";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +85,15 @@ export default function Login() {
               {loading ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-          <p className="text-[11px] text-muted-foreground text-center mt-3">Demo: admin@praxis.local / admin123</p>
+          <div className="flex items-center gap-2 my-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-[11px] text-muted-foreground">or</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <Button type="button" variant="outline" className="w-full" onClick={startSso}>
+            Sign in with SSO (Keycloak)
+          </Button>
+          <p className="text-[11px] text-muted-foreground text-center mt-3">Demo: admin@praxis.local / admin123 · SSO users: admin@praxis.local, officer@praxis.local</p>
         </CardContent>
       </Card>
     </div>

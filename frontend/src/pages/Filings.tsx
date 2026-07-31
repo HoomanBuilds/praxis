@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { FILING_STATUSES } from "@/lib/constants";
 import { titleCase } from "@/lib/utils";
 import { FileOutput, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const FILING_BADGE: Record<string, "muted" | "warning" | "success" | "destructive"> = {
   not_filed: "muted",
@@ -32,8 +33,7 @@ export default function Filings() {
   });
 
   const submitMut = useMutation({
-    mutationFn: ({ id, ref }: { id: string; ref: string }) =>
-      api.updateFiling(id, { status: "submitted", submitted_at: new Date().toISOString().slice(0, 10), confirmation_reference: ref }),
+    mutationFn: (id: string) => api.submitFiling(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["filings"] }),
   });
 
@@ -69,14 +69,20 @@ export default function Filings() {
             <tbody className="divide-y">
               {filtered.map((f) => (
                 <tr key={f.id} className="hover:bg-accent/40">
-                  <td className="py-3 px-4 font-mono text-xs">{f.obligation_id.slice(0, 8)}</td>
+                  <td className="py-3 px-4 font-mono text-xs">
+                    <Link to={`/obligations/${f.obligation_id}`} className="hover:text-primary hover:underline">
+                      {f.obligation_summary?.identifier ?? f.obligation_id.slice(0, 8)}
+                    </Link>
+                  </td>
                   <td className="py-3 px-4">{f.filing_type || "—"}</td>
                   <td className="py-3 px-4"><Badge variant={FILING_BADGE[f.status] ?? "muted"}>{titleCase(f.status)}</Badge></td>
                   <td className="py-3 px-4 text-muted-foreground">{f.submitted_at || "—"}</td>
                   <td className="py-3 px-4 text-muted-foreground">{f.confirmation_reference || "—"}</td>
                   <td className="py-3 px-4">
                     {f.status === "not_filed" && (
-                      <FilingSubmitAction filingId={f.id} onSubmit={(ref) => submitMut.mutate({ id: f.id, ref })} />
+                      <Button size="sm" variant="outline" onClick={() => submitMut.mutate(f.id)}>
+                        {submitMut.isPending ? "Submitting…" : "Mark Submitted"}
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -104,25 +110,5 @@ export default function Filings() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function FilingSubmitAction({ onSubmit }: { filingId: string; onSubmit: (ref: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [ref, setRef] = useState("");
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Mark Submitted</Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Submit Filing</DialogTitle></DialogHeader>
-          <Input placeholder="Confirmation reference" value={ref} onChange={(e) => setRef(e.target.value)} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => { onSubmit(ref); setOpen(false); setRef(""); }}>Submit</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }

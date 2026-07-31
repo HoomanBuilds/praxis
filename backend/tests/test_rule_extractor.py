@@ -37,3 +37,14 @@ def test_route_handles_clear_section_deterministically_with_area():
     )
     assert to_llm is False
     assert obs and obs[0].functional_area == FunctionalArea.OPERATIONS
+
+
+def test_commencement_boilerplate_is_not_an_obligation():
+    assert extract_deterministic(S("The provisions of this circular shall come into force "
+                                   "with immediate effect.")) == []
+    assert extract_deterministic(S("This circular shall come into force from the date of "
+                                   "its issuance.")) == []
+    # A genuine duty next to boilerplate still extracts.
+    obs = extract_deterministic(S("The intermediary shall maintain records for five years. "
+                                  "This circular shall come into force with immediate effect."))
+    assert len(obs) == 1 and "maintain records" in obs[0].source_quote

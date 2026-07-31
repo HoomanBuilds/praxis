@@ -134,12 +134,20 @@ def process_document(session: Session, document_id: str) -> dict:
     obligations, extract_stats = obligation_extraction.extract_obligations(doc.id, to_process, context)
 
     # 7. Persist obligations + index for cross-reference search.
+    flagged_identifiers = []
     for ob in obligations:
         row = crud.create_obligation(session, ob)
+        if ob.needs_review:
+            flagged_identifiers.append(ob.identifier)
         corpus_index.index_obligation(
             row.id, ob.description,
             {"document_id": doc.id, "identifier": ob.identifier, "functional_area": ob.functional_area.value},
         )
+
+    # Notify connected channels (email/Slack) that obligations need human review.
+    if flagged_identifiers:
+        from integrations import notify
+        notify.notify_obligations_flagged(len(flagged_identifiers), flagged_identifiers)
 
     # 8. Store fingerprints so the next release of this family diffs correctly.
     fingerprint.store_fingerprints(session, family, doc.id, candidates)
@@ -220,10 +228,15 @@ def generate_for_document(
     schema_obligations = [_orm_to_schema(o) for o in approved]
     state = pipeline.run_generation(schema_obligations, effective_date)
 
+    # Idempotent Phase B: drop any artifacts from a previous generate run first.
+    for ob in approved:
+        crud.reset_artifacts(session, ob.id)
     for obligation_id, rule in state.rules.items():
         crud.create_rule(session, obligation_id, rule)
+    from integrations import notify
     for task in state.tasks:
         crud.create_task(session, task)
+        notify.notify_task_created(task)
     for req in state.evidence:
         crud.create_evidence_requirement(session, req)
 

@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { useCopilot } from "@/context/CopilotContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
+import { Textarea, Input } from "@/components/ui/input";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { ObligationArtifacts } from "@/components/ObligationArtifacts";
 import { titleCase } from "@/lib/utils";
@@ -37,10 +37,11 @@ export default function ObligationWorkspace() {
 
   const [editing, setEditing] = useState(false);
   const [desc, setDesc] = useState("");
+  const [scoresRef, setScoresRef] = useState("");
   const [comment, setComment] = useState("");
 
   useEffect(() => {
-    if (ob) { setDesc(ob.description); setScope({ obligationId: id, label: `Obligation ${ob.identifier}` }); }
+    if (ob) { setDesc(ob.description); setScoresRef(ob.scores_reference ?? ""); setScope({ obligationId: id, label: `Obligation ${ob.identifier}` }); }
     return () => setScope({});
   }, [ob, id, setScope]);
 
@@ -53,7 +54,7 @@ export default function ObligationWorkspace() {
   const approve = useMutation({ mutationFn: () => api.approveObligation(id), onSuccess: invalidate });
   const reject = useMutation({ mutationFn: () => api.rejectObligation(id), onSuccess: invalidate });
   const edit = useMutation({
-    mutationFn: () => api.editObligation(id, { description: desc }),
+    mutationFn: () => api.editObligation(id, { description: desc, scores_reference: scoresRef }),
     onSuccess: () => { setEditing(false); invalidate(); },
   });
   const addComment = useMutation({
@@ -100,9 +101,13 @@ export default function ObligationWorkspace() {
                 {editing ? (
                   <div className="space-y-2">
                     <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">SCORES reference (manual)</label>
+                      <Input value={scoresRef} onChange={(e) => setScoresRef(e.target.value)} placeholder="e.g. 2026/GREF/000123" className="mt-1" />
+                    </div>
                     <div className="flex gap-2">
                       <Button size="sm" disabled={edit.isPending} onClick={() => edit.mutate()}>Save</Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setDesc(ob.description); }}>Cancel</Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setDesc(ob.description); setScoresRef(ob.scores_reference ?? ""); }}>Cancel</Button>
                     </div>
                   </div>
                 ) : (
@@ -110,6 +115,7 @@ export default function ObligationWorkspace() {
                 )}
                 {ob.deadline_hint && <div className="text-xs text-muted-foreground">Deadline: {ob.deadline_hint}</div>}
                 <div className="text-xs text-muted-foreground">Modification: {titleCase(ob.modification_type)}</div>
+                {ob.scores_reference && <div className="text-xs text-muted-foreground">SCORES: {ob.scores_reference}</div>}
               </CardContent>
             </Card>
             <Card>

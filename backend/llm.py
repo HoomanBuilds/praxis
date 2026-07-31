@@ -12,6 +12,7 @@ import json
 from dataclasses import dataclass
 from typing import Type, TypeVar
 
+import ollama as _ollama
 from pydantic import BaseModel, ValidationError
 
 from config import settings
@@ -30,21 +31,8 @@ class LLMResult:
     raw: str
 
 
-def _get_chat_model(format_schema: dict | None = None, temperature: float | None = None):
-    if settings.llm_provider != "ollama":
-        raise NotImplementedError(
-            f"LLM provider '{settings.llm_provider}' is not wired in this build; use 'ollama'."
-        )
-    from langchain_ollama import ChatOllama
-
-    return ChatOllama(
-        model=settings.llm_model,
-        base_url=settings.ollama_host,
-        temperature=settings.llm_temperature if temperature is None else temperature,
-        num_ctx=settings.llm_num_ctx,
-        format=format_schema,
-        client_kwargs={"timeout": settings.llm_request_timeout},
-    )
+def _get_client() -> _ollama.Client:
+    return _ollama.Client(host=settings.ollama_host)
 
 
 def _content_to_str(content) -> str:
@@ -52,7 +40,7 @@ def _content_to_str(content) -> str:
         return content
     if isinstance(content, bytes):
         return content.decode("utf-8", errors="replace")
-    if isinstance(content, list):  # some providers return content parts
+    if isinstance(content, list):
         return "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in content)
     return str(content)
 
@@ -66,51 +54,65 @@ def structured_complete(
 ) -> LLMResult:
     """Return a validated instance of ``schema`` from the model, wrapped in ``LLMResult``
     which also carries the raw pre-validation response for audit logging (C4)."""
-    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-
+    client = _get_client()
     schema_json = schema.model_json_schema()
-    model = _get_chat_model(format_schema=schema_json, temperature=temperature)
-    messages = [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
     last_error: Exception | None = None
     for _ in range(retries + 1):
-        response = model.invoke(messages)
-        raw = _content_to_str(response.content).strip()
+        response = client.chat(
+            model=settings.llm_model,
+            messages=messages,
+            format=schema_json,
+            keep_alive=settings.llm_keep_alive,
+            options={
+                "temperature": settings.llm_temperature if temperature is None else temperature,
+                "num_ctx": settings.llm_num_ctx,
+            },
+        )
+        raw = _content_to_str(response["message"]["content"]).strip()
         try:
             data = json.loads(raw)
             parsed = schema.model_validate(data)
             return LLMResult(parsed=parsed, raw=raw)
         except (json.JSONDecodeError, ValidationError) as exc:
             last_error = exc
-            messages.append(AIMessage(content=raw))
-            messages.append(
-                HumanMessage(
-                    content=(
-                        "Your previous response did not validate against the required JSON "
-                        f"schema. Error: {exc}. Respond again with ONLY a single valid JSON "
-                        "object conforming exactly to the schema. No prose, no markdown."
-                    )
-                )
-            )
+            messages.append({"role": "assistant", "content": raw})
+            messages.append({
+                "role": "user",
+                "content": (
+                    "Your previous response did not validate against the required JSON "
+                    f"schema. Error: {exc}. Respond again with ONLY a single valid JSON "
+                    "object conforming exactly to the schema. No prose, no markdown."
+                ),
+            })
     raise StructuredOutputError(f"schema={schema.__name__}: {last_error}")
 
 
 def complete(system_prompt: str, user_prompt: str, temperature: float | None = None) -> str:
     """Free-text completion (used sparingly; most stages use structured output)."""
-    from langchain_core.messages import HumanMessage, SystemMessage
-
-    model = _get_chat_model(temperature=temperature)
-    response = model.invoke(
-        [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
+    client = _get_client()
+    response = client.chat(
+        model=settings.llm_model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        keep_alive=settings.llm_keep_alive,
+        options={
+            "temperature": settings.llm_temperature if temperature is None else temperature,
+            "num_ctx": settings.llm_num_ctx,
+        },
     )
-    return _content_to_str(response.content).strip()
+    return _content_to_str(response["message"]["content"]).strip()
 
 
 def health_check() -> dict:
     """Verify the configured model is reachable on the Ollama host."""
-    import ollama
-
-    client = ollama.Client(host=settings.ollama_host)
+    client = _get_client()
     models = client.list().get("models", [])
     names = [m.get("model") or m.get("name") for m in models]
     return {

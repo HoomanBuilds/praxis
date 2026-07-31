@@ -43,7 +43,12 @@ export default function Calendar() {
 
   const updateTask = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: { primary_owner?: string; status?: string } }) => api.updateTask(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["calendar"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["calendar"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["obligation"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 
   const fromStr = `${year}-${String(month + 1).padStart(2, "0")}-01`;

@@ -1,16 +1,19 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabList, TabTrigger, TabContent } from "@/components/ui/tabs";
-import { Cpu, Boxes, Plug, ShieldCheck, Check } from "lucide-react";
+import { Cpu, Boxes, Plug, ShieldCheck, Check, Copy, Loader2, AlertTriangle } from "lucide-react";
 import FirmProfile from "@/pages/FirmProfile";
 import Departments from "@/pages/Departments";
 import Users from "@/pages/Users";
 import ApiKeys from "@/pages/ApiKeys";
 import DataRetention from "@/pages/DataRetention";
+import type { Integration, IntegrationField } from "@/lib/types";
 
 const AGENTS = [
   ["Document Parser", "pdfplumber + OCR fallback, structure & cross-references"],
@@ -22,17 +25,23 @@ const AGENTS = [
   ["Audit Report", "PDF + XLSX evidence packages"],
 ];
 
-const INTEGRATIONS = [
-  ["Email (SMTP)", "Notify owners of new tasks and deadlines"],
-  ["Chat Notifications", "Channel/DM notifications for the compliance team — Slack or Teams"],
-  ["Document Management", "Store and retrieve evidence uploads in your existing DMS rather than local disk."],
-  ["E-Signature", "Attach signed board resolutions and policy documents to compliance tasks."],
-  ["Calendar Sync", "Push compliance deadlines to your team's real calendar."],
-  ["GRC / Ticketing", "Sync obligations and tasks into your existing GRC or ticketing system."],
-  ["SEBI SCORES", "Track investor grievance redress status against SCORES filings."],
-  ["LDAP / Active Directory", "Sync users and functional-area owners"],
-  ["SSO (OIDC / Keycloak)", "Enterprise authentication + RBAC"],
-];
+const INTEGRATION_META: Record<string, { name: string; desc: string; tier: string }> = {
+  email: { name: "Email (SMTP)", desc: "Notify owners of new tasks and deadlines.", tier: "Tier 1 · real" },
+  slack: { name: "Chat Notifications", desc: "Channel/DM notifications for the compliance team — Slack (webhook).", tier: "Tier 1 · real" },
+  calendar: { name: "Calendar Sync", desc: "Live .ics feed of compliance deadlines — subscribe from Outlook or Google Calendar.", tier: "Tier 1 · real" },
+  sso: { name: "SSO (OIDC / Keycloak)", desc: "Enterprise authentication + RBAC via a demo Keycloak realm.", tier: "Tier 1 · real" },
+  jira: { name: "GRC / Ticketing", desc: "Sync obligations and tasks into your own Jira site.", tier: "Tier 2 · your account" },
+  drive: { name: "Document Management", desc: "Store evidence uploads in your Google Drive instead of local disk.", tier: "Tier 2 · your account" },
+  docusign: { name: "E-Signature", desc: "Attach signed board resolutions and policy documents via DocuSign sandbox.", tier: "Tier 2 · your account" },
+};
+
+const SCORES_DESC = "Track investor grievance redress status against SCORES filings. SEBI has no public SCORES API — the reference is entered manually by your compliance officer.";
+
+function statusBadge(status: string) {
+  if (status === "connected") return <Badge variant="success">Connected</Badge>;
+  if (status === "error") return <Badge variant="destructive">Error</Badge>;
+  return <Badge variant="muted">Not connected</Badge>;
+}
 
 export default function Settings() {
   const [tab, setTab] = useState("overview");
@@ -100,26 +109,7 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Plug className="h-4 w-4" /> Integrations</CardTitle></CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-2">
-                  {INTEGRATIONS.map(([name, desc]) => (
-                    <div key={name} className="flex items-center gap-3 rounded-lg border p-3">
-                      <div>
-                        <div className="text-sm font-medium">{name}</div>
-                        <div className="text-xs text-muted-foreground">{desc}</div>
-                      </div>
-                      <div className="ml-auto flex items-center gap-2">
-                        <Badge variant="muted">Roadmap</Badge>
-                        <Button size="sm" variant="outline" disabled>Connect</Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-3">Integrations are on the post-hackathon roadmap (§14.4). Shown here as not-connected rather than mocked.</p>
-              </CardContent>
-            </Card>
+            <IntegrationsPanel />
           </div>
         </TabContent>
 
@@ -130,6 +120,247 @@ export default function Settings() {
         <TabContent value="data"><DataRetention /></TabContent>
       </Tabs>
     </div>
+  );
+}
+
+function IntegrationsPanel() {
+  const qc = useQueryClient();
+  const { data: integrations } = useQuery({ queryKey: ["integrations"], queryFn: api.listIntegrations });
+  const byType = new Map((integrations ?? []).map((i) => [i.type, i]));
+  const [connecting, setConnecting] = useState<Integration | null>(null);
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<{ message: string; feed_url?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const connectMut = useMutation({
+    mutationFn: ({ type, fields }: { type: string; fields: Record<string, string> }) => api.connectIntegration(type, fields),
+    onSuccess: async (data) => {
+      if (data.oauth && data.authorize_url) {
+        const w = window.open(data.authorize_url, "praxis-drive", "width=540,height=640");
+        window.addEventListener("message", (ev) => {
+          if (ev.data && ev.data.type === "praxis:drive-connected") {
+            qc.invalidateQueries({ queryKey: ["integrations"] });
+            if (ev.data.ok) setResult({ message: "Connected to Google Drive." });
+            else setResult({ message: "Drive connection failed — see the card's error state." });
+          }
+        });
+        if (w) {
+          setConnecting(null);
+          setResult(null);
+          return;
+        }
+      }
+      if (data.feed_url) {
+        setResult({ message: data.message, feed_url: data.feed_url });
+      } else if (data.ok) {
+        setResult({ message: data.message });
+      } else {
+        setResult({ message: data.message });
+      }
+      setConnecting(null);
+      setFields({});
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+    },
+    onError: (err: Error) => {
+      setResult({ message: err.message.replace(/^.*?: /, "") });
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+    },
+  });
+
+  const disconnectMut = useMutation({
+    mutationFn: (type: string) => api.disconnectIntegration(type),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
+  });
+
+  const openConnect = (integ: Integration) => {
+    setFields({});
+    setResult(null);
+    setCopied(false);
+    setConnecting(integ);
+  };
+
+  const copyFeed = () => {
+    if (result?.feed_url) {
+      navigator.clipboard.writeText(`${window.location.origin}${result.feed_url}`);
+      setCopied(true);
+    }
+  };
+
+  const cardTypes = [...Object.keys(INTEGRATION_META), "scores"];
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Plug className="h-4 w-4" /> Integrations</CardTitle></CardHeader>
+      <CardContent>
+        <div className="grid md:grid-cols-2 gap-2">
+          {cardTypes.map((type) => {
+            if (type === "scores") {
+              return (
+                <div key="scores" className="flex items-center gap-3 rounded-lg border p-3">
+                  <div>
+                    <div className="text-sm font-medium">SEBI SCORES</div>
+                    <div className="text-xs text-muted-foreground">{SCORES_DESC}</div>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Badge variant="muted">Manual field</Badge>
+                  </div>
+                </div>
+              );
+            }
+            const integ = byType.get(type);
+            const meta = INTEGRATION_META[type];
+            const isSSO = type === "sso";
+            return (
+              <div key={type} className="flex items-center gap-3 rounded-lg border p-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    {meta.name}
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{meta.tier}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{meta.desc}</div>
+                  {(integ?.status === "error" || (integ?.configured_as && integ.status === "connected")) && (
+                    <div className="mt-1 text-[11px]">
+                      {integ.status === "error" && integ.last_error && (
+                        <span className="text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {integ.last_error}</span>
+                      )}
+                      {integ.status === "connected" && (
+                        <span className="text-success">→ {integ.configured_as}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  {statusBadge(integ?.status ?? "not_connected")}
+                  {isSSO ? (
+                    <Button size="sm" variant="outline" disabled>Sign in on Login</Button>
+                  ) : integ?.status === "connected" ? (
+                    <Button size="sm" variant="ghost" onClick={() => disconnectMut.mutate(type)}>Disconnect</Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => openConnect({ type, fields: [], status: "not_connected", connected_at: null, last_used_at: null, last_error: null, configured_as: "" })}>
+                      Connect
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-3">
+          Tier 1 (email, chat, calendar, SSO) are real connections with live test-on-connect. Tier 2 (Jira, Drive, DocuSign)
+          need your own external accounts. SEBI SCORES has no public API — tracked manually, never faked. Credentials are
+          encrypted at rest and never exposed.
+        </p>
+      </CardContent>
+
+      {connecting && (
+        <ConnectDialog
+          integration={connecting}
+          fields={fields}
+          setFields={setFields}
+          result={result}
+          copied={copied}
+          copyFeed={copyFeed}
+          busy={connectMut.isPending}
+          onCancel={() => { setConnecting(null); setResult(null); }}
+          onSubmit={() => connectMut.mutate({ type: connecting.type, fields })}
+        />
+      )}
+    </Card>
+  );
+}
+
+function ConnectDialog({
+  integration,
+  fields,
+  setFields,
+  result,
+  copied,
+  copyFeed,
+  busy,
+  onCancel,
+  onSubmit,
+}: {
+  integration: Integration;
+  fields: Record<string, string>;
+  setFields: (f: Record<string, string>) => void;
+  result: { message: string; feed_url?: string } | null;
+  copied: boolean;
+  copyFeed: () => void;
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  const isDrive = integration.type === "drive";
+  const isCalendar = integration.type === "calendar";
+  return (
+    <Dialog open onOpenChange={onCancel}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Connect {INTEGRATION_META[integration.type]?.name ?? integration.type}</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {isDrive
+              ? "Opens Google's consent screen — sign in and grant access, then the browser popup returns here."
+              : isCalendar
+                ? "No credentials needed. Connecting enables a private .ics feed URL you can subscribe to in any calendar app."
+                : "PRAXIS tests the connection immediately. Credentials are stored encrypted and never returned by the API."}
+          </p>
+        </DialogHeader>
+
+        {!isDrive && !isCalendar && (
+          <div className="space-y-3">
+            {integration.fields.map((f: IntegrationField) => (
+              <div key={f.name} className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">{f.label}</label>
+                {f.type === "textarea" ? (
+                  <textarea
+                    className="w-full min-h-[90px] rounded-md border bg-transparent px-3 py-2 text-sm font-mono"
+                    placeholder={f.placeholder}
+                    value={fields[f.name] ?? ""}
+                    onChange={(e) => setFields({ ...fields, [f.name]: e.target.value })}
+                  />
+                ) : (
+                  <Input
+                    type={f.type === "password" ? "password" : f.type === "email" ? "email" : "text"}
+                    placeholder={f.placeholder}
+                    value={fields[f.name] ?? ""}
+                    onChange={(e) => setFields({ ...fields, [f.name]: e.target.value })}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {result && (
+          <div className={`text-sm rounded-lg px-3 py-2 ${result.message.includes("failed") || result.message.toLowerCase().includes("error") || result.message.toLowerCase().includes("unreachable") ? "text-destructive bg-destructive/10" : "text-success bg-success/10"}`}>
+            {result.message}
+            {result.feed_url && (
+              <div className="mt-2 flex items-center gap-2">
+                <code className="flex-1 text-xs break-all bg-background rounded-md px-2 py-1">{`${window.location.origin}${result.feed_url}`}</code>
+                <Button size="sm" variant="outline" onClick={copyFeed}><Copy className="h-3 w-3" /> {copied ? "Copied!" : "Copy"}</Button>
+              </div>
+            )}
+            {result.feed_url && (
+              <div className="text-[11px] text-muted-foreground mt-2">This URL is shown once — it contains the private feed token.</div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          {result ? (
+            <Button onClick={onCancel}>Done</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onCancel}>Cancel</Button>
+              <Button onClick={onSubmit} disabled={busy || (integration.fields.length > 0 && integration.fields.some((f) => f.required !== false && (fields[f.name] ?? "").trim().length === 0))}>
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {busy ? "Testing…" : isDrive ? "Open Google consent" : isCalendar ? "Enable feed" : "Connect & test"}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

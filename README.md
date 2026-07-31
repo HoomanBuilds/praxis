@@ -32,6 +32,13 @@ extraction) reserves the LLM for the ~10–20% of content that needs reasoning, 
 calls on real SEBI master circulars by **~85–90%** (151-section doc: ~130 → 18 calls;
 870-section doc: ~629 → 72 calls).
 
+**End-to-end demo corpus**: the real **94-page SEBI Master Circular for Investment Advisers**
+(`SEBI/HO/MIRSD/MIRSD-PoD/P/CIR/2025/94`, 151 sections) is ingested in the shipped database.
+Measured funnel on it: 69 recitals + 57 regulatory candidates classified → **40 sections
+deterministic / 17 routed to the LLM → 18 LLM calls total → 275 obligations** (88 deterministic,
+187 LLM, each with verbatim source provenance), reviewed through the human-in-the-loop gate
+before Phase B generates rules, workflow tasks, and evidence templates only for the approved set.
+
 📚 **Full documentation lives in [`docs/`](docs/README.md)** — architecture, the processing
 funnel, agents, knowledge graph, data model, API reference, and setup.
 
@@ -195,8 +202,9 @@ data/
 ## Notes & scope
 
 - The corpus circulars under `data/seed/` are **synthetic**, written in SEBI style for
-  demonstration only — they are not real SEBI instruments. The two master circulars used for
-  the scalability measurements above are real SEBI PDFs.
+  demonstration only — they are not real SEBI instruments. The real master circulars used for
+  the scalability measurements and the shipped demo (including the 94-page IA Master Circular,
+  `SEBI/HO/MIRSD/MIRSD-PoD/P/CIR/2025/94`) are actual SEBI PDFs.
 - Deferred beyond this milestone: scheduled compliance monitoring/alerting, evidence upload +
   gap analysis, Keycloak RBAC/MFA, multi-tenant deployment, external task-tool integrations.
 - The LLM provider is pluggable (`backend/config.py: llm_provider`); Ollama is the on-prem default.

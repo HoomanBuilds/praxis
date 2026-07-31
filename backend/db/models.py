@@ -81,6 +81,10 @@ class Obligation(Base):
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     deadline_hint: Mapped[str | None] = mapped_column(String(255), nullable=True)
     linked_prior_obligation_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Tier 3 (SCORES) — manually maintained reference entered by the compliance officer
+    # after checking the SEBI SCORES portal. There is no public API to auto-sync against,
+    # so this field is deliberately a manual, auditable entry rather than a fake sync.
+    scores_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # How the obligation was extracted: 'deterministic' (regex rule engine) or 'llm'.
     extraction_method: Mapped[str] = mapped_column(String(16), default="llm")
 
@@ -142,6 +146,11 @@ class Task(Base):
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="not_started", index=True)
     depends_on_task_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # External ticket / envelope references — real bidirectional links to connected
+    # Tier 2 integrations (Jira issue key, DocuSign sandbox envelope id).
+    jira_issue_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    docusign_envelope_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    overdue_notified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -158,6 +167,12 @@ class EvidenceRequirement(Base):
     required_content: Mapped[str] = mapped_column(Text, default="")
     collector: Mapped[str] = mapped_column(String(128), default="")
     retention_period: Mapped[str] = mapped_column(String(64), default="5 years")
+
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    upload_target: Mapped[str] = mapped_column(String(16), default="")  # "" | "local" | "drive"
+    file_name: Mapped[str] = mapped_column(String(255), default="")
+    file_path: Mapped[str] = mapped_column(String(512), default="")
+    external_url: Mapped[str] = mapped_column(String(1024), default="")
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -291,4 +306,26 @@ class WatchHit(Base):
     summary: Mapped[str] = mapped_column(Text, default="")
     relevance_score: Mapped[float] = mapped_column(Float, default=0.0)
     is_reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Integration(Base):
+    """Firm-level integration state — one row per integration type.
+
+    ``config`` holds the connection credentials needed to actually call the
+    external service. Secrets are encrypted at rest (see integrations.crypto) and
+    ``config`` is never returned by any API read endpoint; only the public status
+    fields and a redacted ``configured_as`` summary are exposed.
+    """
+
+    __tablename__ = "integrations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    type: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="not_connected", index=True)
+    config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    configured_as: Mapped[str] = mapped_column(String(255), default="")
+    connected_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

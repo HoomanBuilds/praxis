@@ -254,6 +254,8 @@ def edit_obligation(
         obligation.functional_area = edit.functional_area.value
     if edit.modification_type is not None:
         obligation.modification_type = edit.modification_type.value
+    if edit.scores_reference is not None:
+        obligation.scores_reference = edit.scores_reference.strip() or None
     obligation.status = schemas.ObligationStatus.EDITED.value
     obligation.reviewer = reviewer
     obligation.reviewed_at = datetime.now(timezone.utc)
@@ -269,6 +271,7 @@ def edit_obligation(
             "description": obligation.description,
             "functional_area": obligation.functional_area,
             "modification_type": obligation.modification_type,
+            "scores_reference": obligation.scores_reference,
         },
     )
     return obligation
@@ -374,7 +377,6 @@ def list_tasks(session: Session, obligation_id: Optional[str] = None) -> list[mo
         stmt = stmt.where(models.Task.obligation_id == obligation_id)
     return list(session.scalars(stmt))
 
-
 def list_evidence_requirements(
     session: Session, obligation_id: Optional[str] = None
 ) -> list[models.EvidenceRequirement]:
@@ -382,6 +384,25 @@ def list_evidence_requirements(
     if obligation_id:
         stmt = stmt.where(models.EvidenceRequirement.obligation_id == obligation_id)
     return list(session.scalars(stmt))
+
+
+def get_evidence_requirement(
+    session: Session, requirement_id: str
+) -> Optional[models.EvidenceRequirement]:
+    return session.scalar(
+        select(models.EvidenceRequirement).where(
+            models.EvidenceRequirement.id == requirement_id
+        )
+    )
+
+
+def reset_artifacts(session: Session, obligation_id: str) -> None:
+    """Delete rules/tasks/evidence for one obligation (used by Phase B so re-running
+    generate is idempotent rather than duplicating the workflow)."""
+    for model in (models.Rule, models.Task, models.EvidenceRequirement):
+        for row in list(session.scalars(select(model).where(model.obligation_id == obligation_id))):
+            session.delete(row)
+    session.flush()
 
 
 # --- Users ---
@@ -649,3 +670,80 @@ def write_org_config(data: dict) -> None:
         load_org_config.cache_clear()
     except Exception:
         pass
+
+
+# --- Integrations ---
+
+
+def list_integrations(session: Session) -> list[models.Integration]:
+    return list(session.scalars(select(models.Integration).order_by(models.Integration.type)))
+
+
+def get_integration(session: Session, type_: str) -> Optional[models.Integration]:
+    return session.scalar(select(models.Integration).where(models.Integration.type == type_))
+
+
+def set_integration(
+    session: Session,
+    type_: str,
+    *,
+    config_encrypted: Optional[str],
+    configured_as: str = "",
+    status: str = "connected",
+    actor: str = "compliance_officer",
+) -> models.Integration:
+    """Upsert a singleton integration row. ``config_encrypted`` is the Fernet blob."""
+    from datetime import datetime, timezone as _tz
+
+    row = get_integration(session, type_)
+    now = datetime.now(_tz.utc)
+    was_connected = row is not None and row.status == "connected"
+    if row is None:
+        row = models.Integration(type=type_, status=status, config=config_encrypted, configured_as=configured_as)
+        session.add(row)
+    else:
+        row.status = status
+        row.config = config_encrypted
+        row.configured_as = configured_as
+        row.last_error = None
+    row.connected_at = row.connected_at if was_connected and row.connected_at else now
+    session.flush()
+    record_audit(
+        session,
+        action="integration.connected" if status == "connected" else "integration.updated",
+        resource_type="integration",
+        resource_id=type_,
+        actor=actor,
+        after={"status": status, "type": type_},
+    )
+    return row
+
+
+def touch_integration(session: Session, type_: str, actor: str = "system") -> None:
+    from datetime import datetime, timezone as _tz
+    row = get_integration(session, type_)
+    if row:
+        row.last_used_at = datetime.now(_tz.utc)
+        session.flush()
+
+
+def disconnect_integration(session: Session, type_: str, actor: str = "compliance_officer") -> Optional[models.Integration]:
+    row = get_integration(session, type_)
+    if not row:
+        return None
+    row.status = "not_connected"
+    row.config = None
+    row.configured_as = ""
+    row.last_error = None
+    row.connected_at = None
+    row.last_used_at = None
+    session.flush()
+    record_audit(
+        session,
+        action="integration.disconnected",
+        resource_type="integration",
+        resource_id=type_,
+        actor=actor,
+        after={"status": "not_connected", "type": type_},
+    )
+    return row

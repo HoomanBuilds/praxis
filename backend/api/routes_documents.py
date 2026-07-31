@@ -72,9 +72,9 @@ async def ingest(
 
 def _run_process_in_bg(document_id: str) -> None:
     """Background fallback when Redis is not available."""
-    from db.session import SessionLocal
+    from db.session import get_session_factory
 
-    session = SessionLocal()
+    session = get_session_factory()()
     try:
         services.process_document(session, document_id)
         session.commit()

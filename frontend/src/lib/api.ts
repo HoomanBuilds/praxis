@@ -8,6 +8,7 @@ import type {
   EvidenceRequirement,
   ExplainResult,
   Filing,
+  Integration,
   KnowledgeGraph,
   Obligation,
   OrgConfig,
@@ -73,7 +74,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ reviewer, note }),
     }),
-  editObligation: (id: string, patch: Partial<Pick<Obligation, "description" | "functional_area" | "modification_type">>) =>
+  editObligation: (id: string, patch: Partial<Pick<Obligation, "description" | "functional_area" | "modification_type" | "scores_reference">>) =>
     req<Obligation>(`/obligations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   listRules: (obligationId?: string) =>
@@ -82,6 +83,14 @@ export const api = {
     req<Task[]>(`/tasks${obligationId ? `?obligation_id=${obligationId}` : ""}`),
   listEvidence: (obligationId?: string) =>
     req<EvidenceRequirement[]>(`/evidence${obligationId ? `?obligation_id=${obligationId}` : ""}`),
+
+  uploadEvidence: async (requirementId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${BASE}/evidence/${requirementId}/upload`, { method: "POST", body: form });
+    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    return res.json();
+  },
 
   knowledgeGraph: (documentId?: string) =>
     req<KnowledgeGraph>(`/knowledge-graph${documentId ? `?document_id=${documentId}` : ""}`),
@@ -149,8 +158,7 @@ export const api = {
   },
   createFiling: (data: { obligation_id: string; task_id?: string; filing_type: string; notes?: string }) =>
     req<Filing>("/filings", { method: "POST", body: JSON.stringify(data) }),
-  updateFiling: (id: string, patch: { status?: string; submitted_at?: string; confirmation_reference?: string }) =>
-    req<Filing>(`/filings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  submitFiling: (id: string) => req<Filing>(`/filings/${id}/submit`, { method: "POST" }),
 
   listApiKeys: () => req<ApiKeyT[]>("/api-keys"),
   createApiKey: (label: string) =>
@@ -159,4 +167,13 @@ export const api = {
 
   retentionStatus: () => req<{ retention_days: number; audit_log_entries: number; oldest_entry: string | null }>("/data/retention-status"),
   exportAudit: () => req<{ files: Record<string, string>; generated_at: string; obligation_count: number }>("/data/export", { method: "POST" }),
+
+  listIntegrations: () => req<Integration[]>("/integrations"),
+  connectIntegration: (type: string, fields: Record<string, string>) =>
+    req<{ ok: boolean; status: string; message: string; feed_url?: string; oauth?: boolean; authorize_url?: string }>(
+      `/integrations/${type}/connect`,
+      { method: "POST", body: JSON.stringify({ fields }) },
+    ),
+  disconnectIntegration: (type: string) =>
+    req<{ ok: boolean; status: string; message: string }>(`/integrations/${type}/disconnect`, { method: "POST" }),
 };

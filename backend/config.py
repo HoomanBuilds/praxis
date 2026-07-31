@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.0
     llm_num_ctx: int = 8192
     llm_request_timeout: int = 300
+    llm_keep_alive: str = "30m"  # keep the model resident between pipeline calls
 
     # --- Embeddings ---
     embedding_model: str = "sentence-transformers/all-mpnet-base-v2"
@@ -73,6 +74,37 @@ class Settings(BaseSettings):
     # --- Retrieval ---
     retrieval_top_k: int = 6
     rrf_k: int = 60
+
+    # --- Integrations (Tier 1-3) ---
+    # Encryption at rest for integration credentials. Set a fixed value to make the
+    # key stable across restarts; otherwise one is generated and persisted locally.
+    integration_encryption_key: str = ""
+    integration_key_path: str = str(REPO_ROOT / "data" / "integration.key")
+
+    # SSO (OIDC / Keycloak) — validated against the demo Keycloak realm in
+    # docker-compose, not a live enterprise IdP.
+    frontend_url: str = "http://localhost:5173"
+    sso_redirect_uri: str = "http://localhost:8080/api/auth/sso/callback"
+    keycloak_url: str = "http://localhost:8081"
+    keycloak_realm: str = "praxis"
+    keycloak_client_id: str = "praxis-web"
+    keycloak_client_secret: str = "praxis-demo-secret"  # demo realm client secret (localhost only)
+
+    # Google Drive (Tier 2) — OAuth client from a Google Cloud test project.
+    drive_oauth_client_id: str = ""
+    drive_oauth_client_secret: str = ""
+    drive_oauth_redirect_uri: str = "http://localhost:8080/api/auth/drive/callback"
+    drive_oauth_auth_uri: str = "https://accounts.google.com/o/oauth2/v2/auth"
+    drive_oauth_token_uri: str = "https://oauth2.googleapis.com/token"
+    drive_oauth_scope: str = "https://www.googleapis.com/auth/drive.file"
+
+    # DocuSign (Tier 2) — developer sandbox JWT grant.
+    docusign_auth_base: str = "https://account-d.docusign.com"
+    docusign_rest_base: str = "https://demo.docusign.net/restapi"
+    docusign_integration_key: str = ""
+    docusign_user_id: str = ""
+    docusign_private_key: str = ""
+    docusign_account_id: str = ""
 
     def ensure_dirs(self) -> None:
         """Create the local storage directories used by the running process."""

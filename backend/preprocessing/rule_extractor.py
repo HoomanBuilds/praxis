@@ -19,6 +19,15 @@ from schemas import FunctionalArea, ModificationType, ObligationLLM, ParsedSecti
 
 _MANDATORY_RE = re.compile(r"\b(shall|must|is required to|are required to|mandatorily|required to)\b", re.I)
 
+# Commencement / effective-date boilerplate that carries no actionable duty — every SEBI
+# circular closes with it ("come into force", "with immediate effect"). Not an obligation.
+_COMMENCEMENT_RE = re.compile(
+    r"\b(come[s]?\s+into\s+(force|operation|effect)|shall\s+be\s+deemed\s+to\s+have\s+come\s+"
+    r"into\s+(force|operation)|be\s+effective\s+(from|on)|with\s+immediate\s+effect|"
+    r"provisions\s+of\s+this\s+(circular|regulation|notification)\s+(shall|will|would))\b",
+    re.I,
+)
+
 # Open-ended / judgement language that needs a model, not a regex.
 _QUALITATIVE_RE = re.compile(
     r"\b(adequate|appropriate|reasonabl|satisfactor|sufficient|suitable|commensurate|robust|"
@@ -89,6 +98,8 @@ def extract_deterministic(section: ParsedSection) -> list[ObligationLLM]:
     for raw_sentence in _SENTENCE_SPLIT_RE.split(section.text):
         sentence = _clean(raw_sentence)
         if len(sentence.split()) < 5 or not _MANDATORY_RE.search(sentence):
+            continue
+        if _COMMENCEMENT_RE.search(sentence):
             continue
         obligations.append(
             ObligationLLM(

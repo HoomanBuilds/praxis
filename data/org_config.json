@@ -1,7 +1,10 @@
 {
-  "firm_name": "Meridian Securities Pvt. Ltd.",
-  "firm_type": "stockbroker",
-  "intermediary_classes": ["stockbroker", "depository_participant"],
+  "firm_name": "Demo Advisory LLP",
+  "firm_type": "Investment Adviser",
+  "intermediary_classes": [
+    "stockbroker",
+    "depository_participant"
+  ],
   "functional_areas": {
     "operations": {
       "label": "Operations",
