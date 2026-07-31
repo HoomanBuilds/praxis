@@ -6,12 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { titleCase } from "@/lib/utils";
-import { AREAS, OBLIGATION_STATUSES } from "@/lib/constants";
+import { OBLIGATION_STATUSES } from "@/lib/constants";
+import { useAreas } from "@/hooks/useAreas";
 import { AlertTriangle, ListChecks } from "lucide-react";
 
 export default function Obligations() {
   const navigate = useNavigate();
   const { data: obligations } = useQuery({ queryKey: ["obligations", "all"], queryFn: () => api.listObligations({}) });
+  const areas = useAreas();
   const [area, setArea] = useState("all");
   const [status, setStatus] = useState("all");
 
@@ -34,7 +36,7 @@ export default function Obligations() {
         </div>
         <div className="flex items-center gap-2 text-sm">
           <select value={area} onChange={(e) => setArea(e.target.value)} className="h-9 rounded-lg border bg-card px-3">
-            {AREAS.map((a) => <option key={a} value={a}>{a === "all" ? "All departments" : titleCase(a)}</option>)}
+            {areas.map((a) => <option key={a} value={a}>{a === "all" ? "All departments" : titleCase(a)}</option>)}
           </select>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border bg-card px-3">
             {OBLIGATION_STATUSES.map((s) => <option key={s} value={s}>{s === "all" ? "All statuses" : titleCase(s)}</option>)}

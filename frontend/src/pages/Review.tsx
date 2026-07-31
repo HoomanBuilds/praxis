@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { ObligationArtifacts } from "@/components/ObligationArtifacts";
 import { titleCase } from "@/lib/utils";
-import { AREAS } from "@/lib/constants";
+import { useAreas } from "@/hooks/useAreas";
 import {
   ArrowLeft, Check, X, Pencil, ChevronDown, ChevronRight, Zap, FileDown, Loader2, AlertTriangle, Maximize2,
 } from "lucide-react";
@@ -19,6 +19,7 @@ import {
 function ObligationRow({ ob, generated }: { ob: Obligation; generated: boolean }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const areas = useAreas().filter((a) => a !== "all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [desc, setDesc] = useState(ob.description);
@@ -80,7 +81,7 @@ function ObligationRow({ ob, generated }: { ob: Obligation; generated: boolean }
                   <div className="space-y-2">
                     <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
                     <select className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm" value={area} onChange={(e) => setArea(e.target.value)}>
-                      {AREAS.map((a) => <option key={a} value={a}>{titleCase(a)}</option>)}
+                      {areas.map((a) => <option key={a} value={a}>{titleCase(a)}</option>)}
                     </select>
                     <div className="flex gap-2">
                       <Button size="sm" disabled={edit.isPending} onClick={() => edit.mutate()}>Save</Button>

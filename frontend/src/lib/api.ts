@@ -148,7 +148,10 @@ export const api = {
   getOrgConfig: () => req<OrgConfig>("/org-config"),
   updateOrgConfig: (patch: { firm_name?: string; firm_type?: string; intermediary_classes?: string[] }) =>
     req<OrgConfig>("/org-config", { method: "PUT", body: JSON.stringify(patch) }),
-  getFunctionalAreas: () => req<Record<string, { label: string; primary_owner: string; owner_email: string; workflow_template: string }>>("/org-config/functional-areas"),
+  getFunctionalAreas: async () => {
+    const data = await req<{ functional_areas: Record<string, { label: string; primary_owner: string; owner_email: string; workflow_template: string }> }>("/org-config/functional-areas");
+    return data.functional_areas ?? {};
+  },
   updateFunctionalAreas: (areas: Record<string, { label: string; primary_owner: string; owner_email: string; workflow_template: string }>) =>
     req<Record<string, unknown>>("/org-config/functional-areas", { method: "PUT", body: JSON.stringify({ functional_areas: areas }) }),
 

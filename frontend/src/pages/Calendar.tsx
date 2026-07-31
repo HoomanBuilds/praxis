@@ -7,7 +7,8 @@ import { ChevronLeft, ChevronRight, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { AREAS, TASK_STATUSES } from "@/lib/constants";
+import { TASK_STATUSES } from "@/lib/constants";
+import { useAreas } from "@/hooks/useAreas";
 import { titleCase } from "@/lib/utils";
 import { api } from "@/lib/api";
 
@@ -37,6 +38,7 @@ export default function Calendar() {
   const [month, setMonth] = useState(today.getMonth());
   const [view, setView] = useState("grid");
   const [area, setArea] = useState("all");
+  const areas = useAreas();
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const qc = useQueryClient();
@@ -119,7 +121,7 @@ export default function Calendar() {
           </div>
           <div className="flex items-center gap-2">
             <select value={area} onChange={(e) => setArea(e.target.value)} className="h-8 rounded-lg border bg-card px-2 text-xs">
-              {AREAS.map((a) => <option key={a} value={a}>{a === "all" ? "All depts" : titleCase(a)}</option>)}
+              {areas.map((a) => <option key={a} value={a}>{a === "all" ? "All depts" : titleCase(a)}</option>)}
             </select>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-8 rounded-lg border bg-card px-2 text-xs">
               <option value="all">All statuses</option>
@@ -212,7 +214,8 @@ export default function Calendar() {
                       value={e.status}
                       onChange={(ev) => updateTask.mutate({ id: e.resource_id, patch: { status: ev.target.value } })}
                     >
-                      {TASK_STATUSES.map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
+                      {TASK_STATUSES.filter((s) => s !== "overdue").map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
+                      {e.status === "overdue" && <option value="overdue" disabled>Overdue (auto)</option>}
                     </select>
                   </div>
                 )}
