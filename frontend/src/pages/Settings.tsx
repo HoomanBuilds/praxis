@@ -152,12 +152,11 @@ function IntegrationsPanel() {
       }
       if (data.feed_url) {
         setResult({ message: data.message, feed_url: data.feed_url });
-      } else if (data.ok) {
-        setResult({ message: data.message });
       } else {
         setResult({ message: data.message });
       }
-      setConnecting(null);
+      // Keep the dialog open on success so the result message and the one-time
+      // .ics feed URL are visible; the user closes it with Done.
       setFields({});
       qc.invalidateQueries({ queryKey: ["integrations"] });
     },
@@ -236,7 +235,7 @@ function IntegrationsPanel() {
                   ) : integ?.status === "connected" ? (
                     <Button size="sm" variant="ghost" onClick={() => disconnectMut.mutate(type)}>Disconnect</Button>
                   ) : (
-                    <Button size="sm" variant="outline" onClick={() => openConnect({ type, fields: [], status: "not_connected", connected_at: null, last_used_at: null, last_error: null, configured_as: "" })}>
+                    <Button size="sm" variant="outline" onClick={() => openConnect(byType.get(type) ?? { type, fields: [], status: "not_connected", connected_at: null, last_used_at: null, last_error: null, configured_as: "" })}>
                       Connect
                     </Button>
                   )}
