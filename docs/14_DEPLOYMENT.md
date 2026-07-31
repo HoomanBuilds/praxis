@@ -50,7 +50,7 @@ groups:
 | Group | Variables |
 |---|---|
 | App | `PRAXIS_DATABASE_URL`, `PRAXIS_APP_NAME`, CORS origins |
-| LLM | `PRAXIS_LLM_BASE_URL` (Ollama), `PRAXIS_LLM_MODEL` (default `qwen2.5:7b`), `PRAXIS_LLM_API_KEY` |
+| LLM | `PRAXIS_LLM_BASE_URL` (Ollama), `PRAXIS_LLM_MODEL` (default `llama3.1:8b`), `PRAXIS_LLM_API_KEY` |
 | Email | `PRAXIS_SMTP_HOST`, `PRAXIS_SMTP_PORT`, `PRAXIS_SMTP_USERNAME`, `PRAXIS_SMTP_PASSWORD`, `PRAXIS_SMTP_FROM` |
 | SSO | `PRAXIS_KEYCLOAK_URL`, realm, client id/secret |
 | Integrations | `PRAXIS_SLACK_TOKEN`, `PRAXIS_JIRA_*`, `PRAXIS_DRIVE_*`, `PRAXIS_DOCUSIGN_*` |

@@ -5,7 +5,7 @@ PRAXIS handles a firm's regulatory corpus — sensitive by nature. The security 
 
 ## 1 · Local-first LLM (the headline control)
 
-- The LLM runs **locally via Ollama** (default `qwen2.5:7b`). Regulatory content **never
+- The LLM runs **locally via Ollama** (default `llama3.1:8b`). Regulatory content **never
   leaves the client boundary** — no prompt or document text is sent to a third-party API.
 - Model identity and endpoint are configurable (`PRAXIS_LLM_*`), so a firm can point at its
   own gateway without code changes.

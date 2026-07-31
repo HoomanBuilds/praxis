@@ -60,7 +60,7 @@ leaves the client boundary.
 ## Quick facts
 
 - **Stack:** FastAPI (Python) · React + TypeScript + Vite · SQLAlchemy 2.x · LangGraph ·
-  local LLM via **Ollama** (default `qwen2.5:7b`).
+  local LLM via **Ollama** (default `llama3.1:8b`).
 - **Storage:** relational store is the single source of truth (SQLite for dev, Postgres in
   Docker). The knowledge graph is a projection over it, so it can never drift from the audit
   trail.

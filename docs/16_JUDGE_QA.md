@@ -41,7 +41,7 @@ untouched; changed ones are re-extracted and matched against the obligation inde
 
 **Q5. Is the data secure? Where does the regulatory text go?**
 
-It goes nowhere. The LLM runs locally via Ollama (default `qwen2.5:7b`); no prompt or document
+It goes nowhere. The LLM runs locally via Ollama (default `llama3.1:8b`); no prompt or document
 text is sent to any third party. Secrets are env-var driven; report downloads are
 path-traversal guarded; SSO is live OIDC. See [12 Security](12_SECURITY.md).
 

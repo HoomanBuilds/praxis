@@ -59,7 +59,7 @@ reading order in [00](00_OVERVIEW.md) and the script in [15](15_DEMO_GUIDE.md).
 ## At a glance
 
 - **Orchestration:** LangGraph 2-phase pipeline (Phase A extraction → human gate → Phase B generation)
-- **LLM:** Ollama (local, on-prem; default `qwen2.5:7b`) with schema-validated structured output
+- **LLM:** Ollama (local, on-prem; default `llama3.1:8b`) with schema-validated structured output
 - **Pre-processing funnel:** document-type detection · section classifier · SHA-256 fingerprinting + diff · deterministic rule engine + LLM fallback
 - **Store:** SQLAlchemy (SQLite locally / PostgreSQL in Docker), append-only audit log
 - **API:** FastAPI · **Knowledge graph:** relational projection with GraphML export

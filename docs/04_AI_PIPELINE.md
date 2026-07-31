@@ -67,7 +67,7 @@ is least sure.
 
 ## Prompt / model design
 
-- Local LLM via Ollama, default `qwen2.5:7b`, swappable via `PRAXIS_LLM_*` env vars.
+- Local LLM via Ollama, default `llama3.1:8b`, swappable via `PRAXIS_LLM_*` env vars.
 - Prompts are structured to return JSON matching the obligation schema; validation failures
   trigger bounded retries rather than silent acceptance.
 - The LLM is given the *section text and paragraph reference*, never the whole document — a

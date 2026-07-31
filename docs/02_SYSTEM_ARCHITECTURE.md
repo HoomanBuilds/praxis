@@ -14,7 +14,7 @@ the LLM is an external-but-local dependency.
 | Integration adapters | Python (SMTP/IMAP/ICS/OAuth) | `backend/integrations/` | email, calendar, SSO, Slack, Jira, Drive, DocuSign |
 | Knowledge graph | Python projection | `backend/kg/graph.py` | on-demand graph + GraphML export |
 | Relational store | SQLAlchemy 2.x | `backend/db/` | models, CRUD, audit logging, session |
-| LLM runtime | Ollama (local) | external service | default `qwen2.5:7b`; no content leaves the host |
+| LLM runtime | Ollama (local) | external service | default `llama3.1:8b`; no content leaves the host |
 | Web UI | React + TS + Vite | `frontend/` | operator console, review gate, dashboard, settings |
 | Identity | Keycloak (Docker) | `docker-compose.yml` | demo realm `praxis`, OIDC for SSO |
 
@@ -47,7 +47,7 @@ the LLM is an external-but-local dependency.
             │                               │
    ┌────────▼─────────┐            ┌─────────▼──────────┐
    │ SQLite/Postgres   │            │ Ollama (local LLM) │
-   │ system of record  │            │ qwen2.5:7b         │
+   │ system of record  │            │ llama3.1:8b         │
    └───────────────────┘            └────────────────────┘
 ```
 
