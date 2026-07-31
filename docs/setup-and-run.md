@@ -102,6 +102,36 @@ All settings are environment variables with the `PRAXIS_` prefix and local-dev d
 | `PRAXIS_PARSE_QUALITY_MIN` | `0.70` | below → human-parse flag |
 | `PRAXIS_OBLIGATION_CONFIDENCE_MIN` | `0.65` | below → human-review flag |
 
+## Integrations
+
+Integrations live under **Settings → Integrations**. Tier 1 providers are real
+connections with a live test on connect; Tier 2 need your own external accounts; the
+SEBI SCORES reference is an honest manual field (no public API — never faked). What to
+provide, per integration:
+
+| Integration | What to get | Where |
+|---|---|---|
+| **Email (SMTP)** | SMTP host/port + a mailbox username/password (or app password) | Any real inbox — Gmail app password, or a free Mailtrap / SendGrid account |
+| **Slack** | One Incoming Webhook URL | Your Slack workspace → Apps → Incoming Webhooks |
+| **Calendar (.ics)** | Nothing | Already works — subscribe to the one-time feed URL shown at connect |
+| **SSO (Keycloak)** | Nothing for the demo | Realm ships pre-configured in `docker-compose.yml`; change vars only for a custom IdP |
+| **Jira** | Site URL + email + an API token | id.atlassian.com → Account Settings → Security → API tokens |
+| **Google Drive** | Google Cloud OAuth Client ID + Secret (Testing-mode consent screen) | console.cloud.google.com; authorized redirect = `http://localhost:8080/api/auth/drive/callback` |
+| **DocuSign** | Integration key, User ID, Account ID, RSA private key | developers.docusign.com → free sandbox account |
+| **SEBI SCORES** | Nothing | Manual — CO checks the SCORES portal and types the reference in |
+
+**Env-var mapping.** Credentials entered in the Settings UI are stored encrypted and take
+precedence; the `PRAXIS_*` variables below act as defaults/bootstrap. All of them are
+documented in `.env.example`:
+
+| Vars | Integration |
+|---|---|
+| `PRAXIS_INTEGRATION_ENCRYPTION_KEY` | All (credential encryption at rest) |
+| `PRAXIS_KEYCLOAK_*`, `PRAXIS_FRONTEND_URL`, `PRAXIS_SSO_REDIRECT_URI` | SSO |
+| `PRAXIS_DRIVE_OAUTH_CLIENT_ID` / `PRAXIS_DRIVE_OAUTH_CLIENT_SECRET` / `PRAXIS_DRIVE_OAUTH_REDIRECT_URI` | Google Drive |
+| `PRAXIS_DOCUSIGN_INTEGRATION_KEY` / `USER_ID` / `PRIVATE_KEY` / `ACCOUNT_ID` | DocuSign |
+| `PRAXIS_JWT_SECRET` | Auth tokens + SSO state cookie (change in production) |
+
 ## Repository layout
 
 ```
