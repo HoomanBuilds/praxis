@@ -25,14 +25,14 @@ const AGENTS = [
   ["Audit Report", "PDF + XLSX evidence packages"],
 ];
 
-const INTEGRATION_META: Record<string, { name: string; desc: string; tier: string }> = {
-  email: { name: "Email (SMTP)", desc: "Notify owners of new tasks and deadlines.", tier: "Tier 1 · real" },
-  slack: { name: "Chat Notifications", desc: "Channel/DM notifications for the compliance team — Slack (webhook).", tier: "Tier 1 · real" },
-  calendar: { name: "Calendar Sync", desc: "Live .ics feed of compliance deadlines — subscribe from Outlook or Google Calendar.", tier: "Tier 1 · real" },
-  sso: { name: "SSO (OIDC / Keycloak)", desc: "Enterprise authentication + RBAC via a demo Keycloak realm.", tier: "Tier 1 · real" },
-  jira: { name: "GRC / Ticketing", desc: "Sync obligations and tasks into your own Jira site.", tier: "Tier 2 · your account" },
-  drive: { name: "Document Management", desc: "Store evidence uploads in your Google Drive instead of local disk.", tier: "Tier 2 · your account" },
-  docusign: { name: "E-Signature", desc: "Attach signed board resolutions and policy documents via DocuSign sandbox.", tier: "Tier 2 · your account" },
+const INTEGRATION_META: Record<string, { name: string; desc: string }> = {
+  email: { name: "Email (SMTP)", desc: "Notify owners of new tasks and deadlines." },
+  slack: { name: "Chat Notifications", desc: "Channel/DM notifications for the compliance team — Slack (webhook)." },
+  calendar: { name: "Calendar Sync", desc: "Live .ics feed of compliance deadlines — subscribe from Outlook or Google Calendar." },
+  sso: { name: "SSO (OIDC / Keycloak)", desc: "Enterprise authentication + RBAC via a demo Keycloak realm." },
+  jira: { name: "GRC / Ticketing", desc: "Sync obligations and tasks into your own Jira site." },
+  drive: { name: "Document Management", desc: "Store evidence uploads in your Google Drive instead of local disk." },
+  docusign: { name: "E-Signature", desc: "Attach signed board resolutions and policy documents via DocuSign sandbox." },
 };
 
 const SCORES_DESC = "Track investor grievance redress status against SCORES filings. SEBI has no public SCORES API — the reference is entered manually by your compliance officer.";
@@ -226,7 +226,6 @@ function IntegrationsPanel() {
                 <div className="min-w-0">
                   <div className="text-sm font-medium flex items-center gap-2">
                     {meta.name}
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{meta.tier}</span>
                   </div>
                   <div className="text-xs text-muted-foreground">{meta.desc}</div>
                   {(integ?.status === "error" || (integ?.configured_as && integ.status === "connected")) && (
@@ -260,8 +259,8 @@ function IntegrationsPanel() {
           })}
         </div>
         <p className="text-[11px] text-muted-foreground mt-3">
-          Tier 1 (email, chat, calendar, SSO) are real connections with live test-on-connect. Tier 2 (Jira, Drive, DocuSign)
-          need your own external accounts. SEBI SCORES has no public API — tracked manually, never faked. Credentials are
+          Every integration is a production connection with a live test-on-connect. Jira, Google Drive and DocuSign
+          connect to your own accounts. SEBI SCORES has no public API — tracked manually, never faked. Credentials are
           encrypted at rest and never exposed.
         </p>
       </CardContent>
