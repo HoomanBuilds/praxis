@@ -1,0 +1,31 @@
+flowchart TB
+    subgraph FE["Frontend (React + TS, Vite) :5173"]
+        P[Pages: Dashboard / Documents / Obligations / Review / Tasks / Calendar / Risk Register / Departments / Knowledge Graph / Audit / Settings]
+        Q[React Query + useAreas hook]
+    end
+
+    subgraph BE["Backend (FastAPI) :8080"]
+        API[API routes: documents / obligations / tasks / dashboard / audit / integrations / knowledge-graph]
+        ORCH[services.process_document - LangGraph]
+        FUNNEL[preprocessing: document_type -> classifier -> fingerprint -> rule_extractor]
+        INT[integrations: email / calendar / sso / slack / jira / drive / docusign]
+        KG[kg/graph.py - projection + GraphML]
+        DB[db: models / crud / session / audit]
+    end
+
+    LLM[Ollama - local LLM qwen2.5:7b]
+    STORE[(SQLite / Postgres - system of record)]
+    IDP[Keycloak - realm praxis]
+
+    P -->|/api proxy| API
+    API --> ORCH
+    ORCH --> FUNNEL
+    ORCH --> LLM
+    FUNNEL --> DB
+    ORCH --> DB
+    API --> INT
+    INT --> DB
+    KG --> DB
+    API --> KG
+    API --> IDP
+    DB --> STORE

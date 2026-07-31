@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph A["Phase A - Extraction"]
+        IN[Ingest PDF] --> PARSE[Parse + OCR fallback]
+        PARSE --> DT[1. document_type]
+        DT --> CL[2. section classifier]
+        CL --> FP[3. fingerprint diff]
+        FP --> RE{4. rule extractor}
+        RE -->|deterministic| DET[Obligations - deterministic]
+        RE -->|LLM sections ~10-20%| LLM[LLM via Ollama]
+        LLM --> OBL[Obligations - llm]
+        DET --> OBL
+    end
+
+    OBL --> GATE{Review gate - human}
+    GATE -->|approve / edit| AP[Approved obligations]
+    GATE -->|reject| REJ[Rejected - no downstream]
+
+    subgraph B["Phase B - Generation"]
+        AP --> RG[Rule generation - LLM]
+        AP --> WM[Workflow mapping - deterministic]
+        AP --> EM[Evidence mapping - deterministic]
+        RG --> R[(rules)]
+        WM --> T[(tasks)]
+        EM --> E[(evidence_requirements)]
+    end
+
+    R --> AUD[append-only audit_log]
+    T --> AUD
+    E --> AUD
+    AP --> AUD
+    IN --> AUD
+
+    style GATE fill:#fff3cd,stroke:#856404
+    style LLM fill:#d1ecf1,stroke:#0c5460
+    style AUD fill:#f8d7da,stroke:#721c24
