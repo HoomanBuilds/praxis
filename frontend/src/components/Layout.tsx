@@ -68,12 +68,12 @@ export function Layout({ children }: { children: ReactNode }) {
       <CopilotSidebar />
       <div className="flex h-[calc(100vh-2rem)] overflow-hidden rounded-3xl border bg-card shadow-[0_10px_50px_-16px_hsl(224_40%_20%/0.16)]">
         {/* Sidebar (inside the shell) */}
-        <aside className="w-60 shrink-0 border-r flex flex-col px-3 py-4 overflow-y-auto">
-          <div className="px-2 mb-6 flex items-center gap-2">
+        <aside className="w-60 shrink-0 border-r flex flex-col px-3 py-4">
+          <div className="px-2 mb-6 flex items-center gap-2 shrink-0">
             <Logo className="h-7 w-7 text-foreground" />
             <span className="text-lg font-semibold tracking-tight lowercase">praxis</span>
           </div>
-          <nav className="space-y-4 flex-1">
+          <nav className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-1">
             {navGroups.map((group) => (
               <div key={group.heading}>
                 <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">{group.heading}</div>
