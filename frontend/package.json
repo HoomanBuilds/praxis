@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "build": "npm run lint:vocab && tsc -b && vite build",
+    "preview": "vite preview",
+    "lint:vocab": "node scripts/check-vocabulary.mjs && node scripts/check-enum-coverage.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.23",

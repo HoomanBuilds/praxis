@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, titleCase } from "@/lib/utils";
 import type { GraphEdge, GraphNode } from "@/lib/types";
+import { useVocab } from "@/hooks/useVocab";
 import { X, ArrowRight } from "lucide-react";
 
 const COLORS: Record<string, string> = {
@@ -24,20 +25,37 @@ const RISK_COLORS: Record<string, string> = {
   high: "#dc2626", critical: "#7f1d1d",
 };
 const HIDDEN_KEYS = new Set(["id", "type", "label", "x", "y", "vx", "vy", "index", "fx", "fy"]);
+
+/** Node properties a non-technical user can act on, and how to name them. */
+const PROPERTY_LABELS: Record<string, string> = {
+  confidence: "Assurance",
+  status: "Status",
+  functional_area: "Department",
+  level: "Risk level",
+  identifier: "Reference",
+  deadline: "Due",
+  owner: "Owner",
+};
 type SimNode = GraphNode & SimulationNodeDatum;
 const W = 820, H = 620;
 
-function layout(nodes: GraphNode[], edges: GraphEdge[]) {
+// Simple view (business mode default): the operational path a compliance officer
+// actually walks — Regulation → Obligation → Department → Task → Evidence → Rule.
+// Same graph data and the same D3 simulation, just fewer node types (owners and risk
+// signals stay in the advanced view) so the map reads clearly on first load.
+const SIMPLE_TYPES = new Set(["regulation", "obligation", "department", "task", "evidence", "rule"]);
+
+function layout(nodes: GraphNode[], edges: GraphEdge[], spacious = false) {
   const simNodes: SimNode[] = nodes.map((n) => ({ ...n }));
   const byId = new Map(simNodes.map((n) => [n.id, n]));
   const links = edges.filter((e) => byId.has(e.source) && byId.has(e.target)).map((e) => ({ ...e }));
   forceSimulation(simNodes)
-    .force("link", forceLink(links as any).id((d: any) => d.id).distance(58).strength(0.35))
-    .force("charge", forceManyBody().strength(-190))
+    .force("link", forceLink(links as any).id((d: any) => d.id).distance(spacious ? 95 : 58).strength(0.35))
+    .force("charge", forceManyBody().strength(spacious ? -340 : -190))
     .force("center", forceCenter(W / 2, H / 2))
     .force("x", forceX(W / 2).strength(0.05))
     .force("y", forceY(H / 2).strength(0.05))
-    .force("collide", forceCollide(22))
+    .force("collide", forceCollide(spacious ? 34 : 22))
     .stop()
     .tick(340);
   return byId as Map<string, SimNode>;
@@ -45,11 +63,28 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]) {
 
 export default function KnowledgeGraphPage() {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({ queryKey: ["kg"], queryFn: () => api.knowledgeGraph() });
+  const { data: raw, isLoading } = useQuery({ queryKey: ["kg"], queryFn: () => api.knowledgeGraph() });
+  const vocab = useVocab();
+  const { isBusiness } = vocab;
   const [selected, setSelected] = useState<string | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  // Business mode opens on the simple path view; engineering mode opens on the full
+  // graph. Either way the user can flip it here without changing the global mode.
+  const [simple, setSimple] = useState(isBusiness);
 
-  const positioned = useMemo(() => (data ? layout(data.nodes, data.edges) : null), [data]);
+  // Simple view is a filter over the same payload — no second graph component.
+  const data = useMemo(() => {
+    if (!raw) return raw;
+    if (!simple) return raw;
+    const nodes = raw.nodes.filter((n) => SIMPLE_TYPES.has(n.type));
+    const keep = new Set(nodes.map((n) => n.id));
+    const edges = raw.edges.filter((e) => keep.has(e.source) && keep.has(e.target));
+    const nodes_by_type: Record<string, number> = {};
+    for (const n of nodes) nodes_by_type[n.type] = (nodes_by_type[n.type] ?? 0) + 1;
+    return { ...raw, nodes, edges, stats: { ...raw.stats, node_count: nodes.length, edge_count: edges.length, nodes_by_type } };
+  }, [raw, simple]);
+
+  const positioned = useMemo(() => (data ? layout(data.nodes, data.edges, simple) : null), [data, simple]);
 
   const adjacency = useMemo(() => {
     const m = new Map<string, { edge: GraphEdge; other: string; dir: "out" | "in" }[]>();
@@ -74,23 +109,30 @@ export default function KnowledgeGraphPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold">Compliance Knowledge Graph</h1>
-        <p className="text-sm text-muted-foreground">Regulation → obligation → department → task → owner / evidence, with cross-document supersession. Click any node to inspect.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">{vocab.t("kg.title")}</h1>
+          <p className="text-sm text-muted-foreground">
+            {vocab.t(simple ? "kg.subtitle.simple" : "kg.subtitle.full")}
+          </p>
+        </div>
+        <Button size="sm" variant="outline" className="shrink-0" onClick={() => { setSelected(null); setSimple((s) => !s); }}>
+          {simple ? "Advanced view" : "Simple view"}
+        </Button>
       </div>
 
       {data && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat label="Nodes" value={data.stats.node_count} />
-          <Stat label="Relationships" value={data.stats.edge_count} />
-          <Stat label="Node types" value={Object.keys(data.stats.nodes_by_type).length} />
+          <Stat label={vocab.t("kg.count_items")} value={data.stats.node_count} />
+          <Stat label={vocab.t("kg.count_links")} value={data.stats.edge_count} />
+          <Stat label={vocab.t("kg.count_types")} value={Object.keys(data.stats.nodes_by_type).length} />
           <Stat label="Cross-doc supersessions" value={data.stats.cross_document_modifies} />
         </div>
       )}
 
       {/* type filters */}
       <div className="flex flex-wrap gap-2">
-        {Object.entries(COLORS).map(([t, c]) => (
+        {Object.entries(COLORS).filter(([t]) => !simple || SIMPLE_TYPES.has(t)).map(([t, c]) => (
           <button
             key={t}
             onClick={() => toggleType(t)}
@@ -98,7 +140,7 @@ export default function KnowledgeGraphPage() {
               hidden.has(t) ? "opacity-40" : "")}
           >
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />
-            {titleCase(t)}
+            {vocab.e("kg.node", t)}
             {data?.stats.nodes_by_type[t] ? <span className="text-muted-foreground">{data.stats.nodes_by_type[t]}</span> : null}
           </button>
         ))}
@@ -110,7 +152,7 @@ export default function KnowledgeGraphPage() {
             {isLoading ? (
               <div className="p-8 text-sm text-muted-foreground">Loading…</div>
             ) : !data?.nodes.length ? (
-              <div className="p-8 text-sm text-muted-foreground">Graph is empty. Process a document and generate rules/tasks first.</div>
+              <div className="p-8 text-sm text-muted-foreground">{vocab.t("kg.empty")}</div>
             ) : positioned ? (
               <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[620px]" onClick={() => setSelected(null)}>
                 {data.edges.map((e, i) => {
@@ -157,7 +199,7 @@ export default function KnowledgeGraphPage() {
             {!selNode ? (
               <div className="text-sm text-muted-foreground">
                 <div className="font-medium text-foreground mb-1">Inspector</div>
-                Select a node to see its origin, properties and relationships.
+                {vocab.t("kg.inspector_empty")}
               </div>
             ) : (
               <NodeInspector
@@ -186,14 +228,21 @@ function NodeInspector({ node, connections, labelOf, typeOf, onSelect, onClose, 
   onClose: () => void;
   onOpenDoc: (docId: string) => void;
 }) {
+  const vocab = useVocab();
   const props = Object.entries(node).filter(
-    ([k, v]) => !HIDDEN_KEYS.has(k) && (typeof v === "string" || typeof v === "number" || typeof v === "boolean")
+    ([k, v]) =>
+      !HIDDEN_KEYS.has(k) &&
+      (typeof v === "string" || typeof v === "number" || typeof v === "boolean") &&
+      // Node properties are raw backend field names and an open set. Rather than ship a
+      // partial dictionary that leaks the tail, business mode shows only the fields that
+      // mean something to a compliance officer; engineering mode shows everything.
+      (!vocab.isBusiness || k in PROPERTY_LABELS),
   );
   return (
     <div className="animate-in">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <Badge variant="outline" className="mb-1.5" style={{ color: COLORS[node.type] }}>{titleCase(node.type)}</Badge>
+          <Badge variant="outline" className="mb-1.5" style={{ color: COLORS[node.type] }}>{vocab.e("kg.node", node.type)}</Badge>
           <div className="text-sm font-medium">{node.label}</div>
         </div>
         <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
@@ -209,7 +258,7 @@ function NodeInspector({ node, connections, labelOf, typeOf, onSelect, onClose, 
         <div className="mt-4 space-y-1.5">
           {props.map(([k, v]) => (
             <div key={k} className="text-xs">
-              <span className="text-muted-foreground">{titleCase(k)}: </span>
+              <span className="text-muted-foreground">{PROPERTY_LABELS[k] ?? titleCase(k)}: </span>
               <span className="break-words">{k === "confidence" ? `${(Number(v) * 100).toFixed(0)}%` : String(v)}</span>
             </div>
           ))}
@@ -226,8 +275,8 @@ function NodeInspector({ node, connections, labelOf, typeOf, onSelect, onClose, 
               className="w-full text-left rounded-md border px-2 py-1.5 hover:border-primary/40 transition-colors">
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <span>{c.dir === "out" ? "→" : "←"}</span>
-                <span>{c.edge.type}</span>
-                <span className="ml-auto" style={{ color: COLORS[typeOf(c.other)] }}>{titleCase(typeOf(c.other))}</span>
+                <span title={c.edge.type}>{vocab.e("kg.edge", c.edge.type)}</span>
+                <span className="ml-auto" style={{ color: COLORS[typeOf(c.other)] }}>{vocab.e("kg.node", typeOf(c.other))}</span>
               </div>
               <div className="text-xs truncate">{labelOf(c.other)}</div>
             </button>

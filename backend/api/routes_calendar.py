@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from db import models
 from db.session import get_db
+from api.deps import require_api_key
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
@@ -21,6 +22,9 @@ def calendar_feed(
     The token is the secret stored (encrypted) when the Calendar integration was
     connected; without it the feed 403s so firm deadlines stay private.
     """
+    from integrations import notify
+    notify.check_overdue_and_notify()
+
     from integrations.crypto import decrypt_config
 
     row = session.scalar(select(models.Integration).where(models.Integration.type == "calendar"))
@@ -41,8 +45,12 @@ def calendar_feed(
 def get_calendar(
     from_date: str | None = Query(None, alias="from"),
     to_date: str | None = Query(None, alias="to"),
+    _actor: str = Depends(require_api_key),
     session: Session = Depends(get_db),
 ):
+    from integrations import notify
+    notify.check_overdue_and_notify()
+
     tasks = list(session.scalars(select(models.Task).where(models.Task.deadline.isnot(None))))
     obligations = list(session.scalars(select(models.Obligation).where(models.Obligation.deadline_hint.isnot(None))))
 

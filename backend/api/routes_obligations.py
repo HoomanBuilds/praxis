@@ -85,18 +85,19 @@ def explain(obligation_id: str, session: Session = Depends(get_db)):
 
     if ob.extraction_method == "deterministic":
         why_method = (
-            "Handled by the deterministic regex rule engine: the source states a mandatory duty "
-            "and contains no open-ended/qualitative language, so no language model was invoked."
+            "PRAXIS identified this obligation because the source contains a mandatory "
+            "compliance requirement."
         )
     elif qual:
         why_method = (
-            f"Routed to the local language model because the section contains qualitative language "
-            f"(\"{qual.group(0)}\") that requires judgement rather than a fixed rule."
+            f"PRAXIS identified this obligation through analytical review: the source uses "
+            f"qualitative language (\"{qual.group(0)}\") that calls for judgement, so a "
+            "compliance specialist should confirm the exact requirement."
         )
     else:
         why_method = (
-            "Routed to the local language model because deterministic rules could not cleanly "
-            "resolve the obligation from the section."
+            "PRAXIS identified this obligation through analytical review of the source text, "
+            "because the requirement could not be resolved from a fixed rule alone."
         )
 
     factors = []

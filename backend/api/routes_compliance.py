@@ -190,17 +190,74 @@ def risk_register(
     status: str | None = Query(None),
     session: Session = Depends(get_db),
 ):
-    """Obligations with a computed risk level — same scoring function as the
-    knowledge graph, so risk badges stay consistent between the two views."""
+    """Obligations with a computed risk level — incorporating evidence gaps, overdue tasks,
+    supersedence, and stale review signals (§Part J)."""
+    from datetime import timedelta
+
+    today_str = datetime.now(timezone.utc).date().isoformat()
+    thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+
+    # Pre-build look-up sets from related tables (one pass each, avoids N+1 queries)
+    # obligations with at least one evidence requirement that has no upload
+    evidence_rows = session.execute(
+        select(models.EvidenceRequirement.obligation_id, models.EvidenceRequirement.uploaded_at)
+    ).all()
+    ev_by_ob: dict[str, list] = {}
+    for ob_id, upl in evidence_rows:
+        ev_by_ob.setdefault(ob_id, []).append(upl)
+
+    # tasks per obligation — check for overdue
+    task_rows = session.execute(
+        select(models.Task.obligation_id, models.Task.deadline, models.Task.status)
+    ).all()
+    overdue_ob_ids: set[str] = set()
+    for ob_id, deadline, tstatus in task_rows:
+        if deadline and tstatus != "completed" and str(deadline) < today_str:
+            overdue_ob_ids.add(ob_id)
+
     out = []
     for o in session.scalars(select(models.Obligation).order_by(models.Obligation.identifier)):
         if functional_area and o.functional_area != functional_area:
             continue
         if status and o.status != status:
             continue
-        level, label = kg_graph._risk_score(o)
+
+        # Compute signals
+        ev_list = ev_by_ob.get(o.id, [])
+        evidence_missing = bool(ev_list) and all(upl is None for upl in ev_list)
+        task_overdue = o.id in overdue_ob_ids
+        is_superseded = o.modification_type == "supersedes"
+        # Stale review: pending_review and no update for 30 days
+        stale_review = (
+            o.status == "pending_review"
+            and hasattr(o, "updated_at")
+            and o.updated_at is not None
+            and o.updated_at.isoformat() < thirty_days_ago
+        )
+
+        level, label = kg_graph._risk_score(
+            o,
+            evidence_missing=evidence_missing,
+            task_overdue=task_overdue,
+            is_superseded=is_superseded,
+            stale_review=stale_review,
+        )
         if risk_level and level != risk_level:
             continue
+
+        # Build human-readable signals list for tooltip / expandable row
+        signals: list[str] = []
+        if evidence_missing:
+            signals.append("Evidence missing")
+        if task_overdue:
+            signals.append("Task overdue")
+        if is_superseded:
+            signals.append("Circular superseded")
+        if stale_review:
+            signals.append("Pending review >30 days")
+        if o.needs_review:
+            signals.append("Flagged for review")
+
         out.append({
             "id": o.id,
             "identifier": o.identifier,
@@ -211,6 +268,7 @@ def risk_register(
             "needs_review": o.needs_review,
             "risk_level": level,
             "risk_label": label,
+            "risk_signals": signals,
         })
     return out
 

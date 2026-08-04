@@ -17,6 +17,8 @@ pytesseract>=0.3.10
 opencv-python-headless>=4.9.0
 pillow>=10.0.0
 beautifulsoup4>=4.12.0
+requests>=2.31.0
+
 
 # --- API + queue + DB ---
 fastapi>=0.115.0
@@ -42,6 +44,7 @@ rich>=13.7.0
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 authlib>=1.3.0   # OIDC (SSO/Keycloak) authorization-code flow — the one integration dep
+ldap3>=2.9.1
 
 # --- Tests ---
 pytest>=8.0.0

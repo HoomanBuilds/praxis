@@ -81,6 +81,33 @@ _AREA_KEYWORDS: list[tuple[FunctionalArea, tuple[str, ...]]] = [
     (FunctionalArea.CLIENT_SERVICES, ("grievance", "complaint", "scores", "investor")),
 ]
 
+# Fragment detection — descriptions that look like they were extracted from a bare list
+# marker or are too short to be real obligations.
+_FRAGMENT_MARKER_RE = re.compile(
+    r"^(?:[a-z]{1,3}[.)]|\(?[ivxlcdm]+\)|[•\-\u2013*])[\s]+", re.IGNORECASE
+)
+_FRAGMENT_MIN_CHARS = 20
+_FRAGMENT_MIN_WORDS = 5
+
+
+def _is_fragment(description: str) -> bool:
+    """Return True if the description looks like an orphaned list-marker fragment.
+
+    Fragments arise when the PDF text layer has an un-merged bullet/sub-item that
+    slips through the section splitter. We catch them by three heuristics:
+    1. The description starts with a bare list marker ("a)", "(iii)", "•").
+    2. The description is below a minimum character count.
+    3. The description has fewer words than the minimum.
+    """
+    stripped = description.strip()
+    if _FRAGMENT_MARKER_RE.match(stripped):
+        return True
+    if len(stripped) < _FRAGMENT_MIN_CHARS:
+        return True
+    if len(stripped.split()) < _FRAGMENT_MIN_WORDS:
+        return True
+    return False
+
 
 def _quote_in_text(quote: str, text: str) -> bool:
     return bool(quote) and quote.strip().lower()[:60] in text.lower()
@@ -226,6 +253,10 @@ def _make_obligation(
 ) -> Obligation:
     confidence = _calibrate_confidence(model_conf, source_text, quote_matched, functional_area)
     needs_review = confidence < settings.obligation_confidence_min
+    # Fragment check: flag short / marker-started extractions regardless of confidence.
+    if _is_fragment(description):
+        needs_review = True
+        confidence = round(max(0.0, confidence - 0.20), 3)  # additional penalty
     linked_prior = _check_prior_obligation(description)
     if linked_prior:
         modification_type = ModificationType.MODIFIES

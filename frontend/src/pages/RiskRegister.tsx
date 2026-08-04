@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { OBLIGATION_STATUSES, RISK_LEVELS } from "@/lib/constants";
 import { useAreas } from "@/hooks/useAreas";
+import { useVocab } from "@/hooks/useVocab";
 import { titleCase } from "@/lib/utils";
-import { Shield } from "lucide-react";
+import { Shield, AlertCircle } from "lucide-react";
+
 
 const RISK_BADGE: Record<string, "default" | "muted" | "outline"> = {
   critical: "default",
@@ -20,6 +22,7 @@ const RISK_BADGE: Record<string, "default" | "muted" | "outline"> = {
 export default function RiskRegister() {
   const navigate = useNavigate();
   const areas = useAreas();
+  const { t } = useVocab();
   const [area, setArea] = useState("all");
   const [status, setStatus] = useState("all");
   const [riskLevel, setRiskLevel] = useState("all");
@@ -82,7 +85,7 @@ export default function RiskRegister() {
                 <th className="py-3 px-4 font-medium">Obligation</th>
                 <th className="py-3 px-4 font-medium">Department</th>
                 <th className="py-3 px-4 font-medium">Risk Level</th>
-                <th className="py-3 px-4 font-medium">Confidence</th>
+                <th className="py-3 px-4 font-medium">{t("obligation.confidence")}</th>
                 <th className="py-3 px-4 font-medium">Status</th>
               </tr>
             </thead>
@@ -90,13 +93,27 @@ export default function RiskRegister() {
               {items.map((r) => (
                 <tr key={r.id} className="hover:bg-accent/40 cursor-pointer" onClick={() => navigate(`/obligations/${r.id}`)}>
                   <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">{r.identifier}</td>
-                  <td className="py-3 px-4 max-w-md"><div className="truncate">{r.description}</div></td>
+                  <td className="py-3 px-4 max-w-sm">
+                    <div className="truncate">{r.description}</div>
+                    {(r as any).risk_signals?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(r as any).risk_signals.map((sig: string) => (
+                          <span key={sig} className="inline-flex items-center gap-0.5 text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5">
+                            <AlertCircle className="h-2.5 w-2.5" />{sig}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
                   <td className="py-3 px-4"><Badge variant="outline">{titleCase(r.functional_area)}</Badge></td>
-                  <td className="py-3 px-4"><Badge variant={RISK_BADGE[r.risk_level] ?? "muted"}>{titleCase(r.risk_level)}</Badge></td>
+                  <td className="py-3 px-4" title={(r as any).risk_label}>
+                    <Badge variant={RISK_BADGE[r.risk_level] ?? "muted"}>{titleCase(r.risk_level)}</Badge>
+                  </td>
                   <td className="py-3 px-4">{(r.confidence * 100).toFixed(0)}%</td>
                   <td className="py-3 px-4"><Badge variant={r.status === "approved" ? "success" : r.status === "rejected" ? "destructive" : r.status === "pending_review" ? "warning" : "muted"}>{titleCase(r.status)}</Badge></td>
                 </tr>
               ))}
+
               {items.length === 0 && (
                 <tr><td colSpan={6} className="py-8 px-4 text-center text-muted-foreground">No obligations match these filters.</td></tr>
               )}

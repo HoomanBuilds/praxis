@@ -17,6 +17,15 @@ from schemas import CrossReference, ParsedDocument, ParsedSection
 # Numbered paragraph start, e.g. "2. ", at the beginning of a line.
 _PARA_RE = re.compile(r"(?m)^\s*(\d{1,2})\.\s+")
 
+# ---- Text-cleanup regexes (applied before section splitting) ----
+# Running page headers/footers: "Page 3 of 15" or "- 3 -"
+_PAGE_HEADER_RE = re.compile(r"(?im)^[ \t]*(?:page\s+\d+\s+of\s+\d+|[-–]\s*\d+\s*[-–])[ \t]*$")
+# Date-only lines typical in SEBI footer stamps: "January 15, 2025"
+_DATE_LINE_RE = re.compile(r"(?im)^[ \t]*[A-Z][a-z]+\s+\d{1,2},?\s+\d{4}[ \t]*$")
+# Orphaned list-marker lines: a line that is ONLY a marker with no following text.
+# Matches lines like "a)", "(i)", "iii.", "•", "–" standing alone.
+_ORPHAN_MARKER_RE = re.compile(r"(?im)^[ \t]*(?:[a-z]{1,3}[.)][  \t]*|\(?[ivxlcdm]+\)[  \t]*|[•\-–*][ \t]*)$")
+
 _XREF_PATTERNS: list[tuple[str, str]] = [
     (r"SEBI/[A-Z0-9\-]+(?:/[A-Z0-9\-]+)*/\d{4}/\d+", "circular"),
     (r"SEBI\s*\([^)]+\)\s*Regulations,?\s*\d{4}", "regulation"),
@@ -92,8 +101,32 @@ def _looks_like_heading(line: str) -> bool:
     return bool(line) and len(words) <= 9 and not line.rstrip().endswith(".") and line[0].isupper()
 
 
+def clean_text(text: str) -> str:
+    """Pre-processing cleanup pass applied to raw extracted text (§M).
+
+    Removes:
+    * Running page headers / footers ("Page N of M", "- N -").
+    * Isolated date-stamp lines common in SEBI footer blocks.
+    * Orphaned list-marker lines ("a)", "iii.", "•" with no body text).
+
+    Then collapses runs of blank lines to a single blank line so that
+    paragraph detection remains stable.
+    """
+    text = _PAGE_HEADER_RE.sub("", text)
+    text = _DATE_LINE_RE.sub("", text)
+    text = _ORPHAN_MARKER_RE.sub("", text)
+    # Collapse 3+ blank lines → 2 blank lines (preserve paragraph breaks).
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text
+
+
 def split_sections(text: str) -> list[ParsedSection]:
-    """Split into numbered paragraphs, separating a short title line from its body."""
+    """Split into numbered paragraphs, separating a short title line from its body.
+
+    Applies ``clean_text`` first so that page-headers and orphaned list-markers
+    do not pollute section bodies or confuse the heading detector.
+    """
+    text = clean_text(text)
     matches = list(_PARA_RE.finditer(text))
     sections: list[ParsedSection] = []
     if not matches:

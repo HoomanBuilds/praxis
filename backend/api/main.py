@@ -61,6 +61,11 @@ async def lifespan(app: FastAPI):
         notify.start_overdue_sweep()
     except Exception as exc:
         print(f"[api] overdue sweep skipped: {exc}")
+    try:
+        from ingestion.sebi_scraper import start_sebi_monitor
+        start_sebi_monitor()
+    except Exception as exc:
+        print(f"[api] SEBI monitor skipped: {exc}")
     yield
 
 
@@ -87,7 +92,7 @@ app.include_router(routes_copilot.router, dependencies=[Depends(require_api_key)
 app.include_router(routes_auth.router)
 app.include_router(routes_sso.router)
 app.include_router(routes_users.router, dependencies=[Depends(require_api_key)])
-app.include_router(routes_calendar.router, dependencies=[Depends(require_api_key)])
+app.include_router(routes_calendar.router)
 app.include_router(routes_watch.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_notifications.router, dependencies=[Depends(require_api_key)])
 app.include_router(routes_tasks.router, dependencies=[Depends(require_api_key)])

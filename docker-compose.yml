@@ -119,6 +119,21 @@ services:
       timeout: 5s
       retries: 30
 
+  # LDAP — demo OpenLDAP server (Tier 3). Validated against THIS test IdP, not a live AD.
+  openldap:
+    image: osixia/openldap:1.5.0
+    ports:
+      - "389:389"
+    environment:
+      LDAP_ORGANISATION: "PRAXIS"
+      LDAP_DOMAIN: "praxis.local"
+      LDAP_ADMIN_PASSWORD: "admin"
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost:389", "-b", "dc=praxis,dc=local", "-s", "base"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   pgdata:
   redisdata:

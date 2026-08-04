@@ -9,6 +9,7 @@ Keycloak realm shipped in docker-compose, not a firm's live enterprise IdP.
 from __future__ import annotations
 
 import json
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -114,10 +115,11 @@ def sso_callback(code: str, state: str, request: Request):
             session.flush()
         token = create_access_token(user.id, user.email, user.role)
 
-    return_url = (
-        f"{settings.frontend_url}/login?sso_token={token}"
-        f"&sso_user={json.dumps({'id': user.id, 'email': user.email, 'name': user.name, 'role': user.role})}"
+    sso_user = quote(
+        json.dumps({"id": user.id, "email": user.email, "name": user.name, "role": user.role}),
+        safe="",
     )
+    return_url = f"{settings.frontend_url}/login?sso_token={token}&sso_user={sso_user}"
     resp = RedirectResponse(return_url)
     resp.delete_cookie(_state_cookie_name())
     return resp

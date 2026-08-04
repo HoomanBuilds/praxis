@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useVocab } from "@/hooks/useVocab";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
@@ -12,6 +13,7 @@ import { AlertTriangle, ListChecks } from "lucide-react";
 
 export default function Obligations() {
   const navigate = useNavigate();
+  const { t } = useVocab();
   const { data: obligations } = useQuery({ queryKey: ["obligations", "all"], queryFn: () => api.listObligations({}) });
   const areas = useAreas();
   const [area, setArea] = useState("all");
@@ -32,7 +34,7 @@ export default function Obligations() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-xl font-semibold">Obligations</h1>
-          <p className="text-sm text-muted-foreground">Every extracted compliance obligation across all regulations — the work surface for compliance teams.</p>
+          <p className="text-sm text-muted-foreground">{t("obligations.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <select value={area} onChange={(e) => setArea(e.target.value)} className="h-9 rounded-lg border bg-card px-3">
@@ -57,8 +59,8 @@ export default function Obligations() {
                 <th className="py-3 px-4 font-medium">ID</th>
                 <th className="py-3 px-4 font-medium">Obligation</th>
                 <th className="py-3 px-4 font-medium">Department</th>
-                <th className="py-3 px-4 font-medium">Method</th>
-                <th className="py-3 px-4 font-medium">Confidence</th>
+                <th className="py-3 px-4 font-medium">{t("obligation.method")}</th>
+                <th className="py-3 px-4 font-medium">{t("obligation.confidence")}</th>
                 <th className="py-3 px-4 font-medium">Status</th>
               </tr>
             </thead>

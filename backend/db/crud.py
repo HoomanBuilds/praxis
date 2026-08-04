@@ -318,7 +318,10 @@ def create_rule(
 
 
 def create_task(
-    session: Session, task: schemas.WorkflowTask, actor: str = "workflow_mapping_agent"
+    session: Session,
+    task: schemas.WorkflowTask,
+    actor: str = "workflow_mapping_agent",
+    background_tasks=None,
 ) -> models.Task:
     row = models.Task(
         id=task.task_id,
@@ -345,6 +348,11 @@ def create_task(
         actor=actor,
         after={"owner": row.primary_owner, "deadline": str(row.deadline)},
     )
+    from integrations import notify
+    if background_tasks is not None:
+        background_tasks.add_task(notify.notify_task_created, row)
+    else:
+        notify.notify_task_created(row)
     return row
 
 

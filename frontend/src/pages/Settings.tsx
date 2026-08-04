@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabList, TabTrigger, TabContent } from "@/components/ui/tabs";
 import { Cpu, Boxes, Plug, ShieldCheck, Check, Copy, Loader2, AlertTriangle } from "lucide-react";
+import { useVocab } from "@/hooks/useVocab";
+import { useUIMode } from "@/context/UIModeContext";
 import FirmProfile from "@/pages/FirmProfile";
 import Departments from "@/pages/Departments";
 import Users from "@/pages/Users";
@@ -15,14 +17,25 @@ import ApiKeys from "@/pages/ApiKeys";
 import DataRetention from "@/pages/DataRetention";
 import type { Integration, IntegrationField } from "@/lib/types";
 
-const AGENTS = [
-  ["Document Parser", "pdfplumber + OCR fallback, structure & cross-references"],
-  ["Regulation Extraction", "RAG context, intermediary class, obligation mode"],
-  ["Obligation Extraction", "hybrid regex / LLM, provenance, confidence"],
-  ["Rule Generation", "5 rule types, qualitative handling"],
-  ["Workflow Mapping", "owners, deadlines, dependency chains"],
-  ["Evidence Mapping", "evidence templates per rule type"],
-  ["Audit Report", "PDF + XLSX evidence packages"],
+/**
+ * What PRAXIS does for the user, in two registers. Business copy describes the outcome;
+ * engineering copy names the implementation. Same seven capabilities either way.
+ */
+const AGENTS: [string, string, string, string][] = [
+  ["Circular Processing", "Reads SEBI circulars, including scanned ones, and keeps the structure intact",
+   "Document Parser", "pdfplumber + OCR fallback, structure & cross-references"],
+  ["Regulation Analysis", "Works out which intermediary classes and rules a circular applies to",
+   "Regulation Extraction", "RAG context, intermediary class, obligation mode"],
+  ["Obligation Detection", "Pulls out each individual duty, with a link back to its exact source text",
+   "Obligation Extraction", "hybrid rule engine / LLM, provenance, confidence"],
+  ["Rule Creation", "Turns each obligation into a checkable compliance rule",
+   "Rule Generation", "5 rule types, qualitative handling"],
+  ["Task Assignment", "Assigns owners, deadlines and dependencies to the right department",
+   "Workflow Mapping", "owners, deadlines, dependency chains"],
+  ["Evidence Requirements", "Determines what proof each rule needs, and who collects it",
+   "Evidence Mapping", "evidence templates per rule type"],
+  ["Audit Reporting", "Produces examination-ready audit packages on demand",
+   "Audit Report", "PDF + XLSX evidence packages"],
 ];
 
 const INTEGRATION_META: Record<string, { name: string; desc: string }> = {
@@ -33,12 +46,13 @@ const INTEGRATION_META: Record<string, { name: string; desc: string }> = {
   jira: { name: "GRC / Ticketing", desc: "Sync obligations and tasks into your own Jira site." },
   drive: { name: "Document Management", desc: "Store evidence uploads in your Google Drive instead of local disk." },
   docusign: { name: "E-Signature", desc: "Attach signed board resolutions and policy documents via DocuSign sandbox." },
+  ldap: { name: "LDAP / Active Directory", desc: "Enterprise directory service sync validated against a local OpenLDAP test container." },
 };
 
 const SCORES_DESC = "Track investor grievance redress status against SCORES filings. SEBI has no public SCORES API — the reference is entered manually by your compliance officer.";
 
 function statusBadge(status: string) {
-  if (status === "connected") return <Badge variant="success"><Check className="h-3 w-3" /> Verified</Badge>;
+  if (status === "connected") return <Badge variant="success"><Check className="h-3 w-3" /> Connected</Badge>;
   if (status === "error") return <Badge variant="destructive">Error</Badge>;
   return <Badge variant="muted">Not connected</Badge>;
 }
@@ -57,6 +71,8 @@ function fmtTime(iso?: string | null) {
 
 export default function Settings() {
   const [tab, setTab] = useState("overview");
+  const { t, mode, isBusiness } = useVocab();
+  const { toggleAdvanced } = useUIMode();
   const { data: health } = useQuery({ queryKey: ["health"], queryFn: api.health });
   const llm = (health?.["llm"] as Record<string, unknown>) || {};
 
@@ -64,7 +80,7 @@ export default function Settings() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Platform configuration, the agent fleet, and integration status.</p>
+        <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -81,38 +97,61 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <Card>
-                <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Cpu className="h-4 w-4" /> AI Models</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Cpu className="h-4 w-4" /> {t("settings.ai_engine")}</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <Row label="Provider" value={String(llm.provider || "—")} />
-                  <Row label="Model" value={String(health?.["model"] || llm.model || "—")} />
-                  <Row label="Host" value={String(llm.host || "local")} />
-                  <Row label="Status" value={llm.available ? "Online" : "Offline"} tone={llm.available ? "success" : "destructive"} />
-                  <Row label="Embedding index" value={`${health?.["corpus_chunks"] ?? 0} chunks`} />
-                  <div className="text-[11px] text-muted-foreground pt-1">Runs entirely on-premises — no regulatory content leaves the client boundary (§10.4).</div>
+                  <Row
+                    label={t("settings.ai_status")}
+                    value={llm.available ? t("settings.ai_ready") : t("settings.ai_unavailable")}
+                    tone={llm.available ? "success" : "destructive"}
+                  />
+                  {/* Provider, model tag and index size are diagnostics — a model name has
+                      no business meaning to a compliance officer. */}
+                  {!isBusiness && (
+                    <>
+                      <Row label="Provider" value={String(llm.provider || "—")} />
+                      <Row label="Model" value={String(health?.["model"] || llm.model || "—")} />
+                      <Row label="Host" value={String(llm.host || "local")} />
+                      <Row label="Embedding index" value={`${health?.["corpus_chunks"] ?? 0} chunks`} />
+                    </>
+                  )}
+                  <div className="text-[11px] text-muted-foreground pt-1">{t("settings.residency")}</div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader><CardTitle className="text-sm flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Governance</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> Human-in-the-loop gate before rules/tasks are generated</div>
-                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> Append-only audit log (immutable)</div>
-                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> Provenance from every obligation to source text</div>
-                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> Local model — data residency preserved</div>
+                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> {t("settings.gov.review")}</div>
+                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> {t("settings.gov.audit")}</div>
+                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> {t("settings.gov.trace")}</div>
+                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> {t("settings.gov.residency")}</div>
+                  <div className="pt-2 mt-2 border-t flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm text-foreground">{t("settings.advanced")}</div>
+                      <div className="text-[11px] text-muted-foreground">{t("settings.advanced_help")}</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={mode === "engineering" ? "default" : "outline"}
+                      onClick={() => toggleAdvanced(mode !== "engineering")}
+                    >
+                      {mode === "engineering" ? "On" : "Off"}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
             <Card>
-              <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Boxes className="h-4 w-4" /> Agent Fleet</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Boxes className="h-4 w-4" /> {t("settings.capabilities")}</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-2">
-                  {AGENTS.map(([name, desc]) => (
-                    <div key={name} className="flex items-start gap-3 rounded-lg border p-3">
+                  {AGENTS.map(([bizName, bizDesc, engName, engDesc]) => (
+                    <div key={engName} className="flex items-start gap-3 rounded-lg border p-3">
                       <span className="mt-1 h-1.5 w-1.5 rounded-full bg-success shrink-0" />
                       <div>
-                        <div className="text-sm font-medium">{name}</div>
-                        <div className="text-xs text-muted-foreground">{desc}</div>
+                        <div className="text-sm font-medium">{isBusiness ? bizName : engName}</div>
+                        <div className="text-xs text-muted-foreground">{isBusiness ? bizDesc : engDesc}</div>
                       </div>
                       <Badge variant="success" className="ml-auto">active</Badge>
                     </div>
@@ -305,6 +344,7 @@ function ConnectDialog({
 }) {
   const isDrive = integration.type === "drive";
   const isCalendar = integration.type === "calendar";
+  const isLdap = integration.type === "ldap";
   return (
     <Dialog open onOpenChange={onCancel}>
       <DialogContent>
@@ -315,7 +355,9 @@ function ConnectDialog({
               ? "Opens Google's consent screen — sign in and grant access, then the browser popup returns here."
               : isCalendar
                 ? "No credentials needed. Connecting enables a private .ics feed URL you can subscribe to in any calendar app."
-                : "PRAXIS tests the connection immediately. Credentials are stored encrypted and never returned by the API."}
+                : isLdap
+                  ? "Connects to your local OpenLDAP Docker container for validating user directories. Explicitly validated against a demo environment."
+                  : "PRAXIS tests the connection immediately. Credentials are stored encrypted and never returned by the API."}
           </p>
         </DialogHeader>
 

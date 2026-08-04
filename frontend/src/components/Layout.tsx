@@ -14,8 +14,16 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { useCopilot } from "@/context/CopilotContext";
 import { useAuth } from "@/context/AuthContext";
+import { useVocab } from "@/hooks/useVocab";
+import type { TermKey } from "@/lib/vocab/terms";
 
-const navGroups: { heading: string; items: { to: string; label: string; icon: any; end?: boolean }[] }[] = [
+// `termKey` overrides `label` when set, so a nav entry can read differently in business
+// and engineering mode. Routes never change — deep links and the command palette depend
+// on them staying stable.
+const navGroups: {
+  heading: string;
+  items: { to: string; label: string; termKey?: TermKey; icon: any; end?: boolean }[];
+}[] = [
   {
     heading: "Operate",
     items: [
@@ -31,11 +39,11 @@ const navGroups: { heading: string; items: { to: string; label: string; icon: an
   {
     heading: "Intelligence",
     items: [
-      { to: "/knowledge-graph", label: "Knowledge Graph", icon: Share2 },
+      { to: "/knowledge-graph", label: "Compliance Map", termKey: "nav.knowledge_graph", icon: Share2 },
       { to: "/risk-register", label: "Risk Register", icon: Shield },
-      { to: "/copilot", label: "AI Copilot", icon: Bot },
+      { to: "/copilot", label: "Copilot", icon: Bot },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
-      { to: "/watch", label: "Watch", icon: Radar },
+      { to: "/watch", label: "Watch", termKey: "nav.watch", icon: Radar },
     ],
   },
   {
@@ -52,6 +60,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const copilot = useCopilot();
   const { user, logout } = useAuth();
+  const { t, isBusiness } = useVocab();
   const llmUp = Boolean(health?.["llm"] && (health["llm"] as any).available);
 
   const navItem = (active: boolean) =>
@@ -83,7 +92,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     return (
                       <NavLink key={n.to} to={n.to} className={navItem(active)}>
                         <n.icon className="h-4 w-4" />
-                        {n.label}
+                        {n.termKey ? t(n.termKey) : n.label}
                       </NavLink>
                     );
                   })}
@@ -99,9 +108,10 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="mt-3 rounded-xl border bg-secondary px-3 py-2.5">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className={cn("h-1.5 w-1.5 rounded-full", llmUp ? "bg-success pulse-dot" : "bg-destructive")} />
+              {/* Business mode states readiness; the model name is a diagnostic. */}
               <span className="truncate">
-                {llmUp ? "Local LLM online" : "LLM offline"}
-                {health?.["model"] ? ` · ${health["model"]}` : ""}
+                {t(llmUp ? "settings.online" : "settings.offline")}
+                {!isBusiness && health?.["model"] ? ` · ${health["model"]}` : ""}
               </span>
             </div>
           </div>

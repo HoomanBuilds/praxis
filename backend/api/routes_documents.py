@@ -78,8 +78,17 @@ def _run_process_in_bg(document_id: str) -> None:
     try:
         services.process_document(session, document_id)
         session.commit()
-    except Exception:
+    except Exception as exc:
         session.rollback()
+        print(f"[documents] background Phase A failed for {document_id}: {exc}")
+        try:
+            doc = crud.get_document(session, document_id)
+            if doc and doc.status == "extracting":
+                crud.set_document_status(session, doc, "failed")
+                doc.error = str(exc)[:400]
+                session.commit()
+        except Exception:
+            session.rollback()
     finally:
         session.close()
 
@@ -126,12 +135,18 @@ def process(
 def generate(
     document_id: str,
     auto_approve: bool = Query(False),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     session: Session = Depends(get_db),
 ):
     """Run Phase B (rule → workflow → evidence) on approved obligations."""
     document_id = _validate_doc_id(document_id)
     try:
-        result = services.generate_for_document(session, document_id, auto_approve=auto_approve)
+        result = services.generate_for_document(
+            session,
+            document_id,
+            auto_approve=auto_approve,
+            background_tasks=background_tasks,
+        )
         session.commit()
         return result
     except ValueError as exc:

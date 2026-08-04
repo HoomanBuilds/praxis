@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useVocab } from "@/hooks/useVocab";
+import { PipelineStrip } from "@/components/vocab/PipelineStrip";
+import { fromDocumentFunnel } from "@/lib/vocab/pipeline";
 import { useCopilot } from "@/context/CopilotContext";
 import type { Obligation } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -120,6 +123,7 @@ export default function Review() {
   const { data: obligations } = useQuery({ queryKey: ["obligations", id], queryFn: () => api.listObligations({ document_id: id }) });
   const [audit, setAudit] = useState<{ files?: string[] } | null>(null);
   const { setScope } = useCopilot();
+  const { t } = useVocab();
 
   useEffect(() => {
     setScope({ documentId: id, label: doc?.title ? `Document · ${doc.title}` : "Document" });
@@ -173,14 +177,7 @@ export default function Review() {
       {f && (
         <Card className="bg-muted/40">
           <CardContent className="py-3">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
-              <span className="font-semibold">Funnel:</span>
-              <span>{f.total_sections} sections</span><span className="text-muted-foreground">→</span>
-              <span>{f.candidates} candidates</span><span className="text-muted-foreground">→</span>
-              <span>{f.deterministic_sections} regex</span><span className="text-muted-foreground">+</span>
-              <span>{f.llm_sections} LLM</span>
-              <span className="ml-auto font-medium text-primary">{f.llm_calls} LLM calls total</span>
-            </div>
+            <PipelineStrip stats={fromDocumentFunnel(f)} />
           </CardContent>
         </Card>
       )}
@@ -198,7 +195,7 @@ export default function Review() {
         {obligations?.length ? (
           obligations.map((ob) => <ObligationRow key={ob.id} ob={ob} generated={generated} />)
         ) : (
-          <div className="text-sm text-muted-foreground">No obligations. Run extraction on the Documents page first.</div>
+          <div className="text-sm text-muted-foreground">{t("review.empty")}</div>
         )}
       </div>
     </div>

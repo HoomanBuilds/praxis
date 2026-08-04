@@ -29,10 +29,11 @@ def _build_engine() -> Engine:
         @event.listens_for(engine, "connect")
         def _sqlite_connect(dbapi_conn, _record):  # noqa: ANN001
             # WAL allows readers during long writes (background processing); busy_timeout
-            # makes concurrent writers wait briefly instead of erroring immediately.
+            # makes concurrent writers wait instead of erroring immediately. 60s covers
+            # long-running Phase A LLM extractions that legitimately hold a write txn.
             cur = dbapi_conn.cursor()
             cur.execute("PRAGMA journal_mode=WAL")
-            cur.execute("PRAGMA busy_timeout=15000")
+            cur.execute("PRAGMA busy_timeout=60000")
             cur.execute("PRAGMA synchronous=NORMAL")
             cur.close()
 

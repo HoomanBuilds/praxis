@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { cn, titleCase } from "@/lib/utils";
+import { useVocab } from "@/hooks/useVocab";
 import {
   Search, LayoutDashboard, FileText, Share2, Clock, CornerDownLeft, FileCheck2, ScrollText,
 } from "lucide-react";
@@ -27,6 +28,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
+  const { t } = useVocab();
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -74,15 +76,15 @@ export function CommandPalette() {
 
   const items = useMemo<Item[]>(() => {
     const nav: Item[] = [
-      { id: "nav-dash", label: "Dashboard", group: "Navigate", icon: LayoutDashboard, run: () => go("/") },
+      { id: "nav-dash", label: "Command Center", group: "Navigate", icon: LayoutDashboard, run: () => go("/") },
       { id: "nav-docs", label: "Regulations", group: "Navigate", icon: FileText, run: () => go("/documents") },
       { id: "nav-obl", label: "Obligations", group: "Navigate", icon: FileCheck2, run: () => go("/obligations") },
       { id: "nav-tasks", label: "Tasks", group: "Navigate", icon: FileText, run: () => go("/tasks") },
-      { id: "nav-copilot", label: "AI Copilot", group: "Navigate", icon: FileCheck2, run: () => go("/copilot") },
+      { id: "nav-copilot", label: "Copilot", group: "Navigate", icon: FileCheck2, run: () => go("/copilot") },
       { id: "nav-analytics", label: "Analytics", group: "Navigate", icon: FileText, run: () => go("/analytics") },
       { id: "nav-reports", label: "Reports", group: "Navigate", icon: FileText, run: () => go("/reports") },
       { id: "nav-audit", label: "Audit Trail", group: "Navigate", icon: FileText, run: () => go("/audit") },
-      { id: "nav-graph", label: "Knowledge Graph", group: "Navigate", icon: Share2, run: () => go("/knowledge-graph") },
+      { id: "nav-graph", label: t("nav.knowledge_graph"), group: "Navigate", icon: Share2, run: () => go("/knowledge-graph") },
     ];
     const q = debounced.toLowerCase();
     const filteredNav = q ? nav.filter((n) => n.label.toLowerCase().includes(q)) : nav;
@@ -104,7 +106,7 @@ export function CommandPalette() {
       run: () => go(`/documents/${o.document_id}/review`),
     }));
     return [...filteredNav, ...docItems, ...obItems];
-  }, [results, debounced]);
+  }, [results, debounced, t, go]);
 
   useEffect(() => setActive(0), [items.length]);
 
@@ -179,7 +181,7 @@ export function CommandPalette() {
           )}
         </div>
         <div className="flex items-center gap-4 border-t px-4 py-2 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> semantic + keyword</span>
+          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> regulations + keywords</span>
           <span className="ml-auto flex items-center gap-1"><CornerDownLeft className="h-3 w-3" /> to select · ↑↓ to navigate</span>
         </div>
       </div>

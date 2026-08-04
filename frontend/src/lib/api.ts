@@ -140,6 +140,12 @@ export const api = {
   updateTask: (id: string, patch: { primary_owner?: string; owner_email?: string; status?: string }) =>
     req<Task>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
+  sendForSignature: (id: string, signer: { signer_email: string; signer_name?: string }) =>
+    req<{ ok: boolean; envelope_id?: string; message: string }>(`/tasks/${id}/send-for-signature`, {
+      method: "POST",
+      body: JSON.stringify(signer),
+    }),
+
   riskRegister: (params: { risk_level?: string; functional_area?: string; status?: string } = {}) => {
     const qs = new URLSearchParams(params as Record<string, string>);
     return req<RiskItem[]>(`/risk-register?${qs}`);
