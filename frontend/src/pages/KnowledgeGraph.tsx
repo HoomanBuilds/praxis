@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
@@ -37,7 +37,7 @@ const PROPERTY_LABELS: Record<string, string> = {
   owner: "Owner",
 };
 type SimNode = GraphNode & SimulationNodeDatum;
-const W = 820, H = 620;
+const W = 1200, H = 900;
 
 // Simple view (business mode default): the operational path a compliance officer
 // actually walks — Regulation → Obligation → Department → Task → Evidence → Rule.
@@ -72,6 +72,32 @@ export default function KnowledgeGraphPage() {
   // graph. Either way the user can flip it here without changing the global mode.
   const [simple, setSimple] = useState(isBusiness);
 
+  // Viewport transform: pan (x/y) + zoom (scale). The SVG content is wrapped in a
+  // <g> that applies this transform, so the wheel zooms around the cursor and the
+  // background drag pans the canvas.
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  // Latest transform for the native (non-passive) wheel listener, so the listener can
+  // read fresh zoom state without being re-attached on every render.
+  const transformRef = useRef(transform);
+  transformRef.current = transform;
+  // Active pointer interaction: either panning the canvas (nodeId null) or dragging
+  // a single node. Stores the pointer start and the pre-drag transform/node position.
+  const dragRef = useRef<{
+    nodeId: string | null;
+    startX: number;
+    startY: number;
+    origTx: number;
+    origTy: number;
+    origNodeX?: number;
+    origNodeY?: number;
+    moved: boolean;
+  } | null>(null);
+  // Set when a drag actually moved the canvas/node, and cleared on the next pointer
+  // down. Lives outside dragRef so it survives the mouseup->click ordering (mouseup
+  // nulls dragRef before the click handler runs).
+  const justDraggedRef = useRef(false);
+
   // Simple view is a filter over the same payload — no second graph component.
   const data = useMemo(() => {
     if (!raw) return raw;
@@ -85,6 +111,76 @@ export default function KnowledgeGraphPage() {
   }, [raw, simple]);
 
   const positioned = useMemo(() => (data ? layout(data.nodes, data.edges, simple) : null), [data, simple]);
+
+  const zoomAt = useCallback((clientX: number, clientY: number, nextScale: number) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    setTransform((t) => {
+      const clamped = Math.min(5, Math.max(0.15, nextScale));
+      const k = clamped / t.scale;
+      // Keep the point under the cursor fixed while zooming.
+      return { x: px - k * (px - t.x), y: py - k * (py - t.y), scale: clamped };
+    });
+  }, []);
+
+  // React's onWheel is attached passively, so preventDefault can't stop page scroll.
+  // Attach a native wheel listener with passive: false instead.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheelNative = (ev: WheelEvent) => {
+      ev.preventDefault();
+      const s = transformRef.current.scale;
+      zoomAt(ev.clientX, ev.clientY, s * (ev.deltaY < 0 ? 1.12 : 1 / 1.12));
+    };
+    svg.addEventListener("wheel", onWheelNative, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheelNative);
+  }, [zoomAt]);
+
+  const onMouseDown = useCallback((ev: React.MouseEvent<SVGSVGElement>) => {
+    const target = ev.target as Element;
+    if (target.closest("[data-node]")) return; // node drag is handled by the node handler
+    justDraggedRef.current = false;
+    dragRef.current = { nodeId: null, startX: ev.clientX, startY: ev.clientY, origTx: transform.x, origTy: transform.y, moved: false };
+  }, [transform.x, transform.y]);
+
+  const onMouseMove = useCallback((ev: React.MouseEvent<SVGSVGElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = ev.clientX - d.startX;
+    const dy = ev.clientY - d.startY;
+    if (!d.moved && Math.hypot(dx, dy) < 3) return;
+    d.moved = true;
+    justDraggedRef.current = true;
+    if (d.nodeId === null) {
+      setTransform((t) => ({ ...t, x: d.origTx + dx, y: d.origTy + dy }));
+      return;
+    }
+    const node = positioned?.get(d.nodeId);
+    if (!node) return;
+    node.x = (d.origNodeX ?? node.x ?? 0) + dx / transform.scale;
+    node.y = (d.origNodeY ?? node.y ?? 0) + dy / transform.scale;
+    // Node position lives in the memoized layout map; a transform bump forces the SVG
+    // to re-render with the moved node while dragging.
+    setTransform((t) => ({ ...t }));
+  }, [dragRef, transform.scale, positioned]);
+
+  const endDrag = useCallback(() => { dragRef.current = null; }, []);
+
+  const onNodeMouseDown = useCallback((ev: React.MouseEvent, n: SimNode) => {
+    ev.stopPropagation();
+    justDraggedRef.current = false;
+    dragRef.current = {
+      nodeId: n.id, startX: ev.clientX, startY: ev.clientY, origTx: transform.x, origTy: transform.y,
+      origNodeX: n.x, origNodeY: n.y, moved: false,
+    };
+  }, [transform.x, transform.y]);
+
+  // A click right after a drag (node moved / canvas panned) should not select/clear.
+  const wasDragging = () => justDraggedRef.current;
 
   const adjacency = useMemo(() => {
     const m = new Map<string, { edge: GraphEdge; other: string; dir: "out" | "in" }[]>();
@@ -147,14 +243,25 @@ export default function KnowledgeGraphPage() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2 overflow-hidden">
+        <Card className="lg:col-span-2 relative overflow-hidden">
           <CardContent className="p-0">
             {isLoading ? (
               <div className="p-8 text-sm text-muted-foreground">Loading…</div>
             ) : !data?.nodes.length ? (
               <div className="p-8 text-sm text-muted-foreground">{vocab.t("kg.empty")}</div>
             ) : positioned ? (
-              <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[620px]" onClick={() => setSelected(null)}>
+              <svg
+                ref={svgRef}
+                viewBox={`0 0 ${W} ${H}`}
+                className="w-full h-[620px] touch-none select-none"
+                style={{ cursor: dragRef.current?.moved ? "grabbing" : "grab" }}
+                onMouseDown={onMouseDown}
+                onMouseMove={onMouseMove}
+                onMouseUp={endDrag}
+                onMouseLeave={endDrag}
+                onClick={() => { if (!wasDragging()) setSelected(null); }}
+              >
+                <g transform={`translate(${transform.x},${transform.y}) scale(${transform.scale})`}>
                 {data.edges.map((e, i) => {
                   if (!visible(e.source) || !visible(e.target)) return null;
                   const s = positioned.get(e.source)!, t = positioned.get(e.target)!;
@@ -176,8 +283,9 @@ export default function KnowledgeGraphPage() {
                   const dim = selected && !isSel && !isNbr;
                   const r = (RADIUS[n.type] ?? 7) + (isSel ? 4 : 0);
                   return (
-                    <g key={n.id} transform={`translate(${n.x},${n.y})`} opacity={dim ? 0.2 : 1}
-                      className="cursor-pointer" onClick={(ev) => { ev.stopPropagation(); setSelected(n.id); }}>
+                    <g key={n.id} data-node data-node-id={n.id} transform={`translate(${n.x},${n.y})`} opacity={dim ? 0.2 : 1}
+                      className="cursor-pointer" onMouseDown={(ev) => onNodeMouseDown(ev, n)}
+                      onClick={(ev) => { ev.stopPropagation(); if (!wasDragging()) setSelected(n.id); }}>
                       {isSel && <circle r={r + 5} fill="none" stroke={fill(n)} strokeWidth={1.5} opacity={0.5} />}
                       <circle r={r} fill={fill(n)} stroke="hsl(var(--card))" strokeWidth={2} />
                       {(isSel || isNbr || n.type === "regulation" || n.type === "department" || n.type === "owner" || n.type === "risk") && (
@@ -188,9 +296,32 @@ export default function KnowledgeGraphPage() {
                     </g>
                   );
                 })}
+                </g>
               </svg>
             ) : null}
           </CardContent>
+          {positioned && (
+            <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full border bg-background/95 p-1 shadow-sm">
+              <button
+                title="Zoom in"
+                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => zoomAt(innerWidth / 2, innerHeight / 2, transform.scale * 1.25)}
+              >+</button>
+              <span className="min-w-[44px] text-center text-[11px] tabular tabular-nums text-muted-foreground">
+                {Math.round(transform.scale * 100)}%
+              </span>
+              <button
+                title="Zoom out"
+                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => zoomAt(innerWidth / 2, innerHeight / 2, transform.scale / 1.25)}
+              >−</button>
+              <button
+                title="Reset view"
+                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setTransform({ x: 0, y: 0, scale: 1 })}
+              >⟲</button>
+            </div>
+          )}
         </Card>
 
         {/* Inspector */}
