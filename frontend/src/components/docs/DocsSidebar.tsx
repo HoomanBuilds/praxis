@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ChevronDown,
   ChevronRight,
-  Search,
   Home,
   Rocket,
   Layers,
@@ -55,44 +53,44 @@ export function DocsSidebar({ currentSlug, onNavigate }: { currentSlug?: string;
 
   return (
     <div className="docs-font flex h-full flex-col">
-      <div className="px-3">
+      <div className="px-4 pt-5 pb-3">
         <Link
           to="/docs"
           onClick={onNavigate}
           className={cn(
-            "flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-[15px] text-[#6B7280] transition-colors duration-150 hover:bg-[#F9FAFB] hover:text-[#111827]",
-            !currentSlug && "bg-[#F3F4F6] font-medium text-[#111827]",
+            "flex items-center gap-3 rounded-lg px-[5px] py-0 text-[var(--t-side)] leading-[var(--l-sm)] tracking-[var(--ls-sm)] text-[var(--ink-3)] transition-colors duration-120 hover:text-[var(--ink-2)]",
+            "min-h-[36px]",
+            !currentSlug && "text-[var(--ink)]",
           )}
         >
-          <Home className="h-4 w-4 text-[#9CA3AF]" />
+          <Home className="h-4 w-4 opacity-45" />
           Documentation
         </Link>
       </div>
 
-      <div className="px-4 pt-4">
+      <div className="px-5 pb-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search docs..."
-            className="h-10 w-full rounded-[12px] border border-[#E5E7EB] bg-white pl-10 pr-3.5 text-[15px] text-[#111827] transition-colors duration-150 placeholder:text-[#9CA3AF] hover:border-[#D1D5DB] focus:border-[#9CA3AF] focus:outline-none focus:ring-0"
+            placeholder="Search..."
+            className="h-9 w-full rounded-lg border border-[var(--line-2)] bg-[var(--surface-2)] pl-3 pr-3 text-[var(--t-sm)] tracking-[var(--ls-sm)] text-[var(--ink)] transition-colors duration-120 placeholder:text-[var(--ink-3)] hover:border-[var(--line-2)] focus:border-[var(--ink-4)] focus:bg-white focus:outline-none"
           />
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pt-1">
+      <nav className="flex-1 overflow-y-auto px-5">
         {results ? (
-          <div className="space-y-0.5 pt-4">
+          <div className="space-y-0.5 pt-2">
             {results.length === 0 && (
-              <p className="px-3 py-2 text-sm text-[#9CA3AF]">No pages match “{q}”.</p>
+              <p className="px-1 py-2 text-[13px] text-[var(--ink-3)]">No pages match "{q}".</p>
             )}
             {results.map((p) => (
               <Link
                 key={p.slug}
                 to={`/docs/${p.slug}`}
                 onClick={onNavigate}
-                className="block rounded-[10px] px-3 py-2 text-[15px] text-[#6B7280] transition-colors duration-150 hover:bg-[#F9FAFB] hover:text-[#111827]"
+                className="flex h-8 items-center rounded-lg px-[5px] text-[var(--t-side)] tracking-[var(--ls-sm)] text-[var(--ink-3)] transition-colors duration-120 hover:text-[var(--ink-2)]"
               >
                 {p.title}
               </Link>
@@ -103,63 +101,63 @@ export function DocsSidebar({ currentSlug, onNavigate }: { currentSlug?: string;
             {DOCS_NAV.map((section) => {
               const Icon = SECTION_ICONS[section.id] ?? BookOpen;
               const openSection = isOpen(section.id);
-              const active = section.id === activeSection;
+              const sectionActive = section.id === activeSection;
               return (
-                <div key={section.id}>
-                  <button
-                    onClick={() => setOpen((o) => ({ ...o, [section.id]: !isOpen(section.id) }))}
+                <details
+                  key={section.id}
+                  className="group"
+                  open={openSection}
+                  onToggle={(e) => setOpen((o) => ({ ...o, [section.id]: (e.target as HTMLDetailsElement).open }))}
+                >
+                  <summary
                     className={cn(
-                      "group flex w-full items-center gap-2.5 rounded-[10px] px-3 pt-7 pb-1 text-left text-[14px] font-semibold text-[#111827] transition-colors duration-150 hover:text-[#111827]",
-                      active && "text-[#111827]",
+                      "flex h-9 cursor-pointer items-center gap-3 rounded-lg px-[5px] text-[var(--t-side)] font-[var(--w-med)] tracking-[var(--ls-sm)] transition-colors duration-120 select-none",
+                      sectionActive ? "text-[var(--ink)]" : "text-[var(--ink-3)] hover:text-[var(--ink-2)]",
                     )}
+                    style={{ listStyle: "none" }}
                   >
-                    <Icon className={cn("h-4 w-4 text-[#E5E7EB] transition-colors duration-150 group-hover:text-[#9CA3AF]", active && "text-[#111827]")} />
+                    <Icon className="h-4 w-4 flex-none opacity-45 transition-opacity duration-120" style={{ opacity: sectionActive ? 1 : undefined }} />
                     <span className="flex-1">{section.title}</span>
-                    {openSection ? (
-                      <ChevronDown className="h-3.5 w-3.5 text-[#9CA3AF]" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5 text-[#9CA3AF]" />
-                    )}
-                  </button>
-                  {openSection && (
-                    <div className="mt-3.5 space-y-2.5">
-                      {section.pages.map((p) => (
+                    <ChevronRight className="h-3.5 w-3.5 flex-none transition-transform duration-160 group-open:rotate-90" />
+                  </summary>
+                  <ul className="space-y-0 px-0 py-2 pl-2">
+                    {section.pages.map((p) => (
+                      <li key={p.slug}>
                         <Link
-                          key={p.slug}
                           to={`/docs/${p.slug}`}
                           onClick={onNavigate}
                           className={cn(
-                            "block rounded-[10px] px-3 py-[7px] text-[15px] text-[#6B7280] transition-colors duration-150 hover:bg-[#F9FAFB] hover:text-[#111827]",
-                            p.slug === currentSlug && "bg-[#F3F4F6] font-medium text-[#111827] hover:bg-[#F3F4F6]",
+                            "flex h-8 items-center rounded-lg px-[5px] text-[var(--t-side)] font-[var(--w-med)] tracking-[var(--ls-sm)] text-[var(--ink-3)] transition-colors duration-120 hover:text-[var(--ink-2)]",
+                            p.slug === currentSlug && "text-[var(--ink)]",
                           )}
                         >
-                          {p.title}
+                          <span className="overflow-hidden text-ellipsis whitespace-nowrap">{p.title}</span>
                         </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               );
             })}
           </div>
         )}
       </nav>
 
-      <div className="border-t border-[#E5E7EB] px-3 pb-4 pt-3">
-        <div className="space-y-0.5">
+      <div className="border-t border-[var(--line)] px-5 py-5">
+        <div className="space-y-0">
           <Link
             to="/docs/latest-release"
             onClick={onNavigate}
-            className="flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-[15px] text-[#6B7280] transition-colors duration-150 hover:bg-[#F9FAFB] hover:text-[#111827]"
+            className="flex min-h-[36px] items-center rounded-lg px-[5px] text-[var(--t-side)] font-[var(--w-med)] tracking-[var(--ls-sm)] text-[var(--ink-3)] transition-colors duration-120 hover:text-[var(--ink)]"
           >
-            <History className="h-4 w-4 text-[#9CA3AF]" />
+            <History className="h-4 w-4 flex-none mr-3" />
             Latest Release
           </Link>
           <Link
             to="/"
-            className="flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-[15px] text-[#6B7280] transition-colors duration-150 hover:bg-[#F9FAFB] hover:text-[#111827]"
+            className="flex min-h-[36px] items-center rounded-lg px-[5px] text-[var(--t-side)] font-[var(--w-med)] tracking-[var(--ls-sm)] text-[var(--ink-3)] transition-colors duration-120 hover:text-[var(--ink)]"
           >
-            <ArrowUpRight className="h-4 w-4 text-[#9CA3AF]" />
+            <ArrowUpRight className="h-4 w-4 flex-none mr-3" />
             Open PRAXIS
           </Link>
         </div>

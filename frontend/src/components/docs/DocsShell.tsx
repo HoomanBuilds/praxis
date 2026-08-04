@@ -30,32 +30,32 @@ export function DocsShell({
 
   return (
     <div className="docs-font flex h-screen flex-col overflow-hidden bg-white text-[#111827]">
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-[#E5E7EB] px-6">
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-[var(--line)] px-6">
         <button
           onClick={() => setMobileOpen(true)}
-          className="rounded-lg p-2 text-[#6B7280] hover:bg-[#F9FAFB] lg:hidden"
+          className="rounded-lg p-2 text-[var(--ink-2)] hover:bg-[var(--surface-2)] lg:hidden"
           aria-label="Open navigation"
         >
           <Menu className="h-5 w-5" />
         </button>
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className="hidden rounded-lg p-2 text-[#6B7280] transition-colors duration-150 hover:bg-[#F9FAFB] lg:block"
+          className="hidden rounded-lg p-2 text-[var(--ink-2)] transition-colors duration-150 hover:bg-[var(--surface-2)] lg:block"
           aria-label="Toggle navigation"
         >
           {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </button>
         <Link to="/docs" onClick={go} className="flex items-center gap-2.5">
-          <Logo className="h-6 w-6 text-[#111827]" />
-          <span className="text-[15px] font-semibold tracking-tight text-[#111827]">PRAXIS</span>
-          <span className="rounded-full border border-[#E5E7EB] px-2.5 py-0.5 text-xs font-medium text-[#6B7280]">
+          <Logo className="h-5 w-5 text-[var(--ink)]" />
+          <span className="text-[17px] font-medium tracking-tight text-[var(--ink)]">PRAXIS</span>
+          <span className="rounded-full border border-[var(--line-2)] px-2.5 py-0.5 text-xs font-medium text-[var(--ink-3)]">
             Documentation
           </span>
         </Link>
         <div className="flex-1" />
         <Link
           to="/"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-white px-4 text-sm font-medium text-[#6B7280] transition-colors duration-150 hover:bg-[#F9FAFB] hover:text-[#111827]"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--line-2)] bg-white px-3.5 text-[13px] font-medium text-[var(--ink-2)] transition-colors duration-150 hover:bg-[var(--surface)] hover:text-[var(--ink)]"
         >
           Open PRAXIS
           <ArrowUpRight className="h-3.5 w-3.5" />
@@ -64,11 +64,11 @@ export function DocsShell({
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-[#111827]/40" onClick={() => setMobileOpen(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-[290px] flex-col bg-white">
-            <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#E5E7EB] px-4">
-              <span className="text-sm font-semibold text-[#111827]">Documentation</span>
-              <button onClick={() => setMobileOpen(false)} className="rounded-lg p-1.5 text-[#6B7280] hover:bg-[#F9FAFB]" aria-label="Close navigation">
+          <div className="absolute inset-0 bg-black/32" onClick={() => setMobileOpen(false)} />
+          <div className="absolute inset-y-0 left-0 flex w-[280px] flex-col bg-white">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--line)] px-4">
+              <span className="text-sm font-medium text-[var(--ink)]">Documentation</span>
+              <button onClick={() => setMobileOpen(false)} className="rounded-lg p-1.5 text-[var(--ink-2)] hover:bg-[var(--surface-2)]" aria-label="Close navigation">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -82,8 +82,8 @@ export function DocsShell({
       <div className="flex min-h-0 flex-1">
         <aside
           className={cn(
-            "hidden shrink-0 border-r border-[#E5E7EB] transition-[width] duration-150 ease-out lg:block",
-            collapsed ? "w-0" : "w-[290px]",
+            "hidden shrink-0 border-r border-[var(--line)] transition-[width] duration-150 ease-out lg:block",
+            collapsed ? "w-0" : "w-[280px]",
           )}
         >
           <div className={cn("h-full overflow-y-auto", collapsed && "hidden")}>
@@ -95,7 +95,7 @@ export function DocsShell({
           <div
             className={cn(
               "w-full px-6 py-12 md:pl-[72px] md:pr-8",
-              wide ? "md:max-w-[1080px]" : "md:max-w-[856px]",
+              wide ? "md:max-w-[1024px]" : "md:max-w-[650px]",
             )}
           >
             {children}

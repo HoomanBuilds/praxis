@@ -10,7 +10,7 @@ function InlineText({ text }: { text: string }) {
     <>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <code key={i} className="docs-mono rounded-[6px] bg-[#F3F4F6] px-1.5 py-0.5 text-[0.85em] text-[#111827]">
+          <code key={i} className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[.875em] text-[var(--ink)]" style={{ fontFamily: "var(--mono)" }}>
             {part}
           </code>
         ) : (
@@ -33,37 +33,40 @@ function CodeBlock({ text, lang }: { text: string; lang?: string }) {
     }
   };
   return (
-    <div className="my-8">
-      <div className="flex items-center justify-between rounded-t-[12px] border border-b-0 border-[#1F2937] bg-[#111827] px-6 pb-2 pt-4">
-        <span className="docs-mono text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+    <div className="my-6 overflow-hidden rounded-[10px] border border-[var(--line)]">
+      <div className="flex items-center justify-between border-b border-[var(--line)] bg-[var(--surface)] px-3 py-2">
+        <span style={{ fontFamily: "var(--mono)" }} className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-3)]">
           {lang || "bash"}
         </span>
         <button
           onClick={onCopy}
           aria-label="Copy code"
-          className="docs-mono inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-[#9CA3AF] transition-colors duration-150 hover:bg-[#1F2937] hover:text-white"
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-[var(--ink-3)] transition-colors duration-120 hover:text-[var(--ink)]",
+            copied && "text-[var(--ink)]",
+          )}
         >
-          {copied ? <Check className="h-3.5 w-3.5 text-[#4ADE80]" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="docs-mono overflow-x-auto rounded-b-[12px] border border-[#1F2937] bg-[#111827] p-5 text-[15px] leading-7 text-[#D1D5DB]">
-        <code>{text}</code>
+      <pre className="overflow-x-auto bg-[#FCFCFD] p-4 text-[13px] leading-[22px]" style={{ fontFamily: "var(--mono)" }}>
+        <code className="text-[var(--ink)]">{text}</code>
       </pre>
     </div>
   );
 }
 
 const CALLOUT_STYLES = {
-  note: { box: "border-[#3B82F6] bg-[#EFF6FF]", title: "text-[#1D4ED8]", text: "text-[#1E40AF]" },
-  tip: { box: "border-[#22C55E] bg-[#F0FDF4]", title: "text-[#15803D]", text: "text-[#166534]" },
-  warning: { box: "border-[#F59E0B] bg-[#FFFBEB]", title: "text-[#B45309]", text: "text-[#92400E]" },
-  danger: { box: "border-[#EF4444] bg-[#FEF2F2]", title: "text-[#B91C1C]", text: "text-[#991B1B]" },
+  note: { box: "border border-[var(--line-2)] bg-[var(--surface)]", icon: "var(--ink-3)", text: "text-[var(--ink-body)]" },
+  tip: { box: "border border-[color-mix(in_srgb,var(--ok)_28%,transparent)] bg-[color-mix(in_srgb,var(--ok)_6%,transparent)]", icon: "#1A7F4B", text: "text-[var(--ink-body)]" },
+  warning: { box: "border border-[color-mix(in_srgb,#9A6400_30%,transparent)] bg-[color-mix(in_srgb,#9A6400_7%,transparent)]", icon: "#9A6400", text: "text-[var(--ink-body)]" },
+  danger: { box: "border border-[color-mix(in_srgb,#B4232A_30%,transparent)] bg-[color-mix(in_srgb,#B4232A_6%,transparent)]", icon: "#B4232A", text: "text-[var(--ink-body)]" },
 } as const;
 
 export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
   return (
-    <div className="docs-font text-[17px] leading-[1.8] text-[#4B5563]">
+    <div className="docs-font text-[var(--t-body)] leading-[var(--l-body)] tracking-[var(--ls-body)] text-[var(--ink-body)]">
       {blocks.map((b, i) => {
         switch (b.type) {
           case "h2":
@@ -71,7 +74,8 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
               <h2
                 key={i}
                 id={headingId(b.text)}
-                className="mt-[72px] mb-5 scroll-mt-24 text-[30px] font-bold tracking-[-0.02em] text-[#111827]"
+                className="mb-3 scroll-mt-24 text-[var(--t-h2)] leading-[var(--l-h2)] font-semibold tracking-[var(--ls-h2)] text-[var(--ink)]"
+                style={{ marginTop: "var(--h-top)" }}
               >
                 {b.text}
               </h2>
@@ -81,36 +85,34 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
               <h3
                 key={i}
                 id={headingId(b.text)}
-                className="mt-12 mb-3 scroll-mt-24 text-[22px] font-bold tracking-[-0.01em] text-[#111827]"
+                className="mb-1.5 scroll-mt-24 text-[var(--t-h3)] leading-[var(--l-h3)] font-semibold tracking-[var(--ls-h3)] text-[var(--ink)]"
+                style={{ marginTop: "var(--h-top)" }}
               >
                 {b.text}
               </h3>
             );
           case "p":
             return (
-              <p key={i} className="my-7">
+              <p key={i} className="my-4" style={{ maxWidth: "624px", textWrap: "pretty" }}>
                 <InlineText text={b.text} />
               </p>
             );
           case "ul":
             return (
-              <ul key={i} className="my-7 space-y-3">
+              <ul key={i} className="my-4" style={{ paddingInlineStart: "var(--list-inset)" }}>
                 {b.items.map((item, j) => (
-                  <li key={j} className="flex gap-[18px]">
-                    <span className="mt-[13px] h-[5px] w-[5px] shrink-0 rounded-full bg-[#9CA3AF]" />
-                    <span>
-                      <InlineText text={item} />
-                    </span>
+                  <li key={j} className="mb-2" style={{ marginBottom: "var(--block-sm)" }}>
+                    <InlineText text={item} />
                   </li>
                 ))}
               </ul>
             );
           case "ol":
             return (
-              <ol key={i} className="my-7 space-y-3">
+              <ol key={i} className="my-4" style={{ paddingInlineStart: "var(--list-inset)" }}>
                 {b.items.map((item, j) => (
-                  <li key={j} className="flex gap-3.5">
-                    <span className="mt-0.5 shrink-0 text-[15px] font-semibold text-[#9CA3AF] tabular">{j + 1}.</span>
+                  <li key={j} className="mb-2 flex gap-3.5" style={{ marginBottom: "var(--block-sm)" }}>
+                    <span className="shrink-0 font-medium text-[var(--ink-4)] tabular">{j + 1}.</span>
                     <span>
                       <InlineText text={item} />
                     </span>
@@ -122,26 +124,26 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
             return <CodeBlock key={i} text={b.text} lang={b.lang} />;
           case "table":
             return (
-              <div key={i} className="my-8 overflow-x-auto rounded-[12px] border border-[#E5E7EB]">
-                <table className="w-full border-collapse">
+              <div key={i} className="my-6 overflow-x-auto">
+                <table className="w-full border-collapse text-[var(--t-sm)] leading-[var(--l-sm)] tracking-[var(--ls-sm)]" style={{ fontVariantNumeric: "tabular-nums" }}>
                   <thead>
-                    <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
+                    <tr className="border-b border-[var(--line-2)]">
                       {b.headers.map((h, j) => (
-                        <th key={j} className="px-5 py-3 text-left text-[13px] font-semibold text-[#111827]">
+                        <th key={j} className="pb-2 text-left text-[12px] font-semibold uppercase tracking-[0.055em] text-[var(--ink-3)]">
                           {h}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#F3F4F6]">
+                  <tbody>
                     {b.rows.map((row, j) => (
-                      <tr key={j} className="align-top">
+                      <tr key={j} className="align-top border-b border-[var(--line)] transition-colors duration-120 hover:bg-[var(--surface)]">
                         {row.map((cell, k) => (
                           <td
                             key={k}
                             className={cn(
-                              "px-5 py-3 text-[15px] leading-7",
-                              k === 0 ? "font-medium text-[#111827]" : "text-[#6B7280]",
+                              "py-3 leading-[24px]",
+                              k === 0 ? "font-medium text-[var(--ink)]" : "text-[var(--ink-body)]",
                             )}
                           >
                             <InlineText text={cell} />
@@ -156,9 +158,9 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
           case "callout": {
             const s = CALLOUT_STYLES[b.variant];
             return (
-              <div key={i} className={cn("my-8 rounded-[12px] border-l-4 py-4 pl-5 pr-5", s.box)}>
-                <p className={cn("text-[15px] font-semibold", s.title)}>{b.title}</p>
-                <p className={cn("mt-1 text-[15px] leading-7", s.text)}>
+              <div key={i} className={cn("my-6 rounded-[10px] py-3 pl-[42px] pr-4 relative", s.box)}>
+                <p className="text-[var(--t-body)] font-medium text-[var(--ink)]">{b.title}</p>
+                <p className={cn("mt-1 text-[var(--t-body)] leading-[var(--l-body)]", s.text)}>
                   <InlineText text={b.text} />
                 </p>
               </div>

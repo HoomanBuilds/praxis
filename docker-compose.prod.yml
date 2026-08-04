@@ -1,54 +1,53 @@
-# PRAXIS — full local stack (proposal §8 technology selection)
-# Postgres 16 (system of record) + Redis Streams (queue) + ChromaDB (vector store)
-# + FastAPI (api) + LangGraph worker. Ollama runs on the host (gpu/metal access),
-# reached via host.docker.internal.
+# PRAXIS — Production Docker Compose
+# Run with: docker compose -f docker-compose.prod.yml up -d
+# Requires: .env file with production secrets
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-praxis}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-praxis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-praxis}
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U praxis"]
-      interval: 5s
-      timeout: 3s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-praxis}"]
+      interval: 10s
+      timeout: 5s
       retries: 10
+      start_period: 30s
     restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - internal
 
   redis:
-    image: redis:7
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 10
+      start_period: 10s
     restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - internal
 
   chromadb:
     image: chromadb/chroma:0.5.20
-    ports:
-      - "8001:8000"
     volumes:
       - chromadata:/chroma/chroma
     environment:
@@ -60,28 +59,47 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - internal
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollamadata:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - internal
 
   api:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8080
-    ports:
-      - "8080:8080"
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8080 --workers 2
     environment:
-      PRAXIS_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-praxis}:${POSTGRES_PASSWORD:-praxis}@postgres:5432/${POSTGRES_DB:-praxis}
+      PRAXIS_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-praxis}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-praxis}
       PRAXIS_REDIS_URL: redis://redis:6379/0
       PRAXIS_CHROMA_HOST: chromadb
       PRAXIS_CHROMA_PORT: "8000"
-      PRAXIS_OLLAMA_HOST: http://host.docker.internal:11434
+      PRAXIS_OLLAMA_HOST: http://ollama:11434
+      PRAXIS_LLM_MODEL: ${PRAXIS_LLM_MODEL:-llama3.1:8b}
       PRAXIS_DOC_STORE_PATH: /app/data/documents
       PRAXIS_CORPUS_PATH: /app/data/corpus
       PRAXIS_EXPORT_PATH: /app/data/exports
       PRAXIS_ORG_CONFIG_PATH: /app/data/org_config.json
+      PRAXIS_API_KEY: ${PRAXIS_API_KEY:?Set PRAXIS_API_KEY in .env}
+      PRAXIS_JWT_SECRET: ${PRAXIS_JWT_SECRET:?Set PRAXIS_JWT_SECRET in .env}
+      PRAXIS_FRONTEND_URL: https://praxis.inferia.ai
     volumes:
-      - ./data:/app/data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - praxisdata:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -89,12 +107,16 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_started
+      ollama:
+        condition: service_started
     restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - internal
 
   worker:
     build:
@@ -102,19 +124,19 @@ services:
       dockerfile: backend/Dockerfile
     command: python -m ingestion.worker
     environment:
-      PRAXIS_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-praxis}:${POSTGRES_PASSWORD:-praxis}@postgres:5432/${POSTGRES_DB:-praxis}
+      PRAXIS_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-praxis}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-praxis}
       PRAXIS_REDIS_URL: redis://redis:6379/0
       PRAXIS_CHROMA_HOST: chromadb
       PRAXIS_CHROMA_PORT: "8000"
-      PRAXIS_OLLAMA_HOST: http://host.docker.internal:11434
+      PRAXIS_OLLAMA_HOST: http://ollama:11434
+      PRAXIS_LLM_MODEL: ${PRAXIS_LLM_MODEL:-llama3.1:8b}
       PRAXIS_DOC_STORE_PATH: /app/data/documents
       PRAXIS_CORPUS_PATH: /app/data/corpus
       PRAXIS_EXPORT_PATH: /app/data/exports
       PRAXIS_ORG_CONFIG_PATH: /app/data/org_config.json
+      PRAXIS_API_KEY: ${PRAXIS_API_KEY}
     volumes:
-      - ./data:/app/data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - praxisdata:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -122,62 +144,59 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_started
+      ollama:
+        condition: service_started
     restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - internal
 
-  # SSO — demo Keycloak realm (Tier 1). The realm is imported on first boot from
-  # ./data/keycloak/. Validated against THIS test IdP, not a firm's live enterprise AD.
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.0
-    command: ["start-dev", "--import-realm"]
-    environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_DB: dev-file
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - internal
+
+  nginx:
+    build:
+      context: nginx
+      dockerfile: Dockerfile
     ports:
-      - "8081:8080"
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./data/keycloak:/opt/keycloak/data/import
-      - keycloakdata:/opt/keycloak/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/realms/praxis/.well-known/openid-configuration || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot
+    depends_on:
+      - frontend
+      - api
     restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
-
-  # LDAP — demo OpenLDAP server (Tier 3). Validated against THIS test IdP, not a live AD.
-  openldap:
-    image: osixia/openldap:1.5.0
-    ports:
-      - "389:389"
-    environment:
-      LDAP_ORGANISATION: "PRAXIS"
-      LDAP_DOMAIN: "praxis.local"
-      LDAP_ADMIN_PASSWORD: "admin"
-    healthcheck:
-      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost:389", "-b", "dc=praxis,dc=local", "-s", "base"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    networks:
+      - internal
 
 volumes:
   pgdata:
   redisdata:
   chromadata:
-  keycloakdata:
+  ollamadata:
+  praxisdata:
+
+networks:
+  internal:
+    driver: bridge

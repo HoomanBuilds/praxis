@@ -41,7 +41,7 @@ const QUICK_STARTS: { title: string; slug: string; icon: LucideIcon; description
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <h2 className="mb-5 text-[14px] font-semibold uppercase tracking-wider text-[#6B7280]">{children}</h2>
+    <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-3)]">{children}</h2>
   );
 }
 
@@ -50,36 +50,36 @@ export default function DocsHome() {
   return (
     <DocsShell wide mainRef={mainRef}>
     <div>
-      <header className="pt-[72px] pb-20 text-center">
-        <h1 className="text-[56px] font-extrabold leading-none tracking-[-0.045em] text-[#111827]">Documentation</h1>
-        <p className="mt-5 text-[14px] text-[#6B7280]">
+      <header className="pt-12 pb-8 text-center">
+        <h1 style={{ fontFamily: "var(--display-font)" }} className="text-[32px] leading-[36px] font-semibold tracking-[-0.022em] text-[var(--ink)]">Documentation</h1>
+        <p className="mt-1 text-[var(--t-sm)] tracking-[var(--ls-sm)] text-[var(--ink-3)]">
           PRAXIS Enterprise Compliance · {DOC_PAGES.length} articles · Last updated{" "}
           {getDocPage("introduction")?.updated}
         </p>
-        <p className="mx-auto mt-8 max-w-[70ch] text-[17px] leading-[1.8] text-[#4B5563]">
+        <p className="mx-auto mt-4 max-w-[624px] text-[var(--t-lead)] leading-[var(--l-lead)] text-[var(--ink-2)]">
           Everything you need to deploy, configure, and operate PRAXIS across your organization. Onboard your teams,
           process regulations, manage obligations, automate workflows, and integrate with the systems you already use.
         </p>
       </header>
 
-      <section className="mt-4">
-        <SectionLabel>Quick Start</SectionLabel>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section>
+        <SectionLabel>Quick start</SectionLabel>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {QUICK_STARTS.map(({ title, slug, icon: Icon, description }) => {
             const page = getDocPage(slug);
             return (
               <Link
                 key={slug}
                 to={`/docs/${slug}`}
-                className="group flex h-[130px] flex-col justify-between rounded-[16px] border border-[#E5E7EB] bg-white p-6 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#D1D5DB]"
+                className="group flex flex-col justify-between rounded-[10px] border border-[var(--line)] p-3 transition-all duration-140 hover:border-[var(--line-2)] hover:bg-[var(--surface)]"
               >
-                <div className="flex items-center gap-2.5">
-                  <Icon className="h-4 w-4 text-[#9CA3AF] transition-colors duration-150 group-hover:text-[#111827]" />
-                  <span className="text-[15px] font-semibold leading-tight text-[#111827]">{title}</span>
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 text-[var(--ink-3)] transition-colors duration-120 group-hover:text-[var(--ink)]" />
+                  <span className="text-[var(--t-sm)] font-semibold tracking-[var(--ls-sm)] text-[var(--ink)]">{title}</span>
                 </div>
-                <div>
-                  <p className="text-[13px] leading-5 text-[#6B7280]">{description}</p>
-                  <p className="mt-1.5 text-[12px] text-[#9CA3AF]">{page ? `${readingMinutes(page)} min read` : ""}</p>
+                <div className="mt-1">
+                  <p className="text-[13px] leading-[1.5] text-[var(--ink-3)]">{description}</p>
+                  <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--ink-4)]">{page ? `${readingMinutes(page)} min read` : ""}</p>
                 </div>
               </Link>
             );
@@ -87,24 +87,24 @@ export default function DocsHome() {
         </div>
       </section>
 
-      <section className="mt-20">
-        <SectionLabel>Browse Documentation</SectionLabel>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mt-14">
+        <SectionLabel>Browse documentation</SectionLabel>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {DOCS_NAV.map((section) => (
-            <div key={section.id} className="flex flex-col rounded-[16px] border border-[#E5E7EB] p-7">
+            <div key={section.id} className="flex flex-col rounded-[10px] border border-[var(--line)] p-3">
               <Link
                 to={`/docs/${section.pages[0].slug}`}
-                className="inline-flex items-center gap-1.5 text-[15px] font-bold text-[#111827] transition-colors duration-150 hover:text-[#6B7280]"
+                className="inline-flex items-center gap-1.5 text-[var(--t-sm)] font-semibold tracking-[var(--ls-sm)] text-[var(--ink)] transition-colors duration-120 hover:text-[var(--ink-2)]"
               >
                 {section.title}
-                <ArrowRight className="h-3.5 w-3.5 text-[#9CA3AF]" />
+                <ArrowRight className="h-3.5 w-3.5 text-[var(--ink-3)]" />
               </Link>
-              <ul className="mt-6 space-y-3">
+              <ul className="mt-3 space-y-2">
                 {section.pages.map((p) => (
                   <li key={p.slug}>
                     <Link
                       to={`/docs/${p.slug}`}
-                      className="block text-[14px] leading-7 text-[#6B7280] transition-colors duration-150 hover:text-[#111827]"
+                      className="block text-[var(--t-sm)] tracking-[var(--ls-sm)] leading-[24px] text-[var(--ink-3)] transition-colors duration-120 hover:text-[var(--ink)]"
                     >
                       {p.title}
                     </Link>

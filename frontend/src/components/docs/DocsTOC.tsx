@@ -42,9 +42,16 @@ export function DocsTOC({
   if (headings.length === 0) return null;
 
   return (
-    <nav className="docs-font px-6 pb-10">
-      <p className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-[#6B7280]">On this page</p>
-      <ul className="space-y-3 border-l border-[#E5E7EB]">
+    <nav className="docs-font pb-8" style={{ paddingInlineEnd: "var(--s2)" }}>
+      <ul className="relative" style={{ paddingInlineStart: "var(--s3)", listStyle: "none", margin: 0 }}>
+        <li
+          className="absolute inset-y-0 rounded-full"
+          style={{
+            insetInlineStart: 0,
+            width: "2px",
+            background: "var(--line)",
+          }}
+        />
         {headings.map((h) => (
           <li key={h.id}>
             <a
@@ -57,11 +64,21 @@ export function DocsTOC({
                 history.replaceState(null, "", `#${h.id}`);
               }}
               className={cn(
-                "-ml-px block border-l pl-4 text-[14px] font-normal leading-5 text-[#6B7280] transition-colors duration-150 hover:text-[#111827]",
-                h.level === 3 && "pl-8",
-                active === h.id ? "border-[#111827] text-[#111827]" : "border-[#E5E7EB]",
+                "relative block py-1 text-[var(--t-toc)] leading-[1.5] text-[var(--ink-3)] no-underline transition-colors duration-120 hover:text-[var(--ink)]",
+                h.level === 3 && "pl-3",
+                active === h.id ? "text-[var(--ink)]" : "",
               )}
             >
+              {active === h.id && (
+                <span
+                  className="absolute inset-y-0 rounded-full"
+                  style={{
+                    insetInlineStart: "-12px",
+                    width: "2px",
+                    background: "var(--ink)",
+                  }}
+                />
+              )}
               {h.text}
             </a>
           </li>

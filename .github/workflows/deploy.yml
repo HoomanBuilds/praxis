@@ -1,0 +1,95 @@
+name: Deploy PRAXIS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOCKERHUB_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/praxis
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: ${{ env.DOCKERHUB_REPO }}-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: ${{ env.DOCKERHUB_REPO }}-frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /opt/praxis
+
+            # Pull latest code
+            git pull origin main
+
+            # Pull new images
+            export DOCKERHUB_REPO=${{ secrets.DOCKERHUB_USERNAME }}/praxis
+            export IMAGE_TAG=${{ github.sha }}
+
+            docker compose -f docker-compose.prod.yml pull api worker frontend || true
+
+            # Restart services with new images
+            docker compose -f docker-compose.prod.yml up -d --force-recreate api worker frontend nginx
+
+            # Wait for health check
+            echo "Waiting for API to become healthy..."
+            for i in $(seq 1 30); do
+                if curl -sf http://localhost:8080/api/health > /dev/null 2>&1; then
+                    echo "API is healthy!"
+                    break
+                fi
+                echo "  Attempt $i/30..."
+                sleep 5
+            done
+
+            # Clean up old images
+            docker image prune -f
+
+            echo "Deployment complete: ${{ github.sha }}"
