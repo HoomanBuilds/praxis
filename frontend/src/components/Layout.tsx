@@ -3,7 +3,7 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, ScrollText, ListChecks, ClipboardList, Share2, Bot, BarChart3,
   FileBarChart, History, Settings as SettingsIcon, Search, Command, Bell,
-  FileCheck, CalendarClock, Radar, LogOut, Shield, FileOutput,
+  FileCheck, CalendarClock, Radar, LogOut, Shield, FileOutput, BookOpen,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -100,7 +100,10 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
             ))}
           </nav>
-          <div className="pt-2 mt-2 border-t">
+          <div className="pt-2 mt-2 border-t space-y-0.5">
+            <NavLink to="/docs" className={navItem(location.pathname.startsWith("/docs"))}>
+              <BookOpen className="h-4 w-4" /> Documentation
+            </NavLink>
             <NavLink to="/settings" className={navItem(location.pathname.startsWith("/settings"))}>
               <SettingsIcon className="h-4 w-4" /> Settings
             </NavLink>
