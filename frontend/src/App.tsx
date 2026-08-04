@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Layout } from "@/components/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -28,6 +28,8 @@ const ApiKeys = lazy(() => import("@/pages/ApiKeys"));
 const DataRetention = lazy(() => import("@/pages/DataRetention"));
 const Watch = lazy(() => import("@/pages/Watch"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
+const DocsHome = lazy(() => import("@/pages/docs/DocsHome"));
+const DocsPage = lazy(() => import("@/pages/docs/DocsPage"));
 
 function PageLoader() {
   return (
@@ -37,49 +39,58 @@ function PageLoader() {
   );
 }
 
-function AppRoutes() {
-  const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) {
-    return (
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </Suspense>
-    );
-  }
+function AppLayout() {
   return (
     <Layout>
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/documents" element={<Documents />} />
-          <Route path="/documents/:id/review" element={<Review />} />
-          <Route path="/obligations" element={<Obligations />} />
-          <Route path="/obligations/:id" element={<ObligationWorkspace />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
-          <Route path="/copilot" element={<CopilotPage />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/audit" element={<AuditTrail />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/users" element={<Users />} />
-          <Route path="/settings/firm" element={<FirmProfile />} />
-          <Route path="/settings/departments" element={<Departments />} />
-          <Route path="/settings/api-keys" element={<ApiKeys />} />
-          <Route path="/settings/data" element={<DataRetention />} />
-          <Route path="/risk-register" element={<RiskRegister />} />
-          <Route path="/filings" element={<Filings />} />
-          <Route path="/evidence" element={<EvidenceCenter />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/watch" element={<Watch />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+      <Outlet />
     </Layout>
+  );
+}
+
+function AppRoutes() {
+  const { isAuthenticated } = useAuth();
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/docs" element={<DocsHome />} />
+        <Route path="/docs/:slug" element={<DocsPage />} />
+        <Route path="/docs/*" element={<Navigate to="/docs" replace />} />
+
+        {isAuthenticated ? (
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/documents/:id/review" element={<Review />} />
+            <Route path="/obligations" element={<Obligations />} />
+            <Route path="/obligations/:id" element={<ObligationWorkspace />} />
+            <Route path="/tasks" element={<Tasks />} />
+            <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
+            <Route path="/copilot" element={<CopilotPage />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/audit" element={<AuditTrail />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/users" element={<Users />} />
+            <Route path="/settings/firm" element={<FirmProfile />} />
+            <Route path="/settings/departments" element={<Departments />} />
+            <Route path="/settings/api-keys" element={<ApiKeys />} />
+            <Route path="/settings/data" element={<DataRetention />} />
+            <Route path="/risk-register" element={<RiskRegister />} />
+            <Route path="/filings" element={<Filings />} />
+            <Route path="/evidence" element={<EvidenceCenter />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/watch" element={<Watch />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        ) : (
+          <>
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </>
+        )}
+      </Routes>
+    </Suspense>
   );
 }
 

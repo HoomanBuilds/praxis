@@ -27,6 +27,7 @@ const ALLOWLIST_PATH = join(ROOT, "scripts", "vocabulary-allowlist.json");
 /** Files permitted to name the internals — the dictionaries themselves. */
 const EXEMPT_PATHS = [
   join("src", "lib", "vocab") + sep,
+  join("src", "docs") + sep,
   join("src", "lib", "types.ts"),
   join("src", "vite-env.d.ts"),
 ];
