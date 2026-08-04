@@ -3,8 +3,8 @@ import { h2, p, table, note, UPDATED } from "../blocks";
 
 export const pages: DocPage[] = [
   {
-    slug: "terminology",
-    title: "Terminology",
+    slug: "glossary",
+    title: "Glossary",
     description:
       "The words PRAXIS uses, defined the way a compliance officer would use them.",
     updated: UPDATED,
@@ -50,74 +50,6 @@ export const pages: DocPage[] = [
   },
 
   {
-    slug: "status-definitions",
-    title: "Status Definitions",
-    description:
-      "Every status an obligation, document, task or filing can be in, and what it means.",
-    updated: UPDATED,
-    sections: [
-      h2("Obligation statuses",
-      ),
-      table(
-        ["Status", "Meaning"],
-        [
-          ["Pending review", "Identified, waiting for a compliance officer's decision."],
-          ["Approved", "Accepted as a genuine obligation; eligible for rules, tasks and evidence."],
-          ["Rejected", "Not applicable to the firm; reviewer and reason recorded."],
-          ["Edited", "Approved with changes to description, area or type."],
-          ["Implemented", "Rules, tasks and evidence in place."],
-        ],
-      ),
-      h2("Document statuses",
-      ),
-      table(
-        ["Status", "Meaning"],
-        [
-          ["Queued", "Waiting for a background worker."],
-          ["Processing", "Being read and analysed."],
-          ["Awaiting review", "Obligations identified, awaiting review."],
-          ["Generated", "Rules, tasks and evidence created."],
-          ["Failed", "Processing did not complete."],
-        ],
-      ),
-      h2("Task statuses",
-      ),
-      table(
-        ["Status", "Meaning"],
-        [
-          ["Open", "Assigned, not started."],
-          ["In progress", "Work underway."],
-          ["Complete", "Done and reviewed."],
-          ["Overdue", "Past deadline without completion."],
-        ],
-      ),
-      h2("Filing statuses",
-      ),
-      table(
-        ["Status", "Meaning"],
-        [
-          ["Due", "Not yet submitted."],
-          ["Submitted", "Filed with the regulator."],
-          ["Acknowledged", "Receipt confirmed."],
-          ["Overdue", "Due date passed without submission."],
-        ],
-      ),
-      h2("Risk levels",
-      ),
-      table(
-        ["Level", "Meaning"],
-        [
-          ["Critical", "Immediate action required."],
-          ["High", "Priority attention this cycle."],
-          ["Medium", "Standard implementation work."],
-          ["Low", "Lower-impact requirement."],
-          ["Minimal", "Recorded, minimal action expected."],
-        ],
-      ),
-    ],
-  },
-
-  {
     slug: "error-codes",
     title: "Error Codes",
     description:
@@ -152,34 +84,6 @@ export const pages: DocPage[] = [
       ),
       p(
         "Some failures carry a domain message rather than a bare status: a document that failed processing shows the reason on the document; an integration card shows the connection error it hit.",
-      ),
-    ],
-  },
-
-  {
-    slug: "keyboard-shortcuts",
-    title: "Keyboard Shortcuts",
-    description:
-      "Keys that move you around PRAXIS faster.",
-    updated: UPDATED,
-    sections: [
-      h2("Global",
-      ),
-      table(
-        ["Shortcut", "Action"],
-        [
-          ["Cmd/Ctrl + K", "Open the command palette — search records and jump between screens."],
-          ["Esc", "Close the command palette or current overlay."],
-        ],
-      ),
-      h2("Command palette",
-      ),
-      p(
-        "Type to search across documents, obligations and navigation. Arrow keys move through results; Enter opens the selected item; Cmd/Ctrl + K reopens it from anywhere.",
-      ),
-      note(
-        "Keep it simple",
-        "PRAXIS favours a mouse-first interface with one global shortcut to rule them all — the command palette.",
       ),
     ],
   },

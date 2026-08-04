@@ -93,8 +93,8 @@ export const pages: DocPage[] = [
   },
 
   {
-    slug: "system-requirements",
-    title: "System Requirements",
+    slug: "infrastructure-requirements",
+    title: "Infrastructure Requirements",
     description:
       "Hardware, software and service requirements for running PRAXIS in development and production.",
     updated: UPDATED,
@@ -182,7 +182,7 @@ export const pages: DocPage[] = [
 
   {
     slug: "upload-first-circular",
-    title: "Upload Your First Circular",
+    title: "Upload First Circular",
     description:
       "From a SEBI circular to a reviewable set of obligations, step by step.",
     updated: UPDATED,

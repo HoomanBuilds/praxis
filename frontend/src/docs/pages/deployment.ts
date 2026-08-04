@@ -1,5 +1,5 @@
 import type { DocPage } from "../types";
-import { h2, p, ul, ol, code, table, note, UPDATED } from "../blocks";
+import { h2, p, ul, ol, code, table, UPDATED } from "../blocks";
 
 export const pages: DocPage[] = [
   {
@@ -174,52 +174,6 @@ export const pages: DocPage[] = [
       h2("Rolling updates"),
       p(
         "Releases are image tag replacements. Use rolling updates with readiness probes from the health endpoint; back up state before major upgrades.",
-      ),
-    ],
-  },
-
-  {
-    slug: "backup-recovery",
-    title: "Backup & Recovery",
-    description:
-      "What to back up, on what schedule, and how to restore PRAXIS.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "The compliance record is the asset. Backups protect the database, the document and evidence store, and the configuration that defines the deployment.",
-      ),
-      h2("What to back up"),
-      ul([
-        "The database (PostgreSQL) — the system of record.",
-        "Document and evidence files — object storage or disk.",
-        "Configuration — environment and compose files.",
-      ]),
-      h2("Backup schedule",
-      ),
-      table(
-        ["Data", "Recommended cadence"],
-        [
-          ["Database", "Daily full + continuous archive (WAL shipping or PITR)."],
-          ["Documents & evidence", "Daily incremental, weekly full."],
-          ["Configuration", "On every change, version-controlled."],
-        ],
-      ),
-      h2("Restore"),
-      code(
-        "# Restore the database\npg_restore --clean --if-exists \\\n  -d praxis latest-dump.sql",
-        "bash",
-      ),
-      p(
-        "Restore the database to the point in time you need, then restore documents and evidence to match. Verify a restore in a staging environment at least quarterly.",
-      ),
-      h2("Retention",
-      ),
-      p(
-        "Keep audit and evidence records for at least the retention periods required of your firm — commonly five years. Backup retention should cover regulatory requirements, not just disaster recovery.",
-      ),
-      note(
-        "Test your restores",
-        "An untested backup is a hope, not a plan. Schedule a restore drill and confirm the health endpoint and an uploaded document work after recovery.",
       ),
     ],
   },

@@ -42,9 +42,9 @@ export function DocsTOC({
   if (headings.length === 0) return null;
 
   return (
-    <nav className="sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto pb-8 pl-6">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">On this page</p>
-      <ul className="space-y-1 border-l border-gray-100">
+    <nav className="docs-font px-6 pb-10">
+      <p className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-[#6B7280]">On this page</p>
+      <ul className="space-y-1.5 border-l border-[#E5E7EB]">
         {headings.map((h) => (
           <li key={h.id}>
             <a
@@ -57,9 +57,9 @@ export function DocsTOC({
                 history.replaceState(null, "", `#${h.id}`);
               }}
               className={cn(
-                "-ml-px block border-l pl-3 text-[13px] leading-5 text-gray-500 hover:text-gray-900 transition-colors",
-                h.level === 3 && "pl-6",
-                active === h.id ? "border-gray-900 text-gray-900 font-medium" : "border-gray-100",
+                "-ml-px block border-l pl-4 text-[14px] leading-5 text-[#6B7280] transition-colors duration-150 hover:text-[#111827]",
+                h.level === 3 && "pl-8",
+                active === h.id ? "border-[#111827] font-medium text-[#111827]" : "border-[#E5E7EB]",
               )}
             >
               {h.text}

@@ -67,6 +67,39 @@ export const pages: DocPage[] = [
   },
 
   {
+    slug: "slack",
+    title: "Slack",
+    description:
+      "Post compliance notifications to Slack channels so the team sees alerts where they already work.",
+    updated: UPDATED,
+    sections: [
+      p(
+        "PRAXIS can post notifications to Slack through an incoming webhook, bringing compliance alerts into the team's existing channel.",
+      ),
+      h2("Configuration",
+      ),
+      ol([
+        "Create an incoming webhook for the channel in Slack.",
+        "Paste the webhook URL into the Slack integration in Settings → Integrations.",
+        "Choose which notification types are posted to Slack.",
+        "Test the connection — PRAXIS sends a test message to confirm.",
+      ]),
+      h2("What is posted",
+      ),
+      ul([
+        "Obligations awaiting review.",
+        "Task and filing reminders.",
+        "Escalation notices.",
+        "Processing completions.",
+      ]),
+      h2("Permissions"),
+      p(
+        "Slack posts are outbound only. PRAXIS does not read or index your Slack messages.",
+      ),
+    ],
+  },
+
+  {
     slug: "email",
     title: "Email",
     description:
@@ -102,72 +135,6 @@ export const pages: DocPage[] = [
       note(
         "Not a sending relay",
         "PRAXIS sends through your existing mail infrastructure; it does not operate its own outbound mail service.",
-      ),
-    ],
-  },
-
-  {
-    slug: "slack",
-    title: "Slack",
-    description:
-      "Post compliance notifications to Slack channels so the team sees alerts where they already work.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "PRAXIS can post notifications to Slack through an incoming webhook, bringing compliance alerts into the team's existing channel.",
-      ),
-      h2("Configuration",
-      ),
-      ol([
-        "Create an incoming webhook for the channel in Slack.",
-        "Paste the webhook URL into the Slack integration in Settings → Integrations.",
-        "Choose which notification types are posted to Slack.",
-        "Test the connection — PRAXIS sends a test message to confirm.",
-      ]),
-      h2("What is posted",
-      ),
-      ul([
-        "Obligations awaiting review.",
-        "Task and filing reminders.",
-        "Escalation notices.",
-        "Processing completions.",
-      ]),
-      h2("Permissions"),
-      p(
-        "Slack posts are outbound only. PRAXIS does not read or index your Slack messages.",
-      ),
-    ],
-  },
-
-  {
-    slug: "teams",
-    title: "Teams",
-    description:
-      "Compliance notifications in Microsoft Teams channels via webhook.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "For teams that work in Microsoft Teams, PRAXIS posts compliance notifications into a Teams channel through a webhook.",
-      ),
-      h2("Configuration",
-      ),
-      ol([
-        "Create an incoming webhook for the channel in Microsoft Teams.",
-        "Add the webhook URL to the Teams integration in Settings → Integrations.",
-        "Choose which notification types are posted.",
-        "Test the connection to confirm delivery.",
-      ]),
-      h2("What is posted",
-      ),
-      ul([
-        "Obligations awaiting review.",
-        "Deadline reminders and escalations.",
-        "Processing and filing events.",
-      ]),
-      h2("Permissions",
-      ),
-      p(
-        "Posts are outbound only; PRAXIS does not read Teams conversations.",
       ),
     ],
   },

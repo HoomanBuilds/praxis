@@ -211,46 +211,6 @@ export const pages: DocPage[] = [
   },
 
   {
-    slug: "filing-management",
-    title: "Filing Management",
-    description:
-      "Tracking periodic filings and disclosures to SEBI and other bodies, with deadlines and owners.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "Many obligations are periodic: file a report, disclose a change, submit a return. Filing Management tracks these recurring requirements so a deadline is never missed.",
-      ),
-      h2("Filings in PRAXIS",
-      ),
-      p(
-        "When an obligation implies a filing — a periodic report, a disclosure, an application — it is tracked as a filing with a due date, a responsible owner and a status.",
-      ),
-      h2("The Filing Tracker",
-      ),
-      ul([
-        "Every filing with its due date and owner.",
-        "Status per filing: due, submitted, acknowledged, overdue.",
-        "Links back to the obligation and regulation that require it.",
-        "A view of upcoming filings so the team can plan ahead.",
-      ]),
-      h2("Workflow",
-      ),
-      ol([
-        "An approved obligation creates a filing requirement.",
-        "The filing appears in the tracker with its deadline.",
-        "The owner prepares and submits the filing.",
-        "Evidence of submission is attached to the obligation.",
-        "The audit trail records the whole sequence.",
-      ]),
-      h2("Integration",
-      ),
-      p(
-        "Filing deadlines appear on the Calendar alongside task deadlines, and overdue filings surface on the Dashboard so they are visible at the top of the organization.",
-      ),
-    ],
-  },
-
-  {
     slug: "regulatory-watch",
     title: "Regulatory Watch",
     description:

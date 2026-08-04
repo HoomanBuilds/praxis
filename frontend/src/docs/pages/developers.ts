@@ -166,33 +166,4 @@ export const pages: DocPage[] = [
       ]),
     ],
   },
-
-  {
-    slug: "rate-limits",
-    title: "Rate Limits",
-    description:
-      "Expectations for API usage — what is throttled and what is queue-based.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "PRAXIS is designed for compliance workloads, not bulk scraping. The API does not enforce a published per-key rate limit out of the box, but it does expect reasonable use.",
-      ),
-      h2("What to expect",
-      ),
-      ul([
-        "Read endpoints respond in milliseconds for typical record counts.",
-        "Document ingestion is asynchronous: uploads are queued and processed by background workers.",
-        "Long-running processing reports progress rather than blocking.",
-      ]),
-      h2("Design guidance"),
-      p(
-        "Prefer webhooks for event-driven systems instead of polling. When polling, use the activity feed with a sensible interval (seconds to minutes depending on urgency).",
-      ),
-      h2("Heavy usage",
-      ),
-      p(
-        "Deployments processing very large corpora should size background workers to match. If you anticipate sustained high-volume ingestion, discuss capacity with your deployment administrator.",
-      ),
-    ],
-  },
 ];

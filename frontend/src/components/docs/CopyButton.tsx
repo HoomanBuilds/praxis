@@ -19,9 +19,9 @@ export function CopyButton({ text, label = "Copy page" }: { text: string; label?
   return (
     <button
       onClick={onCopy}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+      className="docs-font inline-flex h-9 items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-white px-4 text-[14px] font-medium text-[#6B7280] transition-colors duration-150 hover:bg-[#F9FAFB] hover:text-[#111827]"
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-[#22C55E]" /> : <Copy className="h-3.5 w-3.5" />}
       {copied ? "Copied" : label}
     </button>
   );

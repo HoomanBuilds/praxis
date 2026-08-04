@@ -245,43 +245,6 @@ export const pages: DocPage[] = [
   },
 
   {
-    slug: "filing-tracker",
-    title: "Filing Tracker",
-    description:
-      "Track periodic filings and disclosures to SEBI, with due dates, owners and submission status.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "The Filing Tracker manages recurring filings and disclosures. Each row is a filing requirement tied to an obligation and regulation, with a due date, an owner and a status.",
-      ),
-      h2("Filing states",
-      ),
-      table(
-        ["State", "Meaning"],
-        [
-          ["Due", "The filing has not been submitted yet."],
-          ["Submitted", "The filing has been filed with the regulator."],
-          ["Acknowledged", "The regulator has acknowledged receipt."],
-          ["Overdue", "The due date has passed without submission."],
-        ],
-      ),
-      h2("Working with filings",
-      ),
-      ol([
-        "An approved obligation creates a filing requirement with a deadline.",
-        "The owner prepares and submits the filing.",
-        "Evidence of submission is attached to the obligation.",
-        "The status is updated and the audit trail records it.",
-      ]),
-      h2("Planning ahead",
-      ),
-      p(
-        "The upcoming view lists filings by due date so the team can see what is coming and prepare in advance — no filing surprises at month end.",
-      ),
-    ],
-  },
-
-  {
     slug: "compliance-map",
     title: "Compliance Map",
     description:
@@ -330,42 +293,6 @@ export const pages: DocPage[] = [
       ),
       p(
         "The map exports to GraphML for use in external graph tools, documentation and board presentations.",
-      ),
-    ],
-  },
-
-  {
-    slug: "risk-register-module",
-    title: "Risk Register",
-    description:
-      "Every obligation ranked by computed risk — filter by department, status and level, and act on what matters first.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "The Risk Register ranks every obligation by its computed risk level. It is the operational starting point for triage: what is critical, what is high, and what can wait.",
-      ),
-      h2("The ranking",
-      ),
-      p(
-        "Every obligation receives a risk score derived from objective compliance signals. The register groups them into levels from Critical to Minimal and lets you filter by department and status.",
-      ),
-      h2("Using it daily",
-      ),
-      ul([
-        "Clear the critical list first — these are the obligations that need action now.",
-        "Filter by department to brief each owner on their risk profile.",
-        "Open an obligation to see why it was ranked as it was.",
-        "Watch the register after a new circular — new high-risk obligations land at the top.",
-      ]),
-      h2("Consistency",
-      ),
-      p(
-        "Because risk is computed from objective signals, the ranking is reproducible and explainable — the same facts always produce the same score. That matters when a regulator asks how risk was assessed.",
-      ),
-      h2("Links",
-      ),
-      p(
-        "The same scores drive the risk nodes in the Compliance Map, and the register feeds the Risk Distribution view in Analytics.",
       ),
     ],
   },

@@ -10,7 +10,7 @@ function InlineText({ text }: { text: string }) {
     <>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <code key={i} className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[0.85em] text-gray-800">
+          <code key={i} className="docs-mono rounded-[6px] bg-[#F3F4F6] px-1.5 py-0.5 text-[0.85em] text-[#111827]">
             {part}
           </code>
         ) : (
@@ -21,7 +21,7 @@ function InlineText({ text }: { text: string }) {
   );
 }
 
-function CodeBlock({ text }: { text: string }) {
+function CodeBlock({ text, lang }: { text: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
   const onCopy = async () => {
     try {
@@ -33,30 +33,37 @@ function CodeBlock({ text }: { text: string }) {
     }
   };
   return (
-    <div className="group relative my-5">
-      <pre className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-900 p-4 text-[13px] leading-relaxed text-gray-100">
+    <div className="my-8">
+      <div className="flex items-center justify-between rounded-t-[12px] border border-b-0 border-[#1F2937] bg-[#0B0F19] px-6 pb-2 pt-4">
+        <span className="docs-mono text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
+          {lang || "bash"}
+        </span>
+        <button
+          onClick={onCopy}
+          aria-label="Copy code"
+          className="docs-mono inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-[#9CA3AF] transition-colors duration-150 hover:bg-[#1F2937] hover:text-white"
+        >
+          {copied ? <Check className="h-3.5 w-3.5 text-[#4ADE80]" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className="docs-mono overflow-x-auto rounded-b-[12px] border border-[#1F2937] bg-[#0B0F19] p-6 text-[15px] leading-7 text-[#D1D5DB]">
         <code>{text}</code>
       </pre>
-      <button
-        onClick={onCopy}
-        aria-label="Copy code"
-        className="absolute right-2 top-2 rounded-md border border-gray-700 bg-gray-800 p-1.5 text-gray-400 opacity-0 transition-opacity hover:text-white focus:opacity-100 group-hover:opacity-100"
-      >
-        {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
-      </button>
     </div>
   );
 }
 
 const CALLOUT_STYLES = {
-  note: { box: "border-blue-200 bg-blue-50", title: "text-blue-900", text: "text-blue-900/80" },
-  tip: { box: "border-green-200 bg-green-50", title: "text-green-900", text: "text-green-900/80" },
-  warning: { box: "border-amber-200 bg-amber-50", title: "text-amber-900", text: "text-amber-900/80" },
+  note: { box: "border-[#3B82F6] bg-[#EFF6FF]", title: "text-[#1D4ED8]", text: "text-[#1E40AF]" },
+  tip: { box: "border-[#22C55E] bg-[#F0FDF4]", title: "text-[#15803D]", text: "text-[#166534]" },
+  warning: { box: "border-[#F59E0B] bg-[#FFFBEB]", title: "text-[#B45309]", text: "text-[#92400E]" },
+  danger: { box: "border-[#EF4444] bg-[#FEF2F2]", title: "text-[#B91C1C]", text: "text-[#991B1B]" },
 } as const;
 
 export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
   return (
-    <div className="text-[15px] leading-7 text-gray-700">
+    <div className="docs-font text-[18px] leading-[1.8] text-[#374151]">
       {blocks.map((b, i) => {
         switch (b.type) {
           case "h2":
@@ -64,7 +71,7 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
               <h2
                 key={i}
                 id={headingId(b.text)}
-                className="mt-10 mb-3 scroll-mt-24 text-xl font-semibold tracking-tight text-gray-900 first:mt-0"
+                className="mt-16 mb-4 scroll-mt-24 text-[20px] font-bold tracking-tight text-[#111827] first:mt-0"
               >
                 {b.text}
               </h2>
@@ -74,23 +81,23 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
               <h3
                 key={i}
                 id={headingId(b.text)}
-                className="mt-8 mb-2 scroll-mt-24 text-[17px] font-semibold tracking-tight text-gray-900"
+                className="mt-10 mb-3 scroll-mt-24 text-[16px] font-bold tracking-tight text-[#111827]"
               >
                 {b.text}
               </h3>
             );
           case "p":
             return (
-              <p key={i} className="my-4">
+              <p key={i} className="my-6 max-w-[70ch]">
                 <InlineText text={b.text} />
               </p>
             );
           case "ul":
             return (
-              <ul key={i} className="my-4 space-y-2">
+              <ul key={i} className="my-6 max-w-[70ch] space-y-4">
                 {b.items.map((item, j) => (
-                  <li key={j} className="flex gap-2.5">
-                    <span className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-gray-300" />
+                  <li key={j} className="flex gap-3">
+                    <span className="mt-[13px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#D1D5DB]" />
                     <span>
                       <InlineText text={item} />
                     </span>
@@ -100,10 +107,10 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
             );
           case "ol":
             return (
-              <ol key={i} className="my-4 space-y-2">
+              <ol key={i} className="my-6 max-w-[70ch] space-y-4">
                 {b.items.map((item, j) => (
-                  <li key={j} className="flex gap-2.5">
-                    <span className="mt-0.5 shrink-0 text-sm font-semibold text-gray-400 tabular">{j + 1}.</span>
+                  <li key={j} className="flex gap-3.5">
+                    <span className="mt-0.5 shrink-0 text-[16px] font-semibold text-[#9CA3AF] tabular">{j + 1}.</span>
                     <span>
                       <InlineText text={item} />
                     </span>
@@ -112,25 +119,31 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
               </ol>
             );
           case "code":
-            return <CodeBlock key={i} text={b.text} />;
+            return <CodeBlock key={i} text={b.text} lang={b.lang} />;
           case "table":
             return (
-              <div key={i} className="my-5 overflow-x-auto rounded-lg border border-gray-200">
-                <table className="w-full border-collapse text-sm">
+              <div key={i} className="my-8 overflow-x-auto rounded-[12px] border border-[#E5E7EB]">
+                <table className="w-full border-collapse">
                   <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
+                    <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
                       {b.headers.map((h, j) => (
-                        <th key={j} className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <th key={j} className="px-5 py-3 text-left text-[13px] font-semibold text-[#111827]">
                           {h}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-[#F3F4F6]">
                     {b.rows.map((row, j) => (
                       <tr key={j} className="align-top">
                         {row.map((cell, k) => (
-                          <td key={k} className={cn("px-3 py-2.5 text-[13px] leading-6", k === 0 ? "font-medium text-gray-900" : "text-gray-600")}>
+                          <td
+                            key={k}
+                            className={cn(
+                              "px-5 py-3 text-[15px] leading-7",
+                              k === 0 ? "font-medium text-[#111827]" : "text-[#6B7280]",
+                            )}
+                          >
                             <InlineText text={cell} />
                           </td>
                         ))}
@@ -143,9 +156,9 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
           case "callout": {
             const s = CALLOUT_STYLES[b.variant];
             return (
-              <div key={i} className={cn("my-5 rounded-lg border-l-4 px-4 py-3", s.box)}>
-                <p className={cn("text-sm font-semibold", s.title)}>{b.title}</p>
-                <p className={cn("mt-0.5 text-sm leading-6", s.text)}>
+              <div key={i} className={cn("my-8 rounded-[12px] border-l-4 py-4 pl-5 pr-5", s.box)}>
+                <p className={cn("text-[15px] font-semibold", s.title)}>{b.title}</p>
+                <p className={cn("mt-1 text-[15px] leading-7", s.text)}>
                   <InlineText text={b.text} />
                 </p>
               </div>

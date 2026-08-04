@@ -11,5 +11,6 @@ export const table = (headers: string[], rows: string[][]): DocBlock => ({ type:
 export const note = (title: string, text: string): DocBlock => ({ type: "callout", variant: "note", title, text });
 export const tip = (title: string, text: string): DocBlock => ({ type: "callout", variant: "tip", title, text });
 export const warning = (title: string, text: string): DocBlock => ({ type: "callout", variant: "warning", title, text });
+export const danger = (title: string, text: string): DocBlock => ({ type: "callout", variant: "danger", title, text });
 
 export const UPDATED = "August 4, 2026";

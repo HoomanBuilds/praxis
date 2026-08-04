@@ -52,8 +52,8 @@ export const pages: DocPage[] = [
   },
 
   {
-    slug: "access-control",
-    title: "Access Control",
+    slug: "rbac",
+    title: "RBAC",
     description:
       "Role-based access across every screen and API, with administrator-only configuration.",
     updated: UPDATED,
@@ -169,47 +169,6 @@ export const pages: DocPage[] = [
       ),
       p(
         "The full audit trail is visible to auditors and administrators. Everyone can see the actions they are entitled to see, in the activity feed.",
-      ),
-    ],
-  },
-
-  {
-    slug: "compliance-standards",
-    title: "Compliance Standards",
-    description:
-      "How PRAXIS supports the standards and expectations of regulated firms.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "This page describes the security and audit posture PRAXIS provides to support your firm's obligations under regulatory frameworks.",
-      ),
-      h2("What PRAXIS provides",
-      ),
-      ul([
-        "An append-only audit trail suitable for regulatory review.",
-        "Role-based access control and SSO for identity management.",
-        "Encrypted secret storage and transport security.",
-        "Data retention controls aligned with record-keeping requirements.",
-        "Verbatim source references on every obligation.",
-      ]),
-      h2("Supporting your obligations",
-      ),
-      p(
-        "PRAXIS is a tool for meeting obligations, not a certification. Your firm remains responsible for its regulatory obligations; PRAXIS provides the records, controls and evidence trail that support them.",
-      ),
-      h2("Data retention",
-      ),
-      p(
-        "Configure retention periods in Settings → Data Retention to match your regulatory requirements — commonly five years for market-intermediary records. Audit and evidence data should be backed up and retained accordingly.",
-      ),
-      h2("Independent audit",
-      ),
-      p(
-        "The audit package export is designed to be handed to internal audit and regulators: dated, traceable from regulatory text to evidence, and with a system attestation.",
-      ),
-      note(
-        "Not legal advice",
-        "Documentation and features do not constitute legal advice. Configure PRAXIS in line with your firm's compliance policies and legal guidance.",
       ),
     ],
   },

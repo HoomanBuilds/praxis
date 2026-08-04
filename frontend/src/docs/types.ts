@@ -7,7 +7,7 @@ export type DocBlock =
   | { type: "ol"; items: string[] }
   | { type: "code"; text: string; lang?: string }
   | { type: "table"; headers: string[]; rows: string[][] }
-  | { type: "callout"; variant: "note" | "tip" | "warning"; title: string; text: string };
+  | { type: "callout"; variant: "note" | "tip" | "warning" | "danger"; title: string; text: string };
 
 export interface DocPage {
   /** URL slug, stable and unique. */

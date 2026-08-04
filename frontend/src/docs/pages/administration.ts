@@ -1,10 +1,10 @@
 import type { DocPage } from "../types";
-import { h2, p, ul, ol, table, note, UPDATED } from "../blocks";
+import { h2, p, ul, ol, table, UPDATED } from "../blocks";
 
 export const pages: DocPage[] = [
   {
     slug: "users-and-roles",
-    title: "Users & Roles",
+    title: "Users",
     description:
       "Creating accounts, assigning roles, and managing who can see and do what in PRAXIS.",
     updated: UPDATED,
@@ -146,47 +146,6 @@ export const pages: DocPage[] = [
       ),
       p(
         "The bell icon in the header shows unread notifications. Open the notifications screen to see the full list, filter by type, and mark items read. Unread counts are tracked per user.",
-      ),
-    ],
-  },
-
-  {
-    slug: "settings",
-    title: "Settings",
-    description:
-      "Organization, departments, users, roles, integrations, notifications, security, automation and data retention.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "Settings is the control center for administrators. Everything about how your organization runs in PRAXIS is configured here.",
-      ),
-      h2("Organization",
-      ),
-      p("Firm name, firm type and intermediary classes. These shape how regulations apply to your firm."),
-      h2("Departments",
-      ),
-      p("Functional areas, their primary owners, reviewers and how obligations route to them."),
-      h2("Users and roles",
-      ),
-      p("Accounts, roles, departments and sign-in methods for the people who work in PRAXIS."),
-      h2("Integrations",
-      ),
-      p("Connect email, calendar, messaging, document and identity services. Each integration card shows its connection status and last test."),
-      h2("Notifications",
-      ),
-      p("Which events alert people, and by which channel."),
-      h2("Security",
-      ),
-      p("SSO configuration, authentication settings, API keys and access controls."),
-      h2("Automation",
-      ),
-      p("How much of the pipeline runs automatically, review scheduling and escalation behavior."),
-      h2("Data retention",
-      ),
-      p("How long records are kept, and retention periods aligned with regulatory requirements."),
-      note(
-        "Administrator only",
-        "Settings is restricted to administrators. Officers and analysts see the operational screens, not configuration.",
       ),
     ],
   },

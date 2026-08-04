@@ -73,37 +73,6 @@ export const pages: DocPage[] = [
   },
 
   {
-    slug: "reminders",
-    title: "Reminders",
-    description:
-      "Automatic alerts before deadlines so nothing slips through.",
-    updated: UPDATED,
-    sections: [
-      p(
-        "Reminders notify owners and reviewers before deadlines, so tasks and filings are completed on time rather than discovered late.",
-      ),
-      h2("What triggers a reminder",
-      ),
-      ul([
-        "A task deadline approaching (configurable lead time).",
-        "A filing due date approaching.",
-        "An obligation left in pending review for too long.",
-        "Evidence requirements still missing near a review date.",
-      ]),
-      h2("Delivery",
-      ),
-      p(
-        "Reminders are delivered through the same channels as notifications: in-platform, by email, or to a connected messaging channel. Each user's preferences apply.",
-      ),
-      h2("Configuring reminders",
-      ),
-      p(
-        "Lead times and channels are configured under Settings → Automation and Settings → Notifications.",
-      ),
-    ],
-  },
-
-  {
     slug: "escalations",
     title: "Escalations",
     description:
