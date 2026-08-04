@@ -44,7 +44,7 @@ export function DocsTOC({
   return (
     <nav className="docs-font px-6 pb-10">
       <p className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-[#6B7280]">On this page</p>
-      <ul className="space-y-1.5 border-l border-[#E5E7EB]">
+      <ul className="space-y-3 border-l border-[#E5E7EB]">
         {headings.map((h) => (
           <li key={h.id}>
             <a
@@ -57,9 +57,9 @@ export function DocsTOC({
                 history.replaceState(null, "", `#${h.id}`);
               }}
               className={cn(
-                "-ml-px block border-l pl-4 text-[14px] leading-5 text-[#6B7280] transition-colors duration-150 hover:text-[#111827]",
+                "-ml-px block border-l pl-4 text-[14px] font-normal leading-5 text-[#6B7280] transition-colors duration-150 hover:text-[#111827]",
                 h.level === 3 && "pl-8",
-                active === h.id ? "border-[#111827] font-medium text-[#111827]" : "border-[#E5E7EB]",
+                active === h.id ? "border-[#111827] text-[#111827]" : "border-[#E5E7EB]",
               )}
             >
               {h.text}

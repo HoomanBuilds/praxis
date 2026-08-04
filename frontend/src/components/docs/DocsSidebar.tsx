@@ -109,11 +109,11 @@ export function DocsSidebar({ currentSlug, onNavigate }: { currentSlug?: string;
                   <button
                     onClick={() => setOpen((o) => ({ ...o, [section.id]: !isOpen(section.id) }))}
                     className={cn(
-                      "flex w-full items-center gap-2.5 rounded-[10px] px-3 pt-8 pb-1 text-left text-[14px] font-semibold text-[#111827] transition-colors duration-150 hover:text-[#111827]",
+                      "group flex w-full items-center gap-2.5 rounded-[10px] px-3 pt-7 pb-1 text-left text-[14px] font-semibold text-[#111827] transition-colors duration-150 hover:text-[#111827]",
                       active && "text-[#111827]",
                     )}
                   >
-                    <Icon className={cn("h-4 w-4 text-[#9CA3AF]", active && "text-[#111827]")} />
+                    <Icon className={cn("h-4 w-4 text-[#E5E7EB] transition-colors duration-150 group-hover:text-[#9CA3AF]", active && "text-[#111827]")} />
                     <span className="flex-1">{section.title}</span>
                     {openSection ? (
                       <ChevronDown className="h-3.5 w-3.5 text-[#9CA3AF]" />
@@ -122,7 +122,7 @@ export function DocsSidebar({ currentSlug, onNavigate }: { currentSlug?: string;
                     )}
                   </button>
                   {openSection && (
-                    <div className="mt-1 space-y-0.5">
+                    <div className="mt-3.5 space-y-2.5">
                       {section.pages.map((p) => (
                         <Link
                           key={p.slug}

@@ -31,7 +31,7 @@ export function DocContent({ page }: { page: DocPage }) {
 
       <h1 className="text-[48px] font-extrabold leading-[1.1] tracking-[-0.03em] text-[#111827]">{page.title}</h1>
 
-      <div className="mt-[18px] flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px] text-[#6B7280]">
+      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px] text-[#6B7280]">
         <span className="inline-flex items-center gap-1.5">
           <Clock className="h-4 w-4" />
           {minutes} min read
@@ -44,9 +44,9 @@ export function DocContent({ page }: { page: DocPage }) {
         </span>
       </div>
 
-      <p className="mt-7 mb-6 max-w-[70ch] text-[18px] leading-[1.8] text-[#374151]">{page.description}</p>
+      <p className="mt-9 text-[17px] leading-[1.8] text-[#4B5563]">{page.description}</p>
 
-      <div className="mt-10">
+      <div>
         <DocBlocks blocks={page.sections} />
       </div>
 

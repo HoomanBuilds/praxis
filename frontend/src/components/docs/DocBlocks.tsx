@@ -34,7 +34,7 @@ function CodeBlock({ text, lang }: { text: string; lang?: string }) {
   };
   return (
     <div className="my-8">
-      <div className="flex items-center justify-between rounded-t-[12px] border border-b-0 border-[#1F2937] bg-[#0B0F19] px-6 pb-2 pt-4">
+      <div className="flex items-center justify-between rounded-t-[12px] border border-b-0 border-[#1F2937] bg-[#111827] px-6 pb-2 pt-4">
         <span className="docs-mono text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">
           {lang || "bash"}
         </span>
@@ -47,7 +47,7 @@ function CodeBlock({ text, lang }: { text: string; lang?: string }) {
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="docs-mono overflow-x-auto rounded-b-[12px] border border-[#1F2937] bg-[#0B0F19] p-6 text-[15px] leading-7 text-[#D1D5DB]">
+      <pre className="docs-mono overflow-x-auto rounded-b-[12px] border border-[#1F2937] bg-[#111827] p-5 text-[15px] leading-7 text-[#D1D5DB]">
         <code>{text}</code>
       </pre>
     </div>
@@ -63,7 +63,7 @@ const CALLOUT_STYLES = {
 
 export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
   return (
-    <div className="docs-font text-[18px] leading-[1.8] text-[#374151]">
+    <div className="docs-font text-[17px] leading-[1.8] text-[#4B5563]">
       {blocks.map((b, i) => {
         switch (b.type) {
           case "h2":
@@ -71,7 +71,7 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
               <h2
                 key={i}
                 id={headingId(b.text)}
-                className="mt-16 mb-4 scroll-mt-24 text-[20px] font-bold tracking-tight text-[#111827] first:mt-0"
+                className="mt-[72px] mb-5 scroll-mt-24 text-[30px] font-bold tracking-[-0.02em] text-[#111827]"
               >
                 {b.text}
               </h2>
@@ -81,23 +81,23 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
               <h3
                 key={i}
                 id={headingId(b.text)}
-                className="mt-10 mb-3 scroll-mt-24 text-[16px] font-bold tracking-tight text-[#111827]"
+                className="mt-12 mb-3 scroll-mt-24 text-[22px] font-bold tracking-[-0.01em] text-[#111827]"
               >
                 {b.text}
               </h3>
             );
           case "p":
             return (
-              <p key={i} className="my-6 max-w-[70ch]">
+              <p key={i} className="my-7">
                 <InlineText text={b.text} />
               </p>
             );
           case "ul":
             return (
-              <ul key={i} className="my-6 max-w-[70ch] space-y-4">
+              <ul key={i} className="my-7 space-y-3">
                 {b.items.map((item, j) => (
-                  <li key={j} className="flex gap-3">
-                    <span className="mt-[13px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#D1D5DB]" />
+                  <li key={j} className="flex gap-[18px]">
+                    <span className="mt-[13px] h-[5px] w-[5px] shrink-0 rounded-full bg-[#9CA3AF]" />
                     <span>
                       <InlineText text={item} />
                     </span>
@@ -107,10 +107,10 @@ export function DocBlocks({ blocks }: { blocks: DocBlock[] }) {
             );
           case "ol":
             return (
-              <ol key={i} className="my-6 max-w-[70ch] space-y-4">
+              <ol key={i} className="my-7 space-y-3">
                 {b.items.map((item, j) => (
                   <li key={j} className="flex gap-3.5">
-                    <span className="mt-0.5 shrink-0 text-[16px] font-semibold text-[#9CA3AF] tabular">{j + 1}.</span>
+                    <span className="mt-0.5 shrink-0 text-[15px] font-semibold text-[#9CA3AF] tabular">{j + 1}.</span>
                     <span>
                       <InlineText text={item} />
                     </span>

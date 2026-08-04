@@ -92,7 +92,12 @@ export function DocsShell({
         </aside>
 
         <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
-          <div className={cn("mx-auto px-6 py-12 sm:px-10", wide ? "max-w-[1024px]" : "max-w-[760px]")}>
+          <div
+            className={cn(
+              "w-full px-6 py-12 md:pl-[72px] md:pr-8",
+              wide ? "md:max-w-[1080px]" : "md:max-w-[856px]",
+            )}
+          >
             {children}
           </div>
         </main>

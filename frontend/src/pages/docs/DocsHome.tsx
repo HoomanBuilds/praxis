@@ -50,13 +50,13 @@ export default function DocsHome() {
   return (
     <DocsShell wide mainRef={mainRef}>
     <div>
-      <header className="py-16 text-center">
-        <h1 className="text-[56px] font-extrabold leading-[1.05] tracking-[-0.03em] text-[#111827]">Documentation</h1>
+      <header className="pt-[72px] pb-20 text-center">
+        <h1 className="text-[56px] font-extrabold leading-none tracking-[-0.045em] text-[#111827]">Documentation</h1>
         <p className="mt-5 text-[14px] text-[#6B7280]">
           PRAXIS Enterprise Compliance · {DOC_PAGES.length} articles · Last updated{" "}
           {getDocPage("introduction")?.updated}
         </p>
-        <p className="mx-auto mt-8 max-w-[70ch] text-[18px] leading-[1.8] text-[#374151]">
+        <p className="mx-auto mt-8 max-w-[70ch] text-[17px] leading-[1.8] text-[#4B5563]">
           Everything you need to deploy, configure, and operate PRAXIS across your organization. Onboard your teams,
           process regulations, manage obligations, automate workflows, and integrate with the systems you already use.
         </p>
@@ -71,7 +71,7 @@ export default function DocsHome() {
               <Link
                 key={slug}
                 to={`/docs/${slug}`}
-                className="group flex h-[120px] flex-col justify-between rounded-[16px] border border-[#E5E7EB] p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#D1D5DB]"
+                className="group flex h-[130px] flex-col justify-between rounded-[16px] border border-[#E5E7EB] bg-white p-6 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#D1D5DB]"
               >
                 <div className="flex items-center gap-2.5">
                   <Icon className="h-4 w-4 text-[#9CA3AF] transition-colors duration-150 group-hover:text-[#111827]" />
@@ -91,7 +91,7 @@ export default function DocsHome() {
         <SectionLabel>Browse Documentation</SectionLabel>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {DOCS_NAV.map((section) => (
-            <div key={section.id} className="flex flex-col rounded-[16px] border border-[#E5E7EB] p-6">
+            <div key={section.id} className="flex flex-col rounded-[16px] border border-[#E5E7EB] p-7">
               <Link
                 to={`/docs/${section.pages[0].slug}`}
                 className="inline-flex items-center gap-1.5 text-[15px] font-bold text-[#111827] transition-colors duration-150 hover:text-[#6B7280]"
@@ -99,12 +99,12 @@ export default function DocsHome() {
                 {section.title}
                 <ArrowRight className="h-3.5 w-3.5 text-[#9CA3AF]" />
               </Link>
-              <ul className="mt-4 space-y-2">
+              <ul className="mt-6 space-y-3">
                 {section.pages.map((p) => (
                   <li key={p.slug}>
                     <Link
                       to={`/docs/${p.slug}`}
-                      className="block text-[14px] leading-6 text-[#6B7280] transition-colors duration-150 hover:text-[#111827]"
+                      className="block text-[14px] leading-7 text-[#6B7280] transition-colors duration-150 hover:text-[#111827]"
                     >
                       {p.title}
                     </Link>
