@@ -422,7 +422,8 @@ def _run_once() -> int:
                     with SessionFactory() as session:
                         d = crud.get_document(session, doc_id)
                         if d:
-                            d.status = "extraction_failed"
+                            import schemas
+                            d.status = schemas.DocumentStatus.EXTRACTION_FAILED.value
                             session.commit()
                 except Exception:
                     pass

@@ -5,11 +5,12 @@ import re
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 import services
+from api.rate_limit import limiter
 from api.serializers import document_to_dict
 from db import crud
 from db.session import get_db
@@ -34,7 +35,9 @@ def _sanitize_filename(name: str) -> str:
 
 
 @router.post("/ingest")
+@limiter.limit("20/minute")
 async def ingest(
+    request: Request,
     file: UploadFile,
     reference: str = Query(""),
     title: str = Query(""),
@@ -117,7 +120,9 @@ def get_document_file(document_id: str, session: Session = Depends(get_db)):
 
 
 @router.post("/{document_id}/process")
+@limiter.limit("20/minute")
 def process(
+    request: Request,
     document_id: str,
     background_tasks: BackgroundTasks = BackgroundTasks(),
     session: Session = Depends(get_db),
@@ -132,7 +137,9 @@ def process(
 
 
 @router.post("/{document_id}/generate")
+@limiter.limit("20/minute")
 def generate(
+    request: Request,
     document_id: str,
     auto_approve: bool = Query(False),
     background_tasks: BackgroundTasks = BackgroundTasks(),

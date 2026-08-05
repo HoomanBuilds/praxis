@@ -62,14 +62,23 @@ class Settings(BaseSettings):
     ocr_trigger_quality: float = 0.80
     obligation_confidence_min: float = 0.65
 
+    # --- Environment ---
+    # "production" enables the startup guard that refuses to boot with a placeholder
+    # api_key/jwt_secret (see api/main.py _check_production_secrets) and skips seeding
+    # the demo admin account. Local dev / tests stay on the "development" default.
+    environment: str = "development"
+
     # --- Authentication ---
-    api_key: str = ""  # Empty = auth disabled (local dev / tests). Set a value to enforce.
+    api_key: str = ""  # Empty = no service API key issued (local dev / tests).
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 1440  # 24 hours
+    jwt_expire_minutes: int = 60
 
     # --- Audit ---
     audit_retention_days: int = 2555  # ~7 years, SEBI requirement
+
+    # --- Logging ---
+    log_level: str = "INFO"
 
     # --- Retrieval ---
     retrieval_top_k: int = 6

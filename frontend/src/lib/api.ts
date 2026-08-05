@@ -20,15 +20,60 @@ import type {
 
 const BASE = "/api";
 
+function authHeader(): Record<string, string> {
+  const token = localStorage.getItem("praxis_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+// `.message` on this is always safe to render — it never contains a raw response body,
+// stack trace, or other server-internal text. The full raw body is still logged to the
+// console (and attached as `.debugDetail`) for diagnosing from devtools, just never put
+// in the DOM.
+export class ApiError extends Error {
+  status: number;
+  debugDetail: string;
+  constructor(status: number, message: string, debugDetail: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.debugDetail = debugDetail;
+  }
+}
+
+function friendlyMessage(status: number, detail?: string): string {
+  if (status >= 500) return "Something went wrong on our end. Please try again in a moment.";
+  if (status === 401) return "Your session has expired. Please sign in again.";
+  if (status === 403) return "You don't have permission to do that.";
+  // 4xx `detail` text is authored server-side for exactly this purpose — safe to show.
+  return detail || "That request couldn't be completed.";
+}
+
+async function throwApiError(res: Response, path: string): Promise<never> {
+  const rawBody = await res.text();
+  let detail: string | undefined;
+  try {
+    const parsed = JSON.parse(rawBody);
+    if (typeof parsed.detail === "string") detail = parsed.detail;
+    else if (Array.isArray(parsed.detail)) {
+      // FastAPI/Pydantic validation errors: an array of {msg, loc, ...} — safe field-level text.
+      detail = parsed.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join("; ") || undefined;
+    }
+  } catch {
+    // Not JSON (e.g. an HTML error page, or a raw traceback) — never surface it as `detail`.
+  }
+  console.error(`API error ${res.status} ${res.statusText} on ${path}`, rawBody);
+  throw new ApiError(res.status, friendlyMessage(res.status, detail), rawBody);
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeader() },
     ...init,
   });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+  if (res.status === 401) {
+    window.dispatchEvent(new CustomEvent("praxis:unauthorized"));
   }
+  if (!res.ok) return throwApiError(res, path);
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
@@ -49,8 +94,8 @@ export const api = {
       title,
       process: String(process),
     });
-    const res = await fetch(`${BASE}/documents/ingest?${qs}`, { method: "POST", body: form });
-    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    const res = await fetch(`${BASE}/documents/ingest?${qs}`, { method: "POST", body: form, headers: authHeader() });
+    if (!res.ok) return throwApiError(res, "/documents/ingest");
     return res.json();
   },
 
@@ -58,10 +103,30 @@ export const api = {
   generate: (id: string, autoApprove = false) =>
     req<any>(`/documents/${id}/generate?auto_approve=${autoApprove}`, { method: "POST" }),
 
-  listObligations: async (params: { document_id?: string; status?: string; functional_area?: string } = {}) => {
-    const qs = new URLSearchParams(params as Record<string, string>);
-    const res = await req<{ items: Obligation[]; total: number; offset: number; limit: number }>(`/obligations?${qs}`);
-    return res.items;
+  // Returns the full paginated envelope — callers that want a single page (e.g. the
+  // Obligations list view) use offset/limit directly; callers that need the complete
+  // set (e.g. evidence-gap counting) should use listAllObligations below instead of
+  // guessing a large limit, since the backend caps a single page at 200.
+  listObligations: (
+    params: { document_id?: string; status?: string; functional_area?: string; offset?: number; limit?: number } = {}
+  ) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]))
+    );
+    return req<{ items: Obligation[]; total: number; offset: number; limit: number }>(`/obligations?${qs}`);
+  },
+  // Pages through the full result set — for views that need every matching obligation
+  // (not just one page) to compute correct totals/coverage.
+  listAllObligations: async (params: { document_id?: string; status?: string; functional_area?: string } = {}) => {
+    const pageSize = 200;
+    const first = await api.listObligations({ ...params, offset: 0, limit: pageSize });
+    const items = [...first.items];
+    while (items.length < first.total) {
+      const page = await api.listObligations({ ...params, offset: items.length, limit: pageSize });
+      items.push(...page.items);
+      if (page.items.length === 0) break;
+    }
+    return items;
   },
   getObligation: (id: string) => req<Obligation>(`/obligations/${id}`),
   approveObligation: (id: string, reviewer = "compliance_officer", note = "") =>
@@ -87,8 +152,8 @@ export const api = {
   uploadEvidence: async (requirementId: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${BASE}/evidence/${requirementId}/upload`, { method: "POST", body: form });
-    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    const res = await fetch(`${BASE}/evidence/${requirementId}/upload`, { method: "POST", body: form, headers: authHeader() });
+    if (!res.ok) return throwApiError(res, `/evidence/${requirementId}/upload`);
     return res.json();
   },
 
@@ -146,9 +211,15 @@ export const api = {
       body: JSON.stringify(signer),
     }),
 
-  riskRegister: (params: { risk_level?: string; functional_area?: string; status?: string } = {}) => {
-    const qs = new URLSearchParams(params as Record<string, string>);
-    return req<RiskItem[]>(`/risk-register?${qs}`);
+  riskRegister: (
+    params: { risk_level?: string; functional_area?: string; status?: string; offset?: number; limit?: number } = {}
+  ) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]))
+    );
+    return req<{ items: RiskItem[]; total: number; offset: number; limit: number; counts: Record<string, number> }>(
+      `/risk-register?${qs}`
+    );
   },
 
   getOrgConfig: () => req<OrgConfig>("/org-config"),

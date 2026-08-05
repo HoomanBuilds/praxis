@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from api.deps import require_api_key
+from api.deps import AuthedActor, require_user
 from db import crud
 from db.session import get_db
 
@@ -24,7 +24,7 @@ def list_sources(session: Session = Depends(get_db)):
 
 
 @router.post("/sources")
-def create_source(body: CreateSourceRequest, session: Session = Depends(get_db), actor: str = Depends(require_api_key)):
+def create_source(body: CreateSourceRequest, session: Session = Depends(get_db), actor: AuthedActor = Depends(require_user)):
     src = crud.create_watch_source(session, name=body.name, url=body.url, source_type=body.source_type)
     session.commit()
     return {"id": src.id, "name": src.name, "url": src.url, "source_type": src.source_type, "is_active": src.is_active}
@@ -54,7 +54,7 @@ def review_hit(hit_id: str, session: Session = Depends(get_db)):
 
 
 @router.post("/check")
-def check_watch(session: Session = Depends(get_db), actor: str = Depends(require_api_key)):
+def check_watch(session: Session = Depends(get_db), actor: AuthedActor = Depends(require_user)):
     """Run the SEBI monitor once, now, instead of waiting for the next poll.
 
     This performs the real scrape (robots-checked and throttled), so it can take a

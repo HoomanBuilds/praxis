@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 import schemas
-from api.deps import require_api_key
+from api.deps import AuthedActor, require_user
 from api.serializers import obligation_to_dict
 from db import crud
 from db.session import get_db
@@ -45,10 +45,10 @@ def approve(
     obligation_id: str,
     action: schemas.ReviewAction,
     session: Session = Depends(get_db),
-    actor: str = Depends(require_api_key),
+    actor: AuthedActor = Depends(require_user),
 ):
     ob = _require(session, obligation_id)
-    crud.review_obligation(session, ob, approve=True, reviewer=actor, note=action.note)
+    crud.review_obligation(session, ob, approve=True, reviewer=actor.actor_label, note=action.note)
     session.commit()
     return obligation_to_dict(ob)
 
@@ -58,10 +58,10 @@ def reject(
     obligation_id: str,
     action: schemas.ReviewAction,
     session: Session = Depends(get_db),
-    actor: str = Depends(require_api_key),
+    actor: AuthedActor = Depends(require_user),
 ):
     ob = _require(session, obligation_id)
-    crud.review_obligation(session, ob, approve=False, reviewer=actor, note=action.note)
+    crud.review_obligation(session, ob, approve=False, reviewer=actor.actor_label, note=action.note)
     session.commit()
     return obligation_to_dict(ob)
 
@@ -155,10 +155,10 @@ def add_comment(
     obligation_id: str,
     comment: CommentIn,
     session: Session = Depends(get_db),
-    actor: str = Depends(require_api_key),
+    actor: AuthedActor = Depends(require_user),
 ):
     _require(session, obligation_id)
-    row = crud.create_comment(session, obligation_id, actor, comment.body)
+    row = crud.create_comment(session, obligation_id, actor.actor_label, comment.body)
     session.commit()
     return {"id": row.id, "author": row.author, "body": row.body,
             "created_at": row.created_at.isoformat() if row.created_at else None}

@@ -111,7 +111,7 @@ export default function Tasks() {
                     <button key={t.id} onClick={() => navigate(`/obligations/${t.obligation_id}`)}
                       className="w-full text-left rounded-lg border p-3 hover:border-primary/40 transition-colors">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="text-sm font-medium leading-snug">{t.title}</div>
+                        <div className="text-sm font-medium leading-snug line-clamp-2" title={t.title}>{t.title}</div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <PriorityBadge score={(t as any).risk_score} />
                           <StatusBadge status={t.status} />

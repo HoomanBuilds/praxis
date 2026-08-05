@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -188,6 +188,8 @@ def risk_register(
     risk_level: str | None = Query(None),
     functional_area: str | None = Query(None),
     status: str | None = Query(None),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     session: Session = Depends(get_db),
 ):
     """Obligations with a computed risk level — incorporating evidence gaps, overdue tasks,
@@ -216,12 +218,11 @@ def risk_register(
             overdue_ob_ids.add(ob_id)
 
     out = []
+    # Tallied across every obligation regardless of the functional_area/status/risk_level
+    # filters below — this is the firm-wide risk distribution the summary cards show, so
+    # it must not shrink just because the table is paginated or filtered to one department.
+    counts: dict[str, int] = {}
     for o in session.scalars(select(models.Obligation).order_by(models.Obligation.identifier)):
-        if functional_area and o.functional_area != functional_area:
-            continue
-        if status and o.status != status:
-            continue
-
         # Compute signals
         ev_list = ev_by_ob.get(o.id, [])
         evidence_missing = bool(ev_list) and all(upl is None for upl in ev_list)
@@ -230,7 +231,6 @@ def risk_register(
         # Stale review: pending_review and no update for 30 days
         stale_review = (
             o.status == "pending_review"
-            and hasattr(o, "updated_at")
             and o.updated_at is not None
             and o.updated_at.isoformat() < thirty_days_ago
         )
@@ -242,6 +242,12 @@ def risk_register(
             is_superseded=is_superseded,
             stale_review=stale_review,
         )
+        counts[level] = counts.get(level, 0) + 1
+
+        if functional_area and o.functional_area != functional_area:
+            continue
+        if status and o.status != status:
+            continue
         if risk_level and level != risk_level:
             continue
 
@@ -270,13 +276,23 @@ def risk_register(
             "risk_label": label,
             "risk_signals": signals,
         })
-    return out
+    # risk_level is a computed field (not a column), so it can only be filtered after
+    # the per-obligation scan above — pagination is applied last, on the filtered list.
+    total = len(out)
+    page = out[offset : offset + limit]
+    return {"items": page, "total": total, "offset": offset, "limit": limit, "counts": counts}
 
 
 @router.get("/knowledge-graph")
-def knowledge_graph(document_id: str | None = Query(None), session: Session = Depends(get_db)):
+def knowledge_graph(response: Response, document_id: str | None = Query(None), session: Session = Depends(get_db)):
     """Compliance knowledge graph (regulation → obligation → department → task → owner /
     evidence, plus cross-document MODIFIES edges). Scope to one document or the whole firm."""
+    # The whole-firm graph is a real, intentional feature (cross-document MODIFIES edges
+    # only show up unscoped) — capped/truncated here it would silently drop compliance
+    # relationships from a compliance tool, which is worse than the payload being large.
+    # GZipMiddleware (main.py) compresses the response; this just lets a client cache it
+    # briefly instead of rebuilding the whole graph on every navigation.
+    response.headers["Cache-Control"] = "private, max-age=30"
     return kg_graph.build_graph(session, document_id=document_id)
 
 

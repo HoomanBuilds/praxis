@@ -83,7 +83,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8080 --workers 2
+    command: sh -c "alembic upgrade head && uvicorn api.main:app --host 0.0.0.0 --port 8080 --workers 2"
     environment:
       PRAXIS_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-praxis}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-praxis}
       PRAXIS_REDIS_URL: redis://redis:6379/0
@@ -97,6 +97,7 @@ services:
       PRAXIS_ORG_CONFIG_PATH: /app/data/org_config.json
       PRAXIS_API_KEY: ${PRAXIS_API_KEY:?Set PRAXIS_API_KEY in .env}
       PRAXIS_JWT_SECRET: ${PRAXIS_JWT_SECRET:?Set PRAXIS_JWT_SECRET in .env}
+      PRAXIS_ENVIRONMENT: production
       PRAXIS_FRONTEND_URL: https://praxis.inferia.ai
     volumes:
       - praxisdata:/app/data
@@ -157,8 +158,8 @@ services:
 
   frontend:
     build:
-      context: frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     restart: unless-stopped
     logging:
       driver: json-file

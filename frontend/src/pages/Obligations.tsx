@@ -1,32 +1,44 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useVocab } from "@/hooks/useVocab";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Pager } from "@/components/ui/pager";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { titleCase } from "@/lib/utils";
 import { OBLIGATION_STATUSES } from "@/lib/constants";
 import { useAreas } from "@/hooks/useAreas";
 import { AlertTriangle, ListChecks } from "lucide-react";
 
+const PAGE_SIZE = 50;
+
 export default function Obligations() {
   const navigate = useNavigate();
   const { t } = useVocab();
-  const { data: obligations } = useQuery({ queryKey: ["obligations", "all"], queryFn: () => api.listObligations({}) });
   const areas = useAreas();
   const [area, setArea] = useState("all");
   const [status, setStatus] = useState("all");
+  const [offset, setOffset] = useState(0);
 
-  const rows = useMemo(
-    () =>
-      (obligations ?? []).filter(
-        (o) => (area === "all" || o.functional_area === area) && (status === "all" || o.status === status)
-      ),
-    [obligations, area, status]
-  );
+  // Filters are sent to the backend, which already supports them — resetting offset
+  // whenever they change avoids landing past the end of a smaller filtered result set.
+  useEffect(() => setOffset(0), [area, status]);
 
+  const { data: page } = useQuery({
+    queryKey: ["obligations", area, status, offset],
+    queryFn: () =>
+      api.listObligations({
+        functional_area: area === "all" ? undefined : area,
+        status: status === "all" ? undefined : status,
+        offset,
+        limit: PAGE_SIZE,
+      }),
+  });
+
+  const rows = page?.items ?? [];
+  const total = page?.total ?? 0;
   const flagged = rows.filter((o) => o.needs_review).length;
 
   return (
@@ -47,8 +59,8 @@ export default function Obligations() {
       </div>
 
       <div className="flex gap-3 text-sm">
-        <Badge variant="muted" className="gap-1"><ListChecks className="h-3.5 w-3.5" /> {rows.length} shown</Badge>
-        {flagged > 0 && <Badge variant="warning" className="gap-1"><AlertTriangle className="h-3.5 w-3.5" /> {flagged} need review</Badge>}
+        <Badge variant="muted" className="gap-1"><ListChecks className="h-3.5 w-3.5" /> {total} total</Badge>
+        {flagged > 0 && <Badge variant="warning" className="gap-1"><AlertTriangle className="h-3.5 w-3.5" /> {flagged} need review on this page</Badge>}
       </div>
 
       <Card>
@@ -82,6 +94,8 @@ export default function Obligations() {
           </table>
         </CardContent>
       </Card>
+
+      <Pager offset={offset} limit={PAGE_SIZE} total={total} onOffsetChange={setOffset} />
     </div>
   );
 }

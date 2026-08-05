@@ -6,14 +6,18 @@ over the obligation index) and instructs the local model to answer only from tha
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from api.rate_limit import limiter
 from db import crud, models
 from db.session import get_db
 
 router = APIRouter(prefix="/api", tags=["copilot"])
+logger = logging.getLogger(__name__)
 
 
 class CopilotRequest(BaseModel):
@@ -162,7 +166,8 @@ def _verify_citations(raw_citations, citable: dict[str, dict]) -> list[dict]:
 
 
 @router.post("/copilot")
-def copilot(payload: CopilotRequest, session: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def copilot(request: Request, payload: CopilotRequest, session: Session = Depends(get_db)):
     blocks: list[str] = []
     citable: dict[str, dict] = {}
 
@@ -199,9 +204,10 @@ def copilot(payload: CopilotRequest, session: Session = Depends(get_db)):
         from llm import structured_complete
         result = structured_complete(SYSTEM_PROMPT, user_prompt, CopilotAnswer)
     except Exception as exc:
+        logger.warning("Copilot analysis failed: %s", exc)
         return {
             "answer": None,
-            "error": f"Analysis service unavailable: {exc}",
+            "error": "Analysis service unavailable. Please try again in a moment.",
             "citations": [],
             "sources": [],
             "grounded": False,

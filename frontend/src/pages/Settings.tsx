@@ -212,7 +212,7 @@ function IntegrationsPanel() {
       qc.invalidateQueries({ queryKey: ["integrations"] });
     },
     onError: (err: Error) => {
-      setResult({ message: err.message.replace(/^.*?: /, "") });
+      setResult({ message: err.message });
       qc.invalidateQueries({ queryKey: ["integrations"] });
     },
   });

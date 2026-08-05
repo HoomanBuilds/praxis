@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from api.deps import get_actor
+from api.deps import AuthedActor, require_role
 from config import settings
 from db import crud
 from db.session import get_db
@@ -97,7 +97,7 @@ def connect_integration(
     type_: str,
     body: ConnectRequest,
     session: Session = Depends(get_db),
-    actor: str = Depends(get_actor),
+    actor: AuthedActor = Depends(require_role("admin")),
 ):
     if type_ not in providers.CONNECT_FIELDS:
         raise HTTPException(404, f"Unknown integration type: {type_}")
@@ -109,7 +109,7 @@ def connect_integration(
             raise HTTPException(400, "Google OAuth client is not configured (see README).")
         state = secrets.token_urlsafe(16)
         config_enc = encrypt_config({"oauth_state": state})
-        crud.set_integration(session, "drive", config_encrypted=config_enc, status="not_connected", actor=actor)
+        crud.set_integration(session, "drive", config_encrypted=config_enc, status="not_connected", actor=actor.actor_label)
         return {
             "ok": True,
             "oauth": True,
@@ -137,7 +137,7 @@ def connect_integration(
     configured_as = providers.summarize(type_, fields) or "connected"
 
     row = crud.set_integration(
-        session, type_, config_encrypted=encrypt_config(fields), configured_as=configured_as, actor=actor
+        session, type_, config_encrypted=encrypt_config(fields), configured_as=configured_as, actor=actor.actor_label
     )
     response = {
         "ok": True,
@@ -154,9 +154,9 @@ def connect_integration(
 def disconnect_integration(
     type_: str,
     session: Session = Depends(get_db),
-    actor: str = Depends(get_actor),
+    actor: AuthedActor = Depends(require_role("admin")),
 ):
-    row = crud.disconnect_integration(session, type_, actor=actor)
+    row = crud.disconnect_integration(session, type_, actor=actor.actor_label)
     if not row:
         raise HTTPException(404, f"Integration not found: {type_}")
     return {"ok": True, "status": "not_connected", "message": f"{type_} disconnected."}

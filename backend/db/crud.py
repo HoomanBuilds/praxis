@@ -542,7 +542,7 @@ def update_task(session: Session, task_id: str, updates: schemas.TaskUpdate, act
         return None
     before = {"status": task.status, "primary_owner": task.primary_owner, "deadline": str(task.deadline) if task.deadline else None}
     if updates.status is not None:
-        task.status = updates.status
+        task.status = updates.status.value
     if updates.primary_owner is not None:
         task.primary_owner = updates.primary_owner
     if updates.owner_email is not None:
@@ -596,7 +596,7 @@ def submit_filing(session: Session, filing_id: str, confirmation_reference: str,
     if not f:
         return None
     from datetime import datetime, timezone as _tz
-    f.status = "filed"
+    f.status = "submitted"
     f.submitted_at = datetime.now(_tz.utc)
     f.confirmation_reference = confirmation_reference
     session.flush()

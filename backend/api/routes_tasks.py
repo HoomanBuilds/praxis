@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 import schemas
-from api.deps import get_actor
+from api.deps import AuthedActor, get_actor
 from db import crud, models
 from db.session import get_db
 from integrations import providers
@@ -23,7 +23,7 @@ SIGNABLE_TEMPLATES = {"board_resolution_filing", "compliance_policy_update"}
 @router.patch("/{task_id}")
 def update_task_endpoint(
     task_id: str,
-    body: TaskUpdate,
+    body: schemas.TaskUpdate,
     background_tasks: BackgroundTasks = BackgroundTasks(),
     session: Session = Depends(get_db),
 ):
@@ -45,13 +45,6 @@ def update_task_endpoint(
         task.overdue_notified_at = datetime.now(_tz.utc)
     from api.serializers import task_to_dict
     return task_to_dict(task)
-
-
-class TaskUpdate(BaseModel):
-    status: str | None = None
-    primary_owner: str | None = None
-    owner_email: str | None = None
-    deadline: str | None = None
 
 
 class SignatureRequest(BaseModel):
@@ -117,7 +110,7 @@ def send_for_signature(
     task_id: str,
     body: SignatureRequest,
     session: Session = Depends(get_db),
-    actor: str = Depends(get_actor),
+    actor: AuthedActor = Depends(get_actor),
 ):
     """Create a real DocuSign (sandbox) envelope for a board-resolution/policy task.
 
@@ -166,10 +159,10 @@ def send_for_signature(
         return {"ok": False, "message": str(exc)}
 
     task.docusign_envelope_id = envelope_id
-    crud.touch_integration(session, "docusign", actor=actor)
+    crud.touch_integration(session, "docusign", actor=actor.actor_label)
     crud.record_audit(
         session,
-        actor=actor,
+        actor=actor.actor_label,
         action="task.send_for_signature",
         resource_type="task",
         resource_id=task.id,

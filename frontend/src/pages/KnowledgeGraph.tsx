@@ -45,20 +45,53 @@ const W = 1200, H = 900;
 // signals stay in the advanced view) so the map reads clearly on first load.
 const SIMPLE_TYPES = new Set(["regulation", "obligation", "department", "task", "evidence", "rule"]);
 
+/**
+ * Beyond this many nodes the advanced view stops rendering everything: the force
+ * simulation and the SVG both run on the main thread, so a few thousand nodes freeze
+ * the tab for seconds and produce an unreadable hairball anyway.
+ */
+const MAX_RENDERED_NODES = 400;
+
 function layout(nodes: GraphNode[], edges: GraphEdge[], spacious = false) {
   const simNodes: SimNode[] = nodes.map((n) => ({ ...n }));
   const byId = new Map(simNodes.map((n) => [n.id, n]));
   const links = edges.filter((e) => byId.has(e.source) && byId.has(e.target)).map((e) => ({ ...e }));
+  // Ticks are the dominant cost and scale with node count. A small structural map can
+  // afford a fully-settled layout; a large one trades a little tidiness for a UI that
+  // does not lock up.
+  const ticks = simNodes.length > 250 ? 90 : simNodes.length > 120 ? 180 : 340;
   forceSimulation(simNodes)
     .force("link", forceLink(links as any).id((d: any) => d.id).distance(spacious ? 95 : 58).strength(0.35))
-    .force("charge", forceManyBody().strength(spacious ? -340 : -190))
+    .force("charge", forceManyBody().strength(spacious ? -340 : -190).distanceMax(spacious ? 600 : 400))
     .force("center", forceCenter(W / 2, H / 2))
     .force("x", forceX(W / 2).strength(0.05))
     .force("y", forceY(H / 2).strength(0.05))
     .force("collide", forceCollide(spacious ? 34 : 22))
     .stop()
-    .tick(340);
+    .tick(ticks);
   return byId as Map<string, SimNode>;
+}
+
+/**
+ * Keep the most connected nodes when a graph exceeds the render budget, so the map
+ * still shows the structure that matters rather than an arbitrary slice.
+ */
+function capNodes(nodes: GraphNode[], edges: GraphEdge[], max: number) {
+  if (nodes.length <= max) return { nodes, edges, dropped: 0 };
+  const degree = new Map<string, number>();
+  for (const e of edges) {
+    degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
+    degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
+  }
+  const kept = [...nodes]
+    .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))
+    .slice(0, max);
+  const keep = new Set(kept.map((n) => n.id));
+  return {
+    nodes: kept,
+    edges: edges.filter((e) => keep.has(e.source) && keep.has(e.target)),
+    dropped: nodes.length - kept.length,
+  };
 }
 
 export default function KnowledgeGraphPage() {
@@ -98,16 +131,32 @@ export default function KnowledgeGraphPage() {
   // nulls dragRef before the click handler runs).
   const justDraggedRef = useRef(false);
 
-  // Simple view is a filter over the same payload — no second graph component.
-  const data = useMemo(() => {
-    if (!raw) return raw;
-    if (!simple) return raw;
-    const nodes = raw.nodes.filter((n) => SIMPLE_TYPES.has(n.type));
-    const keep = new Set(nodes.map((n) => n.id));
-    const edges = raw.edges.filter((e) => keep.has(e.source) && keep.has(e.target));
+  // Simple view is a filter over the same payload — no second graph component. Both
+  // views are then capped: the firm's graph grows with every circular ingested, and
+  // laying out thousands of nodes on the main thread freezes the tab.
+  const { data, dropped } = useMemo(() => {
+    if (!raw) return { data: raw, dropped: 0 };
+    const typed = simple ? raw.nodes.filter((n) => SIMPLE_TYPES.has(n.type)) : raw.nodes;
+    const typedKeep = new Set(typed.map((n) => n.id));
+    const typedEdges = raw.edges.filter((e) => typedKeep.has(e.source) && typedKeep.has(e.target));
+
+    const capped = capNodes(typed, typedEdges, MAX_RENDERED_NODES);
     const nodes_by_type: Record<string, number> = {};
-    for (const n of nodes) nodes_by_type[n.type] = (nodes_by_type[n.type] ?? 0) + 1;
-    return { ...raw, nodes, edges, stats: { ...raw.stats, node_count: nodes.length, edge_count: edges.length, nodes_by_type } };
+    for (const n of capped.nodes) nodes_by_type[n.type] = (nodes_by_type[n.type] ?? 0) + 1;
+    return {
+      data: {
+        ...raw,
+        nodes: capped.nodes,
+        edges: capped.edges,
+        stats: {
+          ...raw.stats,
+          node_count: capped.nodes.length,
+          edge_count: capped.edges.length,
+          nodes_by_type,
+        },
+      },
+      dropped: capped.dropped,
+    };
   }, [raw, simple]);
 
   const positioned = useMemo(() => (data ? layout(data.nodes, data.edges, simple) : null), [data, simple]);
@@ -224,6 +273,18 @@ export default function KnowledgeGraphPage() {
           <Stat label={vocab.t("kg.count_types")} value={Object.keys(data.stats.nodes_by_type).length} />
           <Stat label="Cross-doc supersessions" value={data.stats.cross_document_modifies} />
         </div>
+      )}
+
+      {/* Never let the map imply the firm has less than it does. The total here is the
+          count for the CURRENT view (simple view already excludes some types), so the
+          figures always add up. */}
+      {dropped > 0 && data && (
+        <p className="text-xs text-muted-foreground">
+          Showing the {data.stats.node_count.toLocaleString()} most connected of{" "}
+          {(data.stats.node_count + dropped).toLocaleString()} items in this view —{" "}
+          {dropped.toLocaleString()} less-connected items are hidden to keep the map readable.
+          Nothing is deleted; every item remains on its own page.
+        </p>
       )}
 
       {/* type filters */}

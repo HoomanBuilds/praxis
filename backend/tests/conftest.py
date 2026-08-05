@@ -20,3 +20,18 @@ def isolate_storage(tmp_path_factory):
     db_session._SessionLocal = None
     db_session.init_db()
     yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def authed_test_client():
+    """TestClient-based tests hit real routes but shouldn't need to log in — override
+    require_user with a fixed admin actor, the same way a real deployment would use
+    FastAPI's own dependency_overrides mechanism, not a backdoor in the app itself."""
+    from api.deps import AuthedActor, require_user
+    from api.main import app
+
+    app.dependency_overrides[require_user] = lambda: AuthedActor(
+        id="test-admin", email="test@praxis.local", role="admin", actor_label="test@praxis.local"
+    )
+    yield
+    app.dependency_overrides.pop(require_user, None)

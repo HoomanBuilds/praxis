@@ -12,7 +12,7 @@ import { FileOutput, Plus, Clock, CheckCircle2, XCircle, Send, LayoutList, Align
 import { Link } from "react-router-dom";
 import { timeAgo } from "@/lib/format";
 
-const FILING_BADGE: Record<string, "muted" | "warning" | "success" | "destructive"> = {
+export const FILING_BADGE: Record<string, "muted" | "warning" | "success" | "destructive"> = {
   not_filed: "muted",
   submitted: "warning",
   acknowledged: "success",
@@ -20,7 +20,7 @@ const FILING_BADGE: Record<string, "muted" | "warning" | "success" | "destructiv
 };
 
 // Derive "Delayed" status if the filing was submitted after the deadline
-function effectiveStatus(filing: any): string {
+export function effectiveStatus(filing: any): string {
   if (filing.status === "submitted" && filing.deadline && filing.submitted_at) {
     const sub = new Date(filing.submitted_at).toISOString().slice(0, 10);
     if (sub > filing.deadline) return "delayed";

@@ -197,7 +197,7 @@ export default function Calendar() {
                           <EventIcon className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{e.title}</div>
+                          <div className="font-medium truncate" title={e.title}>{e.title}</div>
                           {e.owner && <div className="text-xs text-muted-foreground">{e.owner}</div>}
                         </div>
                         <Badge variant="outline" className="text-[10px] gap-1 font-normal">
@@ -234,7 +234,7 @@ export default function Calendar() {
                           <div className="h-6 w-6 rounded border grid place-items-center">
                             <EventIcon className="h-3.5 w-3.5 text-muted-foreground" />
                           </div>
-                          <div className="text-sm font-medium">{e.title}</div>
+                          <div className="text-sm font-medium line-clamp-3" title={e.title}>{e.title}</div>
                         </div>
                         <Badge variant="outline" className="text-[10px] gap-1 font-normal">
                           {EVENT_GLYPH[e.type] || "·"} {titleCase(e.type)}

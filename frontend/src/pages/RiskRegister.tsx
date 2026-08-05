@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Pager } from "@/components/ui/pager";
 import { OBLIGATION_STATUSES, RISK_LEVELS } from "@/lib/constants";
 import { useAreas } from "@/hooks/useAreas";
 import { useVocab } from "@/hooks/useVocab";
@@ -19,6 +20,8 @@ const RISK_BADGE: Record<string, "default" | "muted" | "outline"> = {
   minimal: "outline",
 };
 
+const PAGE_SIZE = 100;
+
 export default function RiskRegister() {
   const navigate = useNavigate();
   const areas = useAreas();
@@ -26,25 +29,27 @@ export default function RiskRegister() {
   const [area, setArea] = useState("all");
   const [status, setStatus] = useState("all");
   const [riskLevel, setRiskLevel] = useState("all");
+  const [offset, setOffset] = useState(0);
 
-  const { data } = useQuery({
-    queryKey: ["risk-register"],
-    queryFn: () => api.riskRegister(),
+  useEffect(() => setOffset(0), [area, status, riskLevel]);
+
+  const { data: page } = useQuery({
+    queryKey: ["risk-register", area, status, riskLevel, offset],
+    queryFn: () =>
+      api.riskRegister({
+        functional_area: area === "all" ? undefined : area,
+        status: status === "all" ? undefined : status,
+        risk_level: riskLevel === "all" ? undefined : riskLevel,
+        offset,
+        limit: PAGE_SIZE,
+      }),
   });
 
-  const items = useMemo(() => {
-    return (data ?? []).filter((r) =>
-      (area === "all" || r.functional_area === area) &&
-      (status === "all" || r.status === status) &&
-      (riskLevel === "all" || r.risk_level === riskLevel)
-    );
-  }, [data, area, status, riskLevel]);
-
-  const counts = useMemo(() => {
-    const c: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, minimal: 0 };
-    for (const r of data ?? []) c[r.risk_level] = (c[r.risk_level] || 0) + 1;
-    return c;
-  }, [data]);
+  const items = page?.items ?? [];
+  const total = page?.total ?? 0;
+  // Firm-wide distribution — computed server-side across every obligation, independent
+  // of the filters/pagination above, so these totals never understate real exposure.
+  const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, minimal: 0, ...(page?.counts ?? {}) };
 
   return (
     <div className="space-y-5">
@@ -121,6 +126,8 @@ export default function RiskRegister() {
           </table>
         </CardContent>
       </Card>
+
+      <Pager offset={offset} limit={PAGE_SIZE} total={total} onOffsetChange={setOffset} />
     </div>
   );
 }

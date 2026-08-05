@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from db import models
 from db.session import get_db
-from api.deps import require_api_key
+from api.deps import AuthedActor, require_user
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
@@ -45,7 +45,7 @@ def calendar_feed(
 def get_calendar(
     from_date: str | None = Query(None, alias="from"),
     to_date: str | None = Query(None, alias="to"),
-    _actor: str = Depends(require_api_key),
+    _actor: AuthedActor = Depends(require_user),
     session: Session = Depends(get_db),
 ):
     from integrations import notify

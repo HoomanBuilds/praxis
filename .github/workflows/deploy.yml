@@ -1,12 +1,19 @@
 name: Deploy PRAXIS
 
+# Gated on the CI workflow (backend pytest + frontend build) succeeding on main — a
+# push to main no longer deploys straight from git pull with zero tests run. The
+# workflow_dispatch path stays available for a manual deploy that bypasses CI on
+# purpose (e.g. redeploying an unchanged image after an infra-only change).
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
 jobs:
   deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2

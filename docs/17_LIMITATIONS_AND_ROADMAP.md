@@ -19,18 +19,20 @@ overclaims.
   spot-checks and the human gate; a formal annotated-corpus evaluation is not yet built.
 
 ### Security / identity
-- **No RBAC.** SSO authenticates users but all logged-in users can operate the review gate.
-  Officer/Admin/Viewer separation is a roadmap item.
+- **RBAC is coarse-grained.** `viewer`/`compliance_officer`/`admin` gate admin-only actions
+  (user management, org config, integrations, API keys, audit export — see
+  [12 Security](12_SECURITY.md#3--authentication--authorization)), but there's no
+  per-department or per-obligation scoping within a role.
+- **No JWT revocation.** A logged-out token stays valid until it expires.
 - **No mTLS / network segmentation.** The demo runs on a single host behind a dev CORS
   policy.
 
 ### Engineering
-- **No migration tool.** Schema is created with `Base.metadata.create_all`; schema changes on
-  SQLite mean recreating `data/praxis.db` (regenerable from the corpus). Alembic is planned
-  for Postgres.
 - **SQLite default in dev** — Postgres is supported (`PRAXIS_DATABASE_URL`) but not the default
-  path in the demo.
-- **No multi-tenancy.** One firm's data model.
+  path in the demo. Schema changes go through Alembic (`backend/alembic/`) on both.
+- **No multi-tenancy.** One firm's data model — every table is global, no `firm_id`
+  anywhere. This is a re-architecture (schema migration + a tenant predicate on every
+  query), not a small hardening item, and is tracked separately.
 
 ## Design decisions that look like limitations but are intentional
 
@@ -51,14 +53,14 @@ overclaims.
    evidence collection through Drive/DocuSign.
 3. **SCORES integration** — track official API surface; integrate when available (still
    audit-logged, never blind-auto-filed without officer confirmation).
-4. **RBAC** on top of SSO identity (admin / compliance officer / viewer) with per-role
-   mutation rights enforced at the API layer.
+4. **Finer-grained RBAC** — per-department/per-obligation scoping on top of the existing
+   viewer/compliance_officer/admin roles; JWT revocation.
 
 ### Medium term
 5. **Golden-set evaluation harness** — annotate a corpus of circulars; CI-gate pipeline
    changes on precision/recall.
-6. **Alembic migrations** — Postgres-first schema management; per-tenant schemas for
-   multi-tenancy.
+6. **Multi-tenancy** — `firm_id` scoping across the schema (Alembic migration to add it) and
+   a tenant predicate on every query.
 7. **Scheduling & digests** — periodic circular polling, weekly obligation digests via the
    email connector, calendar sync two-way.
 8. **Explainable risk** — feature-level attribution for `_risk_score` so ranking is

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from api.deps import AuthedActor, require_role
 from db import crud
 
 router = APIRouter(prefix="/api/org-config", tags=["org-config"])
@@ -14,7 +15,7 @@ def get_org_config():
 
 
 @router.put("")
-def update_org_config(body: OrgConfigUpdate):
+def update_org_config(body: OrgConfigUpdate, actor: AuthedActor = Depends(require_role("admin"))):
     cfg = crud.read_org_config()
     if body.firm_name is not None:
         cfg["firm_name"] = body.firm_name
@@ -33,7 +34,7 @@ def get_functional_areas():
 
 
 @router.put("/functional-areas")
-def update_functional_areas(body: FunctionalAreasUpdate):
+def update_functional_areas(body: FunctionalAreasUpdate, actor: AuthedActor = Depends(require_role("admin"))):
     cfg = crud.read_org_config()
     cfg["functional_areas"] = body.functional_areas
     crud.write_org_config(cfg)

@@ -11,7 +11,7 @@ Prereqs: Python 3.11+, Node 18+, Ollama (optional).
 ```bash
 # 1. Backend
 python -m venv .venv && source .venv/bin/activate
-pip install -r backend/requirements.txt
+pip install -r requirements.txt
 cp .env.example .env                    # then set PRAXIS_* values as needed
 
 # 2. Run the API (SQLite auto-initialised)
@@ -27,15 +27,27 @@ cd frontend && npm install && npm run dev     # http://localhost:5173
 
 ## Docker / production shape
 
-`docker-compose.yml` provides the full service set. Identity runs in Docker by default even in
-local dev because Keycloak is heavy to install natively.
+Two compose files, different scope:
+
+- `docker-compose.yml` — local dev support services only (frontend/backend still run
+  natively via `uvicorn`/`vite`). 7 services: `postgres`, `redis`, `chromadb`, `api`,
+  `worker`, `keycloak`, `openldap`. Identity runs in Docker by default even in local dev
+  because Keycloak is heavy to install natively.
+- `docker-compose.prod.yml` — the full production stack, 8 services behind one reverse
+  proxy. See [02 System Architecture](02_SYSTEM_ARCHITECTURE.md#container--module-view)
+  for the topology diagram.
 
 | Service | Port | Notes |
 |---|---|---|
-| `api` (backend) | `:8080` | FastAPI app |
-| `web` (frontend) | `:5173` | built Vite app |
-| `db` | Postgres | set `PRAXIS_DATABASE_URL` to use it instead of SQLite |
-| `keycloak` | `:8081` | **quay.io/keycloak:26.0**, realm `praxis` auto-imported from `data/keycloak/praxis-realm.json` |
+| `nginx` | `:80`/`:443` | reverse proxy, TLS termination (prod only) |
+| `frontend` | `:8080` internal | built Vite app served by nginx, non-root |
+| `api` | `:8080` internal | FastAPI, `alembic upgrade head` runs before `uvicorn` starts |
+| `worker` | — | Redis stream consumer, runs Phase A off the request thread |
+| `postgres` | `:5432` internal | set `PRAXIS_DATABASE_URL` to use it instead of SQLite |
+| `redis` | `:6379` internal | `document.process` queue; also the rate-limit store in prod |
+| `chromadb` | `:8000` internal | embedding index for hybrid retrieval |
+| `ollama` | `:11434` internal | local LLM runtime |
+| `keycloak` (local dev / demo) | `:8081` | **quay.io/keycloak:26.0**, realm `praxis` auto-imported from `data/keycloak/praxis-realm.json` |
 
 ### Keycloak demo realm
 - Users: `admin@praxis.local` / `admin123`, `officer@praxis.local` / `officer123`
@@ -70,14 +82,25 @@ Email config for the sink: host `127.0.0.1`, port `2525`, blank credentials, fro
 
 ## Verified state at submission
 
-- Backend test suite: **59 passing**.
-- Frontend build clean; demo harnesses (DOM checks, review-dialog flow, email connect flow,
-  SSO end-to-end) pass in a real browser.
-- Remotes: `origin` `github.com/InferiaAI/praxis`, `hooman` `github.com/HoomanBuilds/praxis`.
+- Backend test suite: **90 passing**.
+- Frontend build clean; `npm test` (Vitest) covers the auth-header and filing-status
+  regressions directly.
+- CI (`.github/workflows/ci.yml`) runs the backend suite and frontend build/test on every
+  push/PR; `deploy.yml` only deploys once that workflow succeeds on `main`.
 
 ## Production hardening (see also [17 Limitations & Roadmap](17_LIMITATIONS_AND_ROADMAP.md))
 
-- Introduce Alembic migrations once schema stabilises.
+Done:
+- ✅ Alembic migrations (`backend/alembic/`) — schema changes no longer go through ad-hoc
+  `ALTER TABLE`.
+- ✅ RBAC on top of JWT/SSO identity (`api/deps.py` `require_role`) — admin-only routes
+  (user management, org config, integrations, API keys, audit export) enforce it.
+- ✅ Rate limiting (`slowapi`, Redis-backed in prod) on auth and LLM-bound endpoints.
+- ✅ Non-root containers (`backend/Dockerfile`, `frontend/Dockerfile`).
+- ✅ Daily Postgres + data-volume backups (`deploy/backup.sh`, restore via `deploy/restore.sh`).
+
+Still open:
 - Serve frontend build from the backend origin (single CORS origin) instead of a dev proxy.
 - Put Postgres/Keycloak behind the platform's networking; enable encryption-at-rest.
-- Add RBAC on top of SSO identity (officer vs. admin vs. viewer).
+- Multi-tenancy (`firm_id` scoping) — every table is currently global to one firm; this is
+  a re-architecture, tracked separately from the hardening pass above.

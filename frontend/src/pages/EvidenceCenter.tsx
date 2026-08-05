@@ -40,7 +40,7 @@ function RequirementRow({ item, onUpload }: { item: EvidenceRequirement; onUploa
 export default function EvidenceCenter() {
   const qc = useQueryClient();
   const { data: evidence } = useQuery({ queryKey: ["evidence"], queryFn: () => api.listEvidence() });
-  const { data: obligations } = useQuery({ queryKey: ["obligations"], queryFn: () => api.listObligations() });
+  const { data: obligations } = useQuery({ queryKey: ["obligations", "all"], queryFn: () => api.listAllObligations() });
   const { data: integrations } = useQuery({ queryKey: ["integrations"], queryFn: api.listIntegrations });
   useQuery({ queryKey: ["rules"], queryFn: () => api.listRules() });
 
@@ -150,7 +150,7 @@ export default function EvidenceCenter() {
             </div>
           )}
           {uploadMut.isError && (
-            <div className="text-xs text-destructive">Upload failed: {uploadMut.error.message.replace(/^.*?: /, "")}</div>
+            <div className="text-xs text-destructive">Upload failed: {uploadMut.error.message}</div>
           )}
         </CardContent>
       </Card>

@@ -120,7 +120,8 @@ export default function Review() {
   const { id = "" } = useParams();
   const qc = useQueryClient();
   const { data: doc } = useQuery({ queryKey: ["document", id], queryFn: () => api.getDocument(id) });
-  const { data: obligations } = useQuery({ queryKey: ["obligations", id], queryFn: () => api.listObligations({ document_id: id }) });
+  const { data: obligationsPage } = useQuery({ queryKey: ["obligations", id], queryFn: () => api.listObligations({ document_id: id, limit: 200 }) });
+  const obligations = obligationsPage?.items;
   const [audit, setAudit] = useState<{ files?: string[] } | null>(null);
   const { setScope } = useCopilot();
   const { t } = useVocab();

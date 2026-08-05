@@ -42,7 +42,7 @@ export function ObligationArtifacts({ obligationId, enabled }: { obligationId: s
         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-2"><ClipboardList className="h-3.5 w-3.5" /> TASKS</div>
         {tasks.data?.map((t) => (
           <div key={t.id} className="text-xs mb-2">
-            <div className="font-medium">{t.title}</div>
+            <div className="font-medium line-clamp-2" title={t.title}>{t.title}</div>
             <div className="text-muted-foreground">{t.primary_owner}{t.deadline ? ` · due ${t.deadline}` : ""}</div>
             {t.jira_issue_key && <div className="text-muted-foreground">Jira: {t.jira_issue_key}</div>}
             {t.docusign_envelope_id ? (
@@ -89,7 +89,7 @@ function SignatureDialog({ task, obligationId, onClose }: { task: Task; obligati
       qc.invalidateQueries({ queryKey: ["tasks", obligationId] });
       qc.invalidateQueries({ queryKey: ["integrations"] });
     },
-    onError: (err: Error) => setResult({ ok: false, message: err.message.replace(/^.*?: /, "") }),
+    onError: (err: Error) => setResult({ ok: false, message: err.message }),
   });
 
   return (
@@ -105,7 +105,7 @@ function SignatureDialog({ task, obligationId, onClose }: { task: Task; obligati
 
         <div className="space-y-3">
           <div className="rounded-md border p-3 text-sm">
-            <div className="font-medium">{task.title}</div>
+            <div className="font-medium line-clamp-2" title={task.title}>{task.title}</div>
             <div className="text-xs text-muted-foreground">{titleCase(task.workflow_template.replace(/_/g, " "))}</div>
           </div>
           <div className="space-y-1">

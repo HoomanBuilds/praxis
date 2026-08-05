@@ -61,10 +61,12 @@ def init_db() -> None:
     _ensure_columns(get_engine())
 
 
-# Lightweight forward migrations: ``create_all`` never alters existing tables, so new
-# columns on shipped tables are added here (idempotent, both SQLite and Postgres).
+# Frozen — schema changes now go through Alembic (backend/alembic/), which has a
+# baseline revision covering everything below. Do not add a 6th table/column here;
+# this only still runs to keep create_all() working for fresh dev SQLite databases
+# and to apply the columns added before Alembic existed.
 _NEW_COLUMNS: dict[str, list[tuple[str, str]]] = {
-    "obligations": [("scores_reference", "VARCHAR(255)")],
+    "obligations": [("scores_reference", "VARCHAR(255)"), ("updated_at", "DATETIME")],
     "tasks": [
         ("jira_issue_key", "VARCHAR(64)"),
         ("docusign_envelope_id", "VARCHAR(64)"),
