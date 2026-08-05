@@ -13,6 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -48,6 +49,21 @@ export default function Login() {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Real login through the same /api/auth/login flow as the form above — just with the
+  // seeded demo admin's credentials filled in automatically, so evaluators can get in
+  // with one click instead of typing/copying admin@praxis.local / admin123.
+  const handleDemoLogin = async () => {
+    setError("");
+    setDemoLoading(true);
+    try {
+      await login("admin@praxis.local", "admin123");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Demo login failed");
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -92,6 +108,15 @@ export default function Login() {
           </div>
           <Button type="button" variant="outline" className="w-full" onClick={startSso}>
             Sign in with SSO (Keycloak)
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full mt-2"
+            onClick={handleDemoLogin}
+            disabled={demoLoading || loading}
+          >
+            {demoLoading ? "Signing in…" : "Try Demo"}
           </Button>
           <p className="text-[11px] text-muted-foreground text-center mt-3">Demo: admin@praxis.local / admin123 · SSO users: admin@praxis.local, officer@praxis.local</p>
         </CardContent>
