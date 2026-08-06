@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -75,15 +76,15 @@ def ingest_file(
 
 
 # ---------------------------------------------------------------------------
-# Phase A — extraction
+# Phase A - extraction
 # ---------------------------------------------------------------------------
 
 
 def process_document(session: Session, document_id: str) -> dict:
-    """Phase A — the scale-aware pre-processing funnel:
+    """Phase A - the scale-aware pre-processing funnel:
 
-        parse → classify (drop non-regulatory) → diff (skip unchanged, master circulars)
-              → hybrid extract (deterministic regex / LLM) → persist obligations.
+        parse -> classify (drop non-regulatory) -> diff (skip unchanged, master circulars)
+              -> hybrid extract (deterministic regex / LLM) -> persist obligations.
     """
     doc = crud.get_document(session, document_id)
     if not doc:
@@ -97,6 +98,7 @@ def process_document(session: Session, document_id: str) -> dict:
     session.flush()
 
     crud.set_document_status(session, doc, "extracting")
+    doc.error = None
     # Commit the status change so the long LLM phase below does not hold the write lock
     # (in WAL mode a second writer would otherwise block/fail the whole request).
     session.commit()
@@ -110,6 +112,7 @@ def process_document(session: Session, document_id: str) -> dict:
     if parsed.parse_quality < settings.parse_quality_min:
         doc.status = "needs_human_parse"
         doc.error = f"Parse quality {parsed.parse_quality} below {settings.parse_quality_min}"
+        doc.processed_at = datetime.now(timezone.utc)
         session.flush()
         return {"document_id": doc.id, "status": doc.status, "parse_quality": parsed.parse_quality}
 
@@ -119,10 +122,10 @@ def process_document(session: Session, document_id: str) -> dict:
     doc.document_type = doc_type.value
     doc.family_key = family
 
-    # 3. Candidate filter — drop TOC / definitions / annexures / recitals (no AI).
+    # 3. Candidate filter - drop TOC / definitions / annexures / recitals (no AI).
     candidates, classify_tally = classifier.filter_candidates(parsed.sections)
 
-    # 4. Diff engine — for master circulars, process only new/changed sections.
+    # 4. Diff engine - for master circulars, process only new/changed sections.
     if doc_type == document_type.DocumentType.MASTER_CIRCULAR:
         diff = fingerprint.diff_sections(session, family, candidates)
         to_process = diff.to_process
@@ -167,6 +170,7 @@ def process_document(session: Session, document_id: str) -> dict:
     }
     doc.funnel = funnel
     doc.status = "awaiting_review"
+    doc.processed_at = datetime.now(timezone.utc)
     session.flush()
 
     return {
@@ -180,7 +184,7 @@ def process_document(session: Session, document_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Phase B — generation (post human approval)
+# Phase B - generation (post human approval)
 # ---------------------------------------------------------------------------
 
 
@@ -247,6 +251,7 @@ def generate_for_document(
         crud.create_evidence_requirement(session, req)
 
     doc.status = "completed"
+    doc.processed_at = datetime.now(timezone.utc)
     session.flush()
     return {
         "document_id": document_id,

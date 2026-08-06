@@ -91,3 +91,30 @@ def test_api_audit_report_no_files(seeded):
     )
     assert r.status_code == 200
     assert r.json()["obligation_count"] == 2
+
+
+def test_document_processing_request_is_idempotent(monkeypatch):
+    with session_scope() as session:
+        doc = crud.create_document(
+            session,
+            reference="SEBI/TEST/QUEUE/1",
+            title="Queue Test",
+            file_path="/tmp/queue-test.pdf",
+            content_hash="queue-test-hash",
+        )
+        document_id = doc.id
+
+    processed = []
+    monkeypatch.setattr("api.routes_documents._run_process_in_bg", lambda doc_id: processed.append(doc_id))
+    client = TestClient(app)
+
+    first = client.post(f"/api/documents/{document_id}/process")
+    second = client.post(f"/api/documents/{document_id}/process")
+
+    assert first.status_code == 200
+    assert first.json()["status"] == "queued"
+    assert second.status_code == 200
+    assert second.json()["status"] == "queued"
+    assert processed == [document_id]
+    with session_scope() as session:
+        assert crud.get_document(session, document_id).status == "queued"

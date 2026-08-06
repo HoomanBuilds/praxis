@@ -2,9 +2,9 @@
 
 Two layers live here:
 
-1. **Domain models** — the canonical compliance artefacts that flow through the
+1. **Domain models** - the canonical compliance artefacts that flow through the
    pipeline and are persisted (obligations, rules, tasks, evidence requirements).
-2. **LLM output schemas** — the strict structures the language model is constrained
+2. **LLM output schemas** - the strict structures the language model is constrained
    to emit at each agent stage (suffixed ``LLM`` / ``Result``). Keeping these
    separate lets us validate raw model output before promoting it to a domain object
    with provenance and identifiers attached.
@@ -88,6 +88,7 @@ class TaskStatus(str, Enum):
 
 class DocumentStatus(str, Enum):
     INGESTED = "ingested"
+    QUEUED = "queued"
     PARSING = "parsing"
     EXTRACTING = "extracting"
     AWAITING_REVIEW = "awaiting_review"
@@ -96,7 +97,7 @@ class DocumentStatus(str, Enum):
     FAILED = "failed"
     NEEDS_HUMAN_PARSE = "needs_human_parse"
     # Set directly by the SEBI scraper (ingestion/sebi_scraper.py) when Phase A raises
-    # on an auto-fetched document — distinct from FAILED so operators can tell an
+    # on an auto-fetched document - distinct from FAILED so operators can tell an
     # unattended scrape failure apart from a manually-triggered one.
     EXTRACTION_FAILED = "extraction_failed"
 

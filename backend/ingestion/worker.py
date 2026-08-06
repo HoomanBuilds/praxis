@@ -1,7 +1,7 @@
 """Agent pipeline worker (proposal §5.2.2, §11.2).
 
 A stateless consumer of the Redis ``document.process`` stream. For each event it runs
-Phase A (parse → regulation → obligation extraction) and persists the result, leaving the
+Phase A (parse -> regulation -> obligation extraction) and persists the result, leaving the
 obligations in ``awaiting_review`` for the human-in-the-loop gate. The worker is the unit
 that scales horizontally on queue depth; multiple instances share one consumer group.
 """
@@ -13,6 +13,7 @@ import socket
 import time
 
 from config import settings
+from db import crud
 from db.session import init_db, session_scope
 from ingestion.service import ensure_group, get_redis
 from services import process_document
@@ -59,6 +60,14 @@ def run() -> None:
                           f"obligations={result.get('obligations', 0)}")
                 except Exception as exc:  # keep the worker alive; surface the failure
                     print(f"[worker] ERROR processing {document_id}: {exc}")
+                    try:
+                        with session_scope() as session:
+                            doc = crud.get_document(session, document_id)
+                            if doc and doc.status in {"queued", "parsing", "extracting"}:
+                                crud.set_document_status(session, doc, "failed")
+                                doc.error = str(exc)[:400]
+                    except Exception as status_exc:
+                        print(f"[worker] ERROR recording failure for {document_id}: {status_exc}")
                 finally:
                     client.xack(settings.redis_stream, settings.redis_group, message_id)
 

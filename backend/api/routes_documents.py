@@ -18,6 +18,7 @@ from db.session import get_db
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 _DOC_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+_ACTIVE_PROCESSING_STATUSES = {"queued", "parsing", "extracting", "generating"}
 
 
 def _validate_doc_id(document_id: str) -> str:
@@ -51,26 +52,35 @@ async def ingest(
         tmp.write(await file.read())
         tmp_path = tmp.name
 
-    doc, created = services.ingest_file(session, tmp_path, reference=reference, title=title)
+    try:
+        doc, created = services.ingest_file(session, tmp_path, reference=reference, title=title)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
     session.commit()
 
-    queued = False
+    if not created:
+        return {
+            "document": document_to_dict(doc),
+            "created": False,
+            "queued": False,
+            "message": "This document is already in the workspace.",
+        }
+
     if process:
         result = services.process_document(session, doc.id)
         session.commit()
         return {"document": document_to_dict(doc), "created": created, "processed": result}
 
+    crud.set_document_status(session, doc, "queued")
+    session.commit()
     try:
         from ingestion.service import publish_process_event
 
         publish_process_event(doc.id)
-        queued = True
     except Exception:
-        # Fallback: run in a background thread if Redis is unavailable.
         background_tasks.add_task(_run_process_in_bg, doc.id)
-        queued = True
 
-    return {"document": document_to_dict(doc), "created": created, "queued": queued}
+    return {"document": document_to_dict(doc), "created": created, "queued": True}
 
 
 def _run_process_in_bg(document_id: str) -> None:
@@ -86,7 +96,7 @@ def _run_process_in_bg(document_id: str) -> None:
         print(f"[documents] background Phase A failed for {document_id}: {exc}")
         try:
             doc = crud.get_document(session, document_id)
-            if doc and doc.status == "extracting":
+            if doc and doc.status in {"queued", "parsing", "extracting"}:
                 crud.set_document_status(session, doc, "failed")
                 doc.error = str(exc)[:400]
                 session.commit()
@@ -127,13 +137,22 @@ def process(
     background_tasks: BackgroundTasks = BackgroundTasks(),
     session: Session = Depends(get_db),
 ):
-    """Run Phase A (extraction) — offloaded to background to avoid LLM timeout."""
+    """Run Phase A (extraction) - offloaded to background to avoid LLM timeout."""
     document_id = _validate_doc_id(document_id)
     doc = crud.get_document(session, document_id)
     if not doc:
         raise HTTPException(404, "Document not found")
+    if doc.status in _ACTIVE_PROCESSING_STATUSES:
+        return {
+            "document_id": document_id,
+            "status": doc.status,
+            "message": "Processing is already active for this document.",
+        }
+    crud.set_document_status(session, doc, "queued")
+    doc.error = None
+    session.commit()
     background_tasks.add_task(_run_process_in_bg, document_id)
-    return {"document_id": document_id, "status": "queued", "message": "Phase A processing started in background"}
+    return {"document_id": document_id, "status": "queued", "message": "Document processing was queued."}
 
 
 @router.post("/{document_id}/generate")
@@ -145,7 +164,7 @@ def generate(
     background_tasks: BackgroundTasks = BackgroundTasks(),
     session: Session = Depends(get_db),
 ):
-    """Run Phase B (rule → workflow → evidence) on approved obligations."""
+    """Run Phase B (rule -> workflow -> evidence) on approved obligations."""
     document_id = _validate_doc_id(document_id)
     try:
         result = services.generate_for_document(
