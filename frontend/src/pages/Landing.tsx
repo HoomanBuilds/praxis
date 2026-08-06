@@ -90,7 +90,7 @@ export default function Landing() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">Built for accountable decisions</p>
           <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">Every answer keeps the source in view.</h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-neutral-600 sm:text-base">
-            Praxis combines deterministic workflow logic with grounded analysis. Reviewers can verify the source, understand the reasoning, and retain a complete decision trail.
+            Praxis combines structured workflow logic with grounded analysis. Reviewers can verify the source, understand the reasoning, and retain a complete decision trail.
           </p>
         </section>
       </main>
