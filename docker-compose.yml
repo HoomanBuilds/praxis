@@ -122,6 +122,8 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_started
+    healthcheck:
+      disable: true
     restart: unless-stopped
     logging:
       driver: json-file

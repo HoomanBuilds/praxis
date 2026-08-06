@@ -20,4 +20,4 @@ docker compose --env-file .env.production -f docker-compose.prod.yml pull --igno
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build --remove-orphans
 docker compose --env-file .env.production -f docker-compose.prod.yml ps
 docker image prune -f
-docker builder prune -af
+docker builder prune -f --keep-storage 5GB

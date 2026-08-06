@@ -179,6 +179,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      disable: true
 
   edge:
     image: caddy:2.10-alpine
