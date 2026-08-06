@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Radar, Plus, ExternalLink, CheckCircle, Trash2 } from "lucide-react";
 import { timeAgo } from "@/lib/format";
+import { apiFetch } from "@/lib/api";
 
 interface WatchSourceRow {
   id: string;
@@ -45,7 +46,7 @@ export default function Watch() {
   const { data: sources } = useQuery({
     queryKey: ["watch-sources"],
     queryFn: async (): Promise<WatchSourceRow[]> => {
-      const res = await fetch("/api/watch/sources", { headers: { "Content-Type": "application/json" } });
+      const res = await apiFetch("/api/watch/sources");
       if (!res.ok) return [];
       return res.json();
     },
@@ -54,7 +55,7 @@ export default function Watch() {
   const { data: hits } = useQuery({
     queryKey: ["watch-hits"],
     queryFn: async (): Promise<WatchHitRow[]> => {
-      const res = await fetch("/api/watch/hits", { headers: { "Content-Type": "application/json" } });
+      const res = await apiFetch("/api/watch/hits");
       if (!res.ok) return [];
       return res.json();
     },
@@ -62,9 +63,8 @@ export default function Watch() {
 
   const addSourceMutation = useMutation({
     mutationFn: async (data: typeof form) => {
-      const res = await fetch("/api/watch/sources", {
+      const res = await apiFetch("/api/watch/sources", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -84,14 +84,14 @@ export default function Watch() {
 
   const deleteSourceMutation = useMutation({
     mutationFn: async (id: string) => {
-      await fetch(`/api/watch/sources/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/watch/sources/${id}`, { method: "DELETE" });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["watch-sources"] }),
   });
 
   const reviewHitMutation = useMutation({
     mutationFn: async (id: string) => {
-      await fetch(`/api/watch/hits/${id}/review`, { method: "POST" });
+      await apiFetch(`/api/watch/hits/${id}/review`, { method: "POST" });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["watch-hits"] }),
   });

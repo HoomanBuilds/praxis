@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { TASK_STATUSES } from "@/lib/constants";
 import { useAreas } from "@/hooks/useAreas";
 import { titleCase } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { api, apiFetch } from "@/lib/api";
 
 interface CalEvent {
   id: string;
@@ -60,7 +60,7 @@ export default function Calendar() {
   const { data } = useQuery({
     queryKey: ["calendar", fromStr, toStr],
     queryFn: async (): Promise<{ events: CalEvent[] }> => {
-      const res = await fetch(`/api/calendar?from=${fromStr}&to=${toStr}`, { headers: { "Content-Type": "application/json" } });
+      const res = await apiFetch(`/api/calendar?from=${fromStr}&to=${toStr}`);
       if (!res.ok) return { events: [] };
       return res.json();
     },

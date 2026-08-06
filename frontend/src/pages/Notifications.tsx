@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Bell, CheckCheck, Circle } from "lucide-react";
 import { timeAgo } from "@/lib/format";
+import { apiFetch } from "@/lib/api";
 
 interface NotificationRow {
   id: string;
@@ -22,7 +23,7 @@ export default function Notifications() {
   const { data } = useQuery({
     queryKey: ["notifications"],
     queryFn: async (): Promise<{ items: NotificationRow[]; total: number }> => {
-      const res = await fetch("/api/notifications", { headers: { "Content-Type": "application/json" } });
+      const res = await apiFetch("/api/notifications");
       if (!res.ok) return { items: [], total: 0 };
       return res.json();
     },
@@ -30,14 +31,14 @@ export default function Notifications() {
 
   const markReadMutation = useMutation({
     mutationFn: async (id: string) => {
-      await fetch(`/api/notifications/${id}/read`, { method: "POST" });
+      await apiFetch(`/api/notifications/${id}/read`, { method: "POST" });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
   const markAllMutation = useMutation({
     mutationFn: async () => {
-      await fetch("/api/notifications/read-all", { method: "POST" });
+      await apiFetch("/api/notifications/read-all", { method: "POST" });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });

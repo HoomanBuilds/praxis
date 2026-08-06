@@ -67,6 +67,8 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440  # 24 hours
+    bootstrap_admin_email: str = "admin@praxis.local"
+    bootstrap_admin_password: str = "admin123"
 
     # --- Audit ---
     audit_retention_days: int = 2555  # ~7 years, SEBI requirement
@@ -81,7 +83,7 @@ class Settings(BaseSettings):
     integration_encryption_key: str = ""
     integration_key_path: str = str(REPO_ROOT / "data" / "integration.key")
 
-    # SSO (OIDC / Keycloak) — validated against the demo Keycloak realm in
+    # SSO (OIDC / Keycloak) - validated against the demo Keycloak realm in
     # docker-compose, not a live enterprise IdP.
     frontend_url: str = "http://localhost:5173"
     sso_redirect_uri: str = "http://localhost:8080/api/auth/sso/callback"
@@ -93,7 +95,7 @@ class Settings(BaseSettings):
     # Google Drive (Tier 2) — OAuth client from a Google Cloud test project.
     drive_oauth_client_id: str = ""
     drive_oauth_client_secret: str = ""
-    drive_oauth_redirect_uri: str = "http://localhost:8080/api/auth/drive/callback"
+    drive_oauth_redirect_uri: str = "http://localhost:8080/api/integrations/drive/callback"
     drive_oauth_auth_uri: str = "https://accounts.google.com/o/oauth2/v2/auth"
     drive_oauth_token_uri: str = "https://oauth2.googleapis.com/token"
     drive_oauth_scope: str = "https://www.googleapis.com/auth/drive.file"

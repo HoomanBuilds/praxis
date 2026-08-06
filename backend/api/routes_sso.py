@@ -55,7 +55,14 @@ def sso_authorize():
     signed = jose_jwt.encode(
         {"state": state}, settings.jwt_secret, algorithm=settings.jwt_algorithm
     )
-    resp.set_cookie(_state_cookie_name(), signed, httponly=True, samesite="lax", max_age=600)
+    resp.set_cookie(
+        _state_cookie_name(),
+        signed,
+        httponly=True,
+        secure=settings.frontend_url.startswith("https://"),
+        samesite="lax",
+        max_age=600,
+    )
     return resp
 
 

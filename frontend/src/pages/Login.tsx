@@ -13,6 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const ssoEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_SSO === "true";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -30,7 +31,7 @@ export default function Login() {
       window.history.replaceState({}, "", "/login");
       navigate("/", { replace: true });
     } else {
-      setError("SSO sign-in failed — try again.");
+      setError("SSO sign-in failed. Try again.");
     }
   }, [ssoLogin, navigate]);
 
@@ -85,15 +86,23 @@ export default function Login() {
               {loading ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-          <div className="flex items-center gap-2 my-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-[11px] text-muted-foreground">or</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-          <Button type="button" variant="outline" className="w-full" onClick={startSso}>
-            Sign in with SSO (Keycloak)
-          </Button>
-          <p className="text-[11px] text-muted-foreground text-center mt-3">Demo: admin@praxis.local / admin123 · SSO users: admin@praxis.local, officer@praxis.local</p>
+          {ssoEnabled && (
+            <>
+              <div className="flex items-center gap-2 my-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[11px] text-muted-foreground">or</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <Button type="button" variant="outline" className="w-full" onClick={startSso}>
+                Sign in with SSO (Keycloak)
+              </Button>
+            </>
+          )}
+          {import.meta.env.DEV && (
+            <p className="text-[11px] text-muted-foreground text-center mt-3">
+              Demo: admin@praxis.local / admin123
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

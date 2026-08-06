@@ -20,11 +20,18 @@ import type {
 
 const BASE = "/api";
 
+export function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  const token = localStorage.getItem("praxis_token");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (!(init.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  return fetch(input, { ...init, headers });
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  const res = await apiFetch(`${BASE}${path}`, init);
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`${res.status} ${res.statusText}: ${body}`);
@@ -49,7 +56,7 @@ export const api = {
       title,
       process: String(process),
     });
-    const res = await fetch(`${BASE}/documents/ingest?${qs}`, { method: "POST", body: form });
+    const res = await apiFetch(`${BASE}/documents/ingest?${qs}`, { method: "POST", body: form });
     if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
     return res.json();
   },
@@ -87,7 +94,7 @@ export const api = {
   uploadEvidence: async (requirementId: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${BASE}/evidence/${requirementId}/upload`, { method: "POST", body: form });
+    const res = await apiFetch(`${BASE}/evidence/${requirementId}/upload`, { method: "POST", body: form });
     if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
     return res.json();
   },

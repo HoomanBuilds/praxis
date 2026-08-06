@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Users as UsersIcon, Plus, Shield } from "lucide-react";
 import { timeAgo } from "@/lib/format";
+import { apiFetch } from "@/lib/api";
 
 interface UserRow {
   id: string;
@@ -29,7 +30,7 @@ export default function Users() {
   const { data: users } = useQuery({
     queryKey: ["users"],
     queryFn: async (): Promise<UserRow[]> => {
-      const res = await fetch("/api/users", { headers: { "Content-Type": "application/json" } });
+      const res = await apiFetch("/api/users");
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -41,9 +42,8 @@ export default function Users() {
 
   const inviteMutation = useMutation({
     mutationFn: async (data: typeof form) => {
-      const res = await fetch("/api/users", {
+      const res = await apiFetch("/api/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!res.ok) {

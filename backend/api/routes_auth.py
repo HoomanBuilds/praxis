@@ -32,13 +32,17 @@ def create_access_token(user_id: str, email: str, role: str) -> str:
     return jwt.encode({"sub": user_id, "email": email, "role": role, "exp": expire}, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
+def decode_access_token(token: str) -> dict:
+    try:
+        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    except JWTError:
+        raise HTTPException(401, "Invalid or expired token")
+
+
 def decode_token(credentials: HTTPAuthorizationCredentials = Depends(_bearer)) -> dict:
     if not credentials:
         raise HTTPException(401, "Not authenticated")
-    try:
-        return jwt.decode(credentials.credentials, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-    except JWTError:
-        raise HTTPException(401, "Invalid or expired token")
+    return decode_access_token(credentials.credentials)
 
 
 @router.post("/login", response_model=TokenResponse)

@@ -41,12 +41,13 @@ from rag import corpus_index
 async def lifespan(app: FastAPI):
     init_db()
     with session_scope() as session:
-        if not crud.get_user_by_email(session, "admin@praxis.local"):
+        admin_email = settings.bootstrap_admin_email.strip().lower()
+        if admin_email and not crud.get_user_by_email(session, admin_email):
             from db.models import hash_password
             admin = models.User(
-                email="admin@praxis.local",
+                email=admin_email,
                 name="Admin",
-                hashed_password=hash_password("admin123"),
+                hashed_password=hash_password(settings.bootstrap_admin_password),
                 role="admin",
             )
             session.add(admin)
