@@ -20,7 +20,7 @@ import type {
 
 const BASE = "/api";
 
-// `.message` on this is always safe to render — it never contains a raw response body,
+// `.message` on this is always safe to render - it never contains a raw response body,
 // stack trace, or other server-internal text. The full raw body is still logged to the
 // console (and attached as `.debugDetail`) for diagnosing from devtools, just never put
 // in the DOM.
@@ -39,7 +39,7 @@ function friendlyMessage(status: number, detail?: string): string {
   if (status >= 500) return "Something went wrong on our end. Please try again in a moment.";
   if (status === 401) return "Your session has expired. Please sign in again.";
   if (status === 403) return "You don't have permission to do that.";
-  // 4xx `detail` text is authored server-side for exactly this purpose — safe to show.
+  // 4xx `detail` text is authored server-side for exactly this purpose - safe to show.
   return detail || "That request couldn't be completed.";
 }
 
@@ -50,11 +50,11 @@ async function throwApiError(res: Response, path: string): Promise<never> {
     const parsed = JSON.parse(rawBody);
     if (typeof parsed.detail === "string") detail = parsed.detail;
     else if (Array.isArray(parsed.detail)) {
-      // FastAPI/Pydantic validation errors: an array of {msg, loc, ...} — safe field-level text.
+      // FastAPI/Pydantic validation errors: an array of {msg, loc, ...} - safe field-level text.
       detail = parsed.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join("; ") || undefined;
     }
   } catch {
-    // Not JSON (e.g. an HTML error page, or a raw traceback) — never surface it as `detail`.
+    // Not JSON (e.g. an HTML error page, or a raw traceback) - never surface it as `detail`.
   }
   console.error(`API error ${res.status} ${res.statusText} on ${path}`, rawBody);
   throw new ApiError(res.status, friendlyMessage(res.status, detail), rawBody);
@@ -106,7 +106,7 @@ export const api = {
   generate: (id: string, autoApprove = false) =>
     req<any>(`/documents/${id}/generate?auto_approve=${autoApprove}`, { method: "POST" }),
 
-  // Returns the full paginated envelope — callers that want a single page (e.g. the
+  // Returns the full paginated envelope - callers that want a single page (e.g. the
   // Obligations list view) use offset/limit directly; callers that need the complete
   // set (e.g. evidence-gap counting) should use listAllObligations below instead of
   // guessing a large limit, since the backend caps a single page at 200.
@@ -118,7 +118,7 @@ export const api = {
     );
     return req<{ items: Obligation[]; total: number; offset: number; limit: number }>(`/obligations?${qs}`);
   },
-  // Pages through the full result set — for views that need every matching obligation
+  // Pages through the full result set - for views that need every matching obligation
   // (not just one page) to compute correct totals/coverage.
   listAllObligations: async (params: { document_id?: string; status?: string; functional_area?: string } = {}) => {
     const pageSize = 200;
@@ -174,8 +174,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ author, body }),
     }),
-  copilot: (question: string, ctx: { document_id?: string; obligation_id?: string } = {}) =>
-    req<CopilotResponse>(`/copilot`, { method: "POST", body: JSON.stringify({ question, ...ctx }) }),
+  copilot: (
+    question: string,
+    ctx: {
+      document_id?: string;
+      obligation_id?: string;
+      history?: { role: "user" | "assistant"; content: string }[];
+    } = {},
+    signal?: AbortSignal,
+  ) => req<CopilotResponse>(`/copilot`, {
+    method: "POST",
+    body: JSON.stringify({ question, ...ctx }),
+    signal,
+  }),
 
   auditReport: (scope: string, ids: { obligation_id?: string; document_id?: string }) =>
     req<any>(`/audit/report`, {

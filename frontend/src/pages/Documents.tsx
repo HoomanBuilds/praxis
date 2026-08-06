@@ -12,21 +12,36 @@ import { titleCase } from "@/lib/utils";
 import { Upload, Play, Loader2, ArrowRight, Radar, CheckCircle2, AlertCircle } from "lucide-react";
 import { timeAgo } from "@/lib/format";
 
+const ACTIVE_DOCUMENT_STATUSES = new Set(["queued", "parsing", "extracting", "generating"]);
 
 export default function Documents() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { t } = useVocab();
-  const { data: documents, isLoading } = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
+  const {
+    data: documents,
+    isLoading,
+    isError: documentsFailed,
+    refetch: refetchDocuments,
+  } = useQuery({
+    queryKey: ["documents"],
+    queryFn: api.listDocuments,
+    refetchInterval: (query) => {
+      const rows = query.state.data;
+      return rows?.some((document) => ACTIVE_DOCUMENT_STATUSES.has(document.status)) ? 2500 : false;
+    },
+  });
 
   const [file, setFile] = useState<File | null>(null);
   const [reference, setReference] = useState("");
   const [title, setTitle] = useState("");
+  const [uploadNotice, setUploadNotice] = useState("");
 
   const uploadMut = useMutation({
     mutationFn: () => api.ingest(file!, reference, title, false),
-    onSuccess: () => {
+    onSuccess: (result) => {
       setFile(null); setReference(""); setTitle("");
+      setUploadNotice(result.created ? "Uploaded and queued for processing." : result.message || "This document is already in the workspace.");
       qc.invalidateQueries({ queryKey: ["documents"] });
     },
   });
@@ -68,12 +83,12 @@ export default function Documents() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button disabled={!file || uploadMut.isPending} onClick={() => uploadMut.mutate()}>
+            <Button disabled={!file || uploadMut.isPending} onClick={() => { setUploadNotice(""); uploadMut.mutate(); }}>
               {uploadMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               Upload
             </Button>
             {uploadMut.isError && <span className="text-sm text-destructive">Upload failed.</span>}
-            {uploadMut.isSuccess && <span className="text-sm text-success">{t("documents.uploaded")}</span>}
+            {uploadNotice && <span className="text-sm text-success">{uploadNotice}</span>}
           </div>
         </CardContent>
       </Card>
@@ -82,7 +97,12 @@ export default function Documents() {
         <CardHeader><CardTitle>All Documents</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-sm text-muted-foreground">Loading…</div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading documents...</div>
+          ) : documentsFailed ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              <span>Documents could not be loaded.</span>
+              <Button size="sm" variant="outline" onClick={() => void refetchDocuments()}>Retry</Button>
+            </div>
           ) : documents?.length ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -97,21 +117,31 @@ export default function Documents() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {documents.map((d) => (
+                  {documents.map((d) => {
+                    const isProcessing = ACTIVE_DOCUMENT_STATUSES.has(d.status);
+                    const canProcess = d.status === "ingested" || d.status === "failed" || d.status === "extraction_failed";
+                    return (
                     <tr key={d.id}>
                       <td className="py-2.5">
                         <div className="font-medium">{d.title || d.reference || d.id.slice(0, 8)}</div>
                         <div className="text-xs text-muted-foreground">{d.page_count} pages · quality {(d.parse_quality * 100).toFixed(0)}%</div>
                       </td>
                       <td className="py-2.5">{titleCase(d.document_type)}</td>
-                      <td className="py-2.5"><StatusBadge status={d.status} /></td>
-                      <td className="py-2.5">{d.funnel?.obligations_total ?? "—"}</td>
-                      <td className="py-2.5">{d.funnel ? `${d.funnel.llm_calls}` : "—"}</td>
+                      <td className="py-2.5">
+                        <StatusBadge status={d.status} />
+                        {d.error && <div className="mt-1 max-w-56 text-xs text-destructive" title={d.error}>{d.error}</div>}
+                      </td>
+                      <td className="py-2.5">{d.funnel?.obligations_total ?? "-"}</td>
+                      <td className="py-2.5">{d.funnel ? `${d.funnel.llm_calls}` : "-"}</td>
                       <td className="py-2.5 text-right">
-                        {d.status === "ingested" || d.status === "extraction_failed" ? (
+                        {isProcessing ? (
+                          <Button size="sm" variant="ghost" disabled>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing
+                          </Button>
+                        ) : canProcess ? (
                           <Button size="sm" variant="outline" disabled={processMut.isPending} onClick={() => processMut.mutate(d.id)}>
                             {processMut.isPending && processMut.variables === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                            {t(d.status === "extraction_failed" ? "documents.reprocess" : "documents.process")}
+                            {t(d.status === "ingested" ? "documents.process" : "documents.reprocess")}
                           </Button>
                         ) : (
                           <Button size="sm" variant="ghost" onClick={() => navigate(`/documents/${d.id}/review`)}>
@@ -120,7 +150,8 @@ export default function Documents() {
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -160,7 +191,7 @@ function SebiMonitorCard() {
   });
 
   // A manual check runs the same throttled scrape as the scheduled poll, so it can
-  // take a while — the request is intentionally not given a short timeout.
+  // take a while - the request is intentionally not given a short timeout.
   const [checkResult, setCheckResult] = useState<string | null>(null);
   const checkNow = useMutation({
     mutationFn: async () => {
@@ -227,7 +258,7 @@ function SebiMonitorCard() {
           {checkResult && <span className="text-[11px] text-muted-foreground">{checkResult}</span>}
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          This scrapes SEBI's public circulars pages — SEBI publishes no feed or API. The
+          This scrapes SEBI's public circulars pages - SEBI publishes no feed or API. The
           scraper honours sebi.gov.in/robots.txt, spaces its requests, and polls every 6 hours.
           Only the two pages listed above are monitored.
         </p>

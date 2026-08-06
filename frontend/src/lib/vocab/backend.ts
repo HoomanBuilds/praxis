@@ -19,7 +19,7 @@ import type { TermPair } from "./terms";
 
 type EnumMap = Record<string, TermPair>;
 
-/** backend/db/crud.py + agents — the complete set of audit `action` values. */
+/** backend/db/crud.py + agents - the complete set of audit `action` values. */
 const AUDIT_ACTIONS: EnumMap = {
   "comment.added": { business: "Comment added" },
   "document.ingested": { business: "Regulation imported", engineering: "Document ingested" },
@@ -47,7 +47,7 @@ const AUDIT_ACTIONS: EnumMap = {
   "evidence.upload": { business: "Evidence uploaded" },
 };
 
-/** backend audit `resource_type` — the table an audit row points at. */
+/** backend audit `resource_type` - the table an audit row points at. */
 const RESOURCE_TYPES: EnumMap = {
   document: { business: "Circular", engineering: "Document" },
   obligation: { business: "Obligation" },
@@ -65,6 +65,7 @@ const RESOURCE_TYPES: EnumMap = {
 /** backend/db/models.py Document.status (see services.py + sebi_scraper.py for writers). */
 const DOCUMENT_STATUS: EnumMap = {
   ingested: { business: "Imported", engineering: "Ingested" },
+  queued: { business: "Queued", engineering: "Queued" },
   parsing: { business: "Reading", engineering: "Parsing" },
   extracting: { business: "Processing", engineering: "Extracting" },
   needs_human_parse: { business: "Needs manual review", engineering: "Needs human parse" },
@@ -76,7 +77,7 @@ const DOCUMENT_STATUS: EnumMap = {
 };
 
 /**
- * Obligation.extraction_method. Only `deterministic` and `llm` are ever stored — the
+ * Obligation.extraction_method. Only `deterministic` and `llm` are ever stored - the
  * old `"regex"` key was a frontend invention the backend never emitted.
  */
 const EXTRACTION_METHOD: EnumMap = {
@@ -85,7 +86,7 @@ const EXTRACTION_METHOD: EnumMap = {
 };
 
 /**
- * Audit-trail `actor` values — who performed an action. Most are people (rendered as
+ * Audit-trail `actor` values - who performed an action. Most are people (rendered as
  * title-cased names); the automated pipeline actors are mapped so a compliance officer
  * sees the platform's name, never the internal agent label.
  */
@@ -100,7 +101,7 @@ const ACTORS: EnumMap = {
   system: { business: "System" },
 };
 
-/** backend/kg/graph.py — node `type` values. */
+/** backend/kg/graph.py - node `type` values. */
 const KG_NODE_TYPES: EnumMap = {
   regulation: { business: "Regulation" },
   obligation: { business: "Obligation" },
@@ -112,7 +113,7 @@ const KG_NODE_TYPES: EnumMap = {
   evidence: { business: "Evidence" },
 };
 
-/** backend/kg/graph.py — edge `type` values, rendered as readable relationships. */
+/** backend/kg/graph.py - edge `type` values, rendered as readable relationships. */
 const KG_EDGE_TYPES: EnumMap = {
   CREATES: { business: "creates", engineering: "CREATES" },
   ASSIGNED_TO: { business: "is assigned to", engineering: "ASSIGNED_TO" },
@@ -146,9 +147,9 @@ export type EnumNamespace = keyof typeof ENUMS;
 export function enumLabel(ns: EnumNamespace, raw: string, mode: UIMode): string {
   const hit = ENUMS[ns][raw];
   if (!hit) {
-    // Loud on miss — silent passthrough is what let jargon leak before.
+    // Loud on miss - silent passthrough is what let jargon leak before.
     if (import.meta.env.DEV) {
-      console.warn(`[vocab] unmapped ${ns}: "${raw}" — add it to lib/vocab/backend.ts`);
+      console.warn(`[vocab] unmapped ${ns}: "${raw}" - add it to lib/vocab/backend.ts`);
     }
     return titleCase(raw.replace(/[.]/g, " "));
   }

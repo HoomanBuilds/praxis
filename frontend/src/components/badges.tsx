@@ -1,10 +1,11 @@
 import { Badge } from "@/components/ui/badge";
+import { Cpu, ScanText } from "lucide-react";
 import { useVocab } from "@/hooks/useVocab";
 import { titleCase } from "@/lib/utils";
 
 /**
  * How an obligation was identified. This is a provenance signal a regulator legitimately
- * needs, so the distinction stays — only the vocabulary changes (business mode reads
+ * needs, so the distinction stays - only the vocabulary changes (business mode reads
  * "Automatic"/"Standard Analysis"; engineering mode reads "Deterministic"/"LLM").
  */
 export function MethodBadge({ method }: { method: string }) {
@@ -15,7 +16,7 @@ export function MethodBadge({ method }: { method: string }) {
       variant={isRule ? "secondary" : "outline"}
       title={t(isRule ? "obligation.method.rule.tip" : "obligation.method.ai.tip")}
     >
-      {isRule ? "⚙" : "✦"} {e("extraction.method", method)}
+      {isRule ? <ScanText className="h-3 w-3" /> : <Cpu className="h-3 w-3" />} {e("extraction.method", method)}
     </Badge>
   );
 }
@@ -32,6 +33,7 @@ export function StatusBadge({ status }: { status: string }) {
     not_started: "muted",
     awaiting_review: "warning",
     ingested: "muted",
+    queued: "muted",
     extracting: "warning",
     generating: "warning",
     extraction_failed: "destructive",
@@ -46,6 +48,7 @@ export function StatusBadge({ status }: { status: string }) {
 
 const DOC_STATUSES = new Set([
   "ingested",
+  "queued",
   "parsing",
   "extracting",
   "needs_human_parse",
@@ -56,7 +59,7 @@ const DOC_STATUSES = new Set([
 
 /**
  * Business mode reads the score as a qualitative band; engineering mode keeps the raw
- * percentage. The thresholds are identical — only the rendering differs.
+ * percentage. The thresholds are identical - only the rendering differs.
  */
 export function ConfidenceBadge({ value }: { value: number }) {
   const { t, isBusiness } = useVocab();

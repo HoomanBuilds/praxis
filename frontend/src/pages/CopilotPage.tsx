@@ -1,177 +1,157 @@
-import { useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
-import { useVocab } from "@/hooks/useVocab";
+import { useEffect, useRef } from "react";
+import { Bot, Loader2, RotateCcw, SendHorizonal, Square, Trash2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CopilotCitationBlock } from "@/components/CopilotCitationBlock";
+import { useCopilotChat } from "@/hooks/useCopilotChat";
+import { canSendCopilotQuestion } from "@/lib/copilot";
 import { cn } from "@/lib/utils";
-import { SendHorizonal, Loader2, User, Bot, Trash2, AlertTriangle, Database } from "lucide-react";
-import type { CopilotCitation } from "@/lib/types";
-import { canSendCopilotQuestion, COPILOT_HISTORY_KEY } from "@/lib/copilot";
-
-interface Msg {
-  role: "user" | "assistant";
-  text: string;
-  sources?: string[];
-  citations?: CopilotCitation[];
-  grounded?: boolean;
-  confidence?: number;
-  error?: boolean;
-  responseType?: "analysis" | "error" | "greeting" | "obligation_list" | "workspace_summary";
-}
 
 const QUICK = [
   "Summarize the overall compliance posture",
+  "What are the most urgent compliance risks and what should I do first?",
   "Show all technology obligations",
   "Find obligations that need review",
   "Which departments carry the most obligations?",
   "What has the platform processed recently?",
-  "Generate a board-level compliance summary",
 ];
 
 export default function CopilotPage() {
-  const [messages, setMessages] = useState<Msg[]>(() => {
-    try { return JSON.parse(localStorage.getItem(COPILOT_HISTORY_KEY) || "[]"); } catch { return []; }
-  });
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
+  const {
+    messages,
+    input,
+    setInput,
+    sending,
+    slow,
+    lastQuestion,
+    send,
+    stop,
+    retry,
+    clear,
+  } = useCopilotChat();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastMessage = messages[messages.length - 1];
 
-  useEffect(() => { try { localStorage.setItem(COPILOT_HISTORY_KEY, JSON.stringify(messages.slice(-40))); } catch { /* ignore */ } }, [messages]);
-  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, sending]);
-
-  const send = async (q: string) => {
-    const text = q.trim();
-    if (!canSendCopilotQuestion(text, sending)) return;
-    setMessages((m) => [...m, { role: "user", text: q }]);
-    setInput("");
-    setSending(true);
-    try {
-      const res = await api.copilot(q);
-      setMessages((m) => [
-        ...m,
-        res.answer
-          ? {
-              role: "assistant",
-              text: res.answer,
-              sources: res.sources,
-              citations: res.citations,
-              grounded: res.grounded,
-              confidence: res.confidence,
-              responseType: res.response_type,
-            }
-          : { role: "assistant", text: res.error || "No answer.", error: true },
-      ]);
-    } catch (e) {
-      setMessages((m) => [...m, { role: "assistant", text: "Couldn't reach the analysis service — try again in a moment.", error: true }]);
-    } finally { setSending(false); }
-  };
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, sending, slow]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-11rem)] min-h-[420px]">
-      <div className="flex items-center justify-between mb-4">
+    <div className="flex h-[calc(100vh-11rem)] min-h-[420px] flex-col">
+      <div className="mb-4 flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /> Copilot</h1>
-          <p className="text-sm text-muted-foreground">Ask questions about your compliance data — obligations, rules, tasks and regulations.</p>
-          {messages.length > 0 && <p className="text-xs text-muted-foreground mt-1">Conversation saved in this browser</p>}
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
+            <Bot className="h-5 w-5 text-primary" /> Copilot
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Ask about obligations, owners, deadlines, evidence, and regulatory sources.
+          </p>
+          {messages.length > 0 && <p className="mt-1 text-xs text-muted-foreground">Conversation saved in this browser</p>}
         </div>
-        {messages.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setMessages([])}><Trash2 className="h-3.5 w-3.5" /> Clear</Button>
+        {messages.length > 0 && !sending && (
+          <Button variant="ghost" size="sm" onClick={clear}>
+            <Trash2 className="h-3.5 w-3.5" /> Clear
+          </Button>
         )}
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto rounded-2xl border bg-card p-5 space-y-5">
+      <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto rounded-2xl border bg-card p-5">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center gap-4">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 border border-primary/30"><Bot className="h-6 w-6 text-primary" /></div>
-            <div className="text-sm text-muted-foreground max-w-md">Ask about obligations, circulars, owners, deadlines or risk. Answers cite the obligations they draw from and never invent data.</div>
-            <div className="grid sm:grid-cols-2 gap-2 w-full max-w-xl">
-              {QUICK.map((q) => (
-                <button key={q} onClick={() => send(q)} className="text-left text-sm rounded-lg border px-3 py-2.5 hover:border-primary/40 transition-colors">{q}</button>
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl border border-primary/30 bg-primary/10">
+              <Bot className="h-6 w-6 text-primary" />
+            </div>
+            <div className="max-w-md text-sm text-muted-foreground">
+              Ask a direct question about the current workspace. Praxis cites the obligation records used in each answer.
+            </div>
+            <div className="grid w-full max-w-xl gap-2 sm:grid-cols-2">
+              {QUICK.map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  onClick={() => void send(question)}
+                  className="min-h-11 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {question}
+                </button>
               ))}
             </div>
           </div>
         ) : (
-          messages.map((m, i) => (
-            <div key={i} className={cn("flex gap-3", m.role === "user" ? "flex-row-reverse" : "")}>
-              <div className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full border", m.role === "user" ? "bg-primary/15" : "bg-muted")}>
-                {m.role === "user" ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5 text-primary" />}
+          messages.map((message, index) => (
+            <div key={index} className={cn("flex gap-3", message.role === "user" && "flex-row-reverse")}>
+              <div className={cn(
+                "grid h-7 w-7 shrink-0 place-items-center rounded-full border",
+                message.role === "user" ? "bg-primary/15" : "bg-muted",
+              )}>
+                {message.role === "user" ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5 text-primary" />}
               </div>
-              <div className={cn("rounded-2xl px-4 py-2.5 text-sm max-w-[75%] whitespace-pre-wrap", m.role === "user" ? "bg-primary/10" : m.error ? "bg-destructive/10 text-destructive" : "bg-muted")}>
-                {m.text}
-                {m.role === "assistant" && !m.error && (
-                  <CitationBlock citations={m.citations} grounded={m.grounded} confidence={m.confidence} responseType={m.responseType} />
+              <div className={cn(
+                "max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm",
+                message.role === "user"
+                  ? "bg-primary/10"
+                  : message.error
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-muted",
+              )}>
+                {message.text}
+                {message.role === "assistant" && !message.error && (
+                  <CopilotCitationBlock
+                    citations={message.citations}
+                    grounded={message.grounded}
+                    confidence={message.confidence}
+                    responseType={message.responseType}
+                  />
                 )}
               </div>
             </div>
           ))
         )}
-        {sending && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> thinking over your data…</div>}
+
+        {sending && (
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>{slow ? "Still analyzing the selected records. Local inference can take up to 30 seconds." : "Searching your compliance records..."}</span>
+            <Button variant="ghost" size="sm" onClick={stop} className="ml-auto">
+              <Square className="h-3 w-3" /> Stop
+            </Button>
+          </div>
+        )}
+
+        {!sending && lastMessage?.error && lastQuestion && (
+          <div className="flex justify-start pl-10">
+            <Button variant="outline" size="sm" onClick={retry}>
+              <RotateCcw className="h-3.5 w-3.5" /> Retry
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex items-end gap-2">
-        <textarea value={input} onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
-          rows={1} placeholder="Ask Praxis…"
-          aria-label="Copilot question"
-          className="flex-1 resize-none rounded-xl border bg-card px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-32" />
-        <button aria-label="Send question" disabled={!canSendCopilotQuestion(input, sending)} onClick={() => send(input)} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40">
+        <label htmlFor="copilot-question" className="sr-only">Copilot question</label>
+        <textarea
+          id="copilot-question"
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              void send(input);
+            }
+          }}
+          rows={1}
+          placeholder="Ask Praxis..."
+          className="max-h-32 flex-1 resize-none rounded-xl border bg-card px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <button
+          type="button"
+          aria-label="Send question"
+          disabled={!canSendCopilotQuestion(input, sending)}
+          onClick={() => void send(input)}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+        >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizonal className="h-4 w-4" />}
         </button>
       </div>
-    </div>
-  );
-}
-
-/* Citations are verified server-side against the obligations that were actually in
-   context, so an answer with none is genuinely unsourced — say so rather than
-   presenting it as sourced. */
-function CitationBlock({
-  citations,
-  grounded,
-  confidence,
-  responseType,
-}: {
-  citations?: CopilotCitation[];
-  grounded?: boolean;
-  confidence?: number;
-  responseType?: Msg["responseType"];
-}) {
-  const { t, isBusiness } = useVocab();
-  if (responseType === "greeting") return null;
-  if (responseType === "workspace_summary") {
-    return (
-      <div className="mt-2 flex items-start gap-1.5 text-[11px] text-muted-foreground border-t pt-2">
-        <Database className="h-3 w-3 mt-0.5 shrink-0" />
-        <span>Calculated from current workspace records.</span>
-      </div>
-    );
-  }
-  if (!citations?.length) {
-    return (
-      <div className="mt-2 flex items-start gap-1.5 text-[11px] text-muted-foreground border-t pt-2">
-        <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-        <span>Not tied to a specific obligation — treat as general guidance.</span>
-      </div>
-    );
-  }
-  const basis = isBusiness
-    ? `Based on ${citations.length} source${citations.length > 1 ? "s" : ""}`
-    : `${grounded ? "Grounded in" : "Partially grounded in"} ${citations.length} source${citations.length > 1 ? "s" : ""}`;
-  return (
-    <div className="mt-2 border-t pt-2 space-y-1.5">
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-        <span>{basis}</span>
-        {confidence !== undefined && <span className="tabular">· {isBusiness ? t("obligation.confidence").toLowerCase() : "confidence"} {(confidence * 100).toFixed(0)}%</span>}
-      </div>
-      {citations.map((c) => (
-        <div key={c.obligation_identifier} className="text-[11px] rounded border px-2 py-1.5">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="font-medium">{c.obligation_identifier}</span>
-            {c.circular_reference && <span className="text-muted-foreground">{c.circular_reference}</span>}
-            {c.paragraph && <span className="text-muted-foreground">¶{c.paragraph}</span>}
-          </div>
-          {c.quote && <div className="text-muted-foreground italic mt-0.5">“{c.quote}”</div>}
-        </div>
-      ))}
     </div>
   );
 }

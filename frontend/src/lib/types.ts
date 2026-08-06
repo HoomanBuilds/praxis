@@ -165,6 +165,14 @@ export interface CopilotCitation {
   quote: string;
 }
 
+export type CopilotResponseType =
+  | "analysis"
+  | "error"
+  | "greeting"
+  | "obligation_list"
+  | "workspace_summary"
+  | "priority_summary";
+
 export interface CopilotResponse {
   answer: string | null;
   error?: string;
@@ -172,7 +180,7 @@ export interface CopilotResponse {
   citations?: CopilotCitation[];
   grounded?: boolean;
   confidence?: number;
-  response_type?: "analysis" | "error" | "greeting" | "obligation_list" | "workspace_summary";
+  response_type?: CopilotResponseType;
 }
 
 export interface ExplainResult {
