@@ -196,7 +196,7 @@ export default function Dashboard() {
         <HealthTile icon={FileText} label="Documents" value={summary?.total_documents ?? 0} sub={`${summary?.total_rules ?? 0} rules generated`} onClick={() => navigate("/documents")} />
       </div>
 
-      <div className="grid min-w-0 lg:grid-cols-3 gap-4">
+      <div className="grid min-w-0 grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Activity feed */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
@@ -237,7 +237,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Right column: agent pipeline + savings */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Cpu className="h-4 w-4" /> {t("pipeline.title")}</CardTitle></CardHeader>
             <CardContent>
