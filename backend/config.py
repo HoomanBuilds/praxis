@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     llm_num_ctx: int = 8192
     llm_request_timeout: int = 300
     llm_keep_alive: str = "30m"  # keep the model resident between pipeline calls
+    copilot_request_timeout: int = 30
+    copilot_num_ctx: int = 4096
+    copilot_num_predict: int = 384
 
     # --- Embeddings ---
     embedding_model: str = "sentence-transformers/all-mpnet-base-v2"

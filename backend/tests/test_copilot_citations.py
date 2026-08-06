@@ -19,6 +19,7 @@ CITABLE = {
         "paragraph": "4.2",
         "functional_area": "compliance",
         "status": "approved",
+        "quote": "The intermediary shall file the return.",
     },
     "ABC-OB-002": {
         "obligation_id": "id2",
@@ -27,6 +28,7 @@ CITABLE = {
         "paragraph": "5",
         "functional_area": "technology",
         "status": "pending_review",
+        "quote": "The intermediary shall maintain access controls.",
     },
 }
 
@@ -66,13 +68,13 @@ def test_empty_context_means_nothing_is_citable():
     assert _verify_citations(raw, {}) == []
 
 
-def test_quote_is_truncated():
+def test_quote_is_read_from_database_context():
     raw = [Citation(obligation_identifier="ABC-OB-001", quote="x" * 500)]
-    assert len(_verify_citations(raw, CITABLE)[0]["quote"]) == 300
+    assert _verify_citations(raw, CITABLE)[0]["quote"] == "The intermediary shall file the return."
 
 
 def test_answer_schema_requires_grounded_and_confidence():
-    """The schema is the contract — a model omitting these cannot validate."""
+    """The schema is the contract - a model omitting these cannot validate."""
     import pytest
     from pydantic import ValidationError
 
@@ -112,3 +114,43 @@ def test_pending_review_query_uses_workspace_records(monkeypatch):
     assert response["response_type"] == "obligation_list"
     assert response["sources"] == ["ABC-OB-001"]
     assert "1 pending-review obligations" in response["answer"]
+
+
+def test_urgent_risk_query_returns_actionable_workspace_priorities(monkeypatch):
+    obligations = [
+        SimpleNamespace(
+            id="id1",
+            identifier="ABC-OB-001",
+            description="Submit the annual compliance return",
+            source_text="The intermediary shall submit the annual compliance return.",
+            document_id=None,
+            source_paragraph_ref="4.2",
+            functional_area="compliance",
+            status="pending_review",
+            deadline_hint="2026-08-09",
+            confidence=0.85,
+        ),
+        SimpleNamespace(
+            id="id2",
+            identifier="ABC-OB-002",
+            description="Maintain access control records",
+            source_text="The intermediary shall maintain access control records.",
+            document_id=None,
+            source_paragraph_ref="5",
+            functional_area="technology",
+            status="pending_review",
+            deadline_hint=None,
+            confidence=0.72,
+        ),
+    ]
+    tasks = []
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session, **kwargs: obligations)
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session, **kwargs: tasks)
+
+    response = _workspace_response(None, "What are the most urgent compliance risks and what should I do first?")
+
+    assert response is not None
+    assert response["response_type"] == "priority_summary"
+    assert response["sources"][0] == "ABC-OB-001"
+    assert "2 obligations are pending review" in response["answer"]
+    assert "Review obligations with the earliest recorded dates" in response["answer"]
