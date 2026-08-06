@@ -130,25 +130,22 @@ def complete(system_prompt: str, user_prompt: str, temperature: float | None = N
     return _content_to_str(response["message"]["content"]).strip()
 
 
-def health_check() -> dict:
+def health_check(probe_generation: bool = True) -> dict:
     """Verify the configured model is reachable on the Ollama host.
 
-    ``available`` only checks that the model is *listed* (cheap, always run) — it stays
-    ``True`` even if the runner has hung, since a listed-but-dead model is exactly the
-    gap this used to have. ``generation_ok`` is a second, stronger signal from a real
-    (trivial) completion call, bounded to a short timeout so a stuck runner reports
-    False quickly instead of hanging this endpoint (and the container HEALTHCHECK) for
-    the full request timeout.
+    ``available`` only checks that the model is listed. Set ``probe_generation`` for an
+    explicit readiness check that asks the model for one token. Liveness checks should
+    leave it disabled because CPU inference can be slow and resource intensive.
     """
     client = _get_client()
     models = client.list().get("models", [])
     names = [m.get("model") or m.get("name") for m in models]
     available = any(settings.llm_model in (n or "") for n in names)
 
-    generation_ok = False
-    if available:
+    generation_ok = None
+    if available and probe_generation:
         try:
-            probe_client = _ollama.Client(host=settings.ollama_host, timeout=4)
+            probe_client = _ollama.Client(host=settings.ollama_host, timeout=min(settings.llm_request_timeout, 60))
             probe_client.chat(
                 model=settings.llm_model,
                 messages=[{"role": "user", "content": "ping"}],

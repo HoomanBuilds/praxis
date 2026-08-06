@@ -36,7 +36,7 @@ from api import (
     routes_users,
     routes_watch,
 )
-from api.deps import require_user
+from api.deps import AuthedActor, require_user
 from api.rate_limit import limiter
 from config import settings
 from db import crud, models
@@ -184,11 +184,18 @@ def health():
     except Exception:
         pass
     try:
-        out["llm"] = health_check()
+        out["llm"] = health_check(probe_generation=False)
     except Exception as exc:
         out["llm"] = {"error": str(exc)}
     out["model"] = settings.llm_model
     return out
+
+
+@app.get("/api/health/llm")
+def llm_health(_actor: AuthedActor = Depends(require_user)):
+    from llm import health_check
+
+    return health_check(probe_generation=True)
 
 
 @app.get("/")
