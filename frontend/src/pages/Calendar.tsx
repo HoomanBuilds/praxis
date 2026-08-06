@@ -7,6 +7,7 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   ClipboardList,
   FileOutput,
   FileText,
@@ -45,6 +46,18 @@ interface CalEvent {
   resource_id: string;
   functional_area?: string;
   obligation_id?: string;
+}
+
+interface UnscheduledTiming {
+  id: string;
+  timing_hint: string;
+  type: "obligation";
+  title: string;
+  status: string;
+  resource_type: "obligation";
+  resource_id: string;
+  functional_area?: string;
+  obligation_id: string;
 }
 
 const MONTH_NAMES = [
@@ -133,7 +146,7 @@ export default function Calendar() {
   const toStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
   const calendarQuery = useQuery({
     queryKey: ["calendar", fromStr, toStr],
-    queryFn: async (): Promise<{ events: CalEvent[] }> => {
+    queryFn: async (): Promise<{ events: CalEvent[]; unscheduled: UnscheduledTiming[] }> => {
       const response = await apiFetch(`/api/calendar?from=${fromStr}&to=${toStr}`);
       if (!response.ok) throw new Error("Calendar data could not be loaded");
       return response.json();
@@ -141,15 +154,21 @@ export default function Calendar() {
   });
 
   const events = calendarQuery.data?.events ?? [];
+  const unscheduled = calendarQuery.data?.unscheduled ?? [];
   const statuses = useMemo(
-    () => Array.from(new Set(events.map((event) => event.status))).sort(),
-    [events],
+    () => Array.from(new Set([...events, ...unscheduled].map((event) => event.status))).sort(),
+    [events, unscheduled],
   );
   const filteredEvents = useMemo(() => events.filter((event) => {
     if (area !== "all" && event.functional_area !== area) return false;
     if (filterStatus !== "all" && event.status !== filterStatus) return false;
     return true;
   }), [events, area, filterStatus]);
+  const filteredUnscheduled = useMemo(() => unscheduled.filter((item) => {
+    if (area !== "all" && item.functional_area !== area) return false;
+    if (filterStatus !== "all" && item.status !== filterStatus) return false;
+    return true;
+  }), [unscheduled, area, filterStatus]);
   const eventsByDay = useMemo(() => {
     const grouped = new Map<string, CalEvent[]>();
     for (const event of filteredEvents) {
@@ -161,6 +180,7 @@ export default function Calendar() {
 
   const taskCount = events.filter((event) => event.type === "task").length;
   const obligationCount = events.filter((event) => event.type === "obligation").length;
+  const unscheduledCount = unscheduled.length;
   const todayStr = today.toISOString().slice(0, 10);
   const overdueCount = filteredEvents.filter(
     (event) => event.type === "task" && event.date < todayStr && event.status !== "completed",
@@ -204,17 +224,18 @@ export default function Calendar() {
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{obligationCount} regulatory dates</Badge>
           <Badge variant="outline">{taskCount} task deadlines</Badge>
+          {unscheduledCount > 0 && <Badge variant="warning">{unscheduledCount} need scheduling</Badge>}
           {overdueCount > 0 && <Badge variant="destructive">{overdueCount} overdue</Badge>}
         </div>
       </div>
 
-      {!calendarQuery.isLoading && !calendarQuery.isError && obligationCount > 0 && taskCount === 0 && (
+      {!calendarQuery.isLoading && !calendarQuery.isError && unscheduledCount > 0 && obligationCount === 0 && taskCount === 0 && (
         <div className="flex items-start gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
-          <Scale className="mt-0.5 h-4 w-4 shrink-0" />
+          <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <div className="font-medium">Regulatory dates are available, but no tasks are assigned yet.</div>
+            <div className="font-medium">{unscheduledCount} regulatory timing rules still need calendar dates.</div>
             <div className="mt-1 text-muted-foreground">
-              Review and approve an obligation, then generate its operational tasks to add owners and task deadlines.
+              Phrases such as "within 10 working days" need an operational start date. Approve the obligation and generate its tasks to assign exact deadlines.
             </div>
           </div>
         </div>
@@ -274,6 +295,11 @@ export default function Calendar() {
             </div>
           ) : (
             <Tabs value={view} onValueChange={setView}>
+              {events.length === 0 && (
+                <div className="mb-3 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                  No exact deadlines are scheduled for {MONTH_NAMES[month]} {year}.
+                </div>
+              )}
               <TabList>
                 <TabTrigger value="grid">Month</TabTrigger>
                 <TabTrigger value="list">Agenda</TabTrigger>
@@ -368,6 +394,39 @@ export default function Calendar() {
           )}
         </CardContent>
       </Card>
+
+      {!calendarQuery.isLoading && !calendarQuery.isError && filteredUnscheduled.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Clock3 className="h-4 w-4" /> Timing rules to schedule
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              These obligations contain a relative regulatory window, not a fixed calendar date.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {filteredUnscheduled.slice(0, 8).map((item) => (
+              <div key={item.id} className="flex flex-col gap-2 rounded-lg border p-3 text-sm sm:flex-row sm:items-center">
+                <div className="min-w-0 flex-1">
+                  <Link to={`/obligations/${item.resource_id}`} className="font-medium hover:underline">
+                    {item.title}
+                  </Link>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {item.functional_area ? titleCase(item.functional_area) : "Unassigned area"}
+                  </div>
+                </div>
+                <Badge variant="outline" className="w-fit shrink-0">{item.timing_hint}</Badge>
+              </div>
+            ))}
+            {filteredUnscheduled.length > 8 && (
+              <div className="pt-1 text-xs text-muted-foreground">
+                {filteredUnscheduled.length - 8} more timing rules. <Link to="/obligations" className="font-medium text-foreground hover:underline">Review all obligations</Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={selectedDay !== null} onOpenChange={(open) => !open && setSelectedDay(null)}>
         <DialogContent className="max-w-lg">

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import date
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy import select
@@ -10,6 +13,16 @@ from db.session import get_db
 from api.deps import AuthedActor, require_user
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
+
+
+def _calendar_date(value: str | None) -> str | None:
+    match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", value or "")
+    if not match:
+        return None
+    try:
+        return date.fromisoformat(match.group(1)).isoformat()
+    except ValueError:
+        return None
 
 
 @router.get("/feed.ics")
@@ -55,6 +68,7 @@ def get_calendar(
     obligations = list(session.scalars(select(models.Obligation).where(models.Obligation.deadline_hint.isnot(None))))
 
     events = []
+    unscheduled = []
     for t in tasks:
         d = t.deadline.isoformat() if t.deadline else None
         if not d:
@@ -77,8 +91,22 @@ def get_calendar(
         })
 
     for o in obligations:
-        d = o.deadline_hint
+        hint = (o.deadline_hint or "").strip()
+        if not hint:
+            continue
+        d = _calendar_date(hint)
         if not d:
+            unscheduled.append({
+                "id": o.id,
+                "timing_hint": hint,
+                "type": "obligation",
+                "title": o.description[:120],
+                "status": o.status,
+                "resource_type": "obligation",
+                "resource_id": o.id,
+                "obligation_id": o.id,
+                "functional_area": o.functional_area,
+            })
             continue
         if from_date and d < from_date:
             continue
@@ -98,4 +126,10 @@ def get_calendar(
         })
 
     events.sort(key=lambda e: e["date"])
-    return {"events": events, "total": len(events)}
+    unscheduled.sort(key=lambda e: (e["functional_area"], e["title"]))
+    return {
+        "events": events,
+        "total": len(events),
+        "unscheduled": unscheduled,
+        "unscheduled_total": len(unscheduled),
+    }

@@ -81,6 +81,27 @@ def test_api_dashboard_summary(seeded):
     assert body["audit_log_entries"] > 0
 
 
+def test_calendar_separates_dates_from_relative_timing(seeded):
+    with session_scope() as session:
+        dated = crud.get_obligation(session, seeded["ob_id"])
+        relative = crud.get_obligation(session, seeded["ob2_id"])
+        dated.deadline_hint = "Complete by 2026-08-19"
+        relative.deadline_hint = "within 10 working days"
+
+    response = TestClient(app).get(
+        "/api/calendar",
+        params={"from": "2026-08-01", "to": "2026-08-31"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    dated_event = next(event for event in body["events"] if event["id"] == seeded["ob_id"])
+    unscheduled = next(item for item in body["unscheduled"] if item["id"] == seeded["ob2_id"])
+    assert dated_event["date"] == "2026-08-19"
+    assert unscheduled["timing_hint"] == "within 10 working days"
+    assert all(event["date"] != "within 10 working days" for event in body["events"])
+
+
 def test_api_audit_report_no_files(seeded):
     client = TestClient(app)
     # approve so it appears as covered, then request a package without file exports
