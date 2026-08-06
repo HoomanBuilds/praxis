@@ -12,6 +12,10 @@ fi
 
 chmod 600 .env.production
 
+if docker compose --env-file .env.production -f docker-compose.prod.yml ps --status running --services postgres | grep -qx postgres; then
+  ./deploy/backup.sh
+fi
+
 docker compose --env-file .env.production -f docker-compose.prod.yml pull --ignore-buildable
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build --remove-orphans
 docker compose --env-file .env.production -f docker-compose.prod.yml ps

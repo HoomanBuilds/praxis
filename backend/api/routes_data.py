@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
+from api.deps import AuthedActor, require_role
 from db import crud
 
 router = APIRouter(prefix="/api/data", tags=["data"])
@@ -23,7 +24,7 @@ def retention_status():
 
 
 @router.post("/export")
-def export_audit_log():
+def export_audit_log(actor: AuthedActor = Depends(require_role("admin"))):
     from db.session import get_db
     session = next(get_db())
     try:

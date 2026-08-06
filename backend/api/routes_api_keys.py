@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 import schemas
+from api.deps import AuthedActor, require_role
 from db import crud
 from db.session import get_db
 
@@ -28,8 +29,8 @@ def list_api_keys(session: Session = Depends(get_db)):
 
 
 @router.post("")
-def create_api_key(body: ApiKeyCreate, session: Session = Depends(get_db)):
-    row, raw_key = crud.create_api_key(session, label=body.label)
+def create_api_key(body: ApiKeyCreate, session: Session = Depends(get_db), actor: AuthedActor = Depends(require_role("admin"))):
+    row, raw_key = crud.create_api_key(session, label=body.label, created_by=actor.actor_label)
     return {
         "id": row.id,
         "label": row.label,
@@ -40,8 +41,8 @@ def create_api_key(body: ApiKeyCreate, session: Session = Depends(get_db)):
 
 
 @router.post("/{key_id}/revoke")
-def revoke_api_key(key_id: str, session: Session = Depends(get_db)):
-    row = crud.revoke_api_key(session, key_id)
+def revoke_api_key(key_id: str, session: Session = Depends(get_db), actor: AuthedActor = Depends(require_role("admin"))):
+    row = crud.revoke_api_key(session, key_id, actor=actor.actor_label)
     if not row:
         raise HTTPException(status_code=404, detail="API key not found")
     return {"id": row.id, "revoked_at": row.revoked_at.isoformat() if row.revoked_at else None}

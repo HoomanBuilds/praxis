@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabList, TabTrigger, TabContent } from "@/components/ui/tabs";
-import { ChevronLeft, ChevronRight, CalendarClock } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarClock, CheckSquare, FileText, ClipboardList, FileOutput, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,24 @@ import { TASK_STATUSES } from "@/lib/constants";
 import { useAreas } from "@/hooks/useAreas";
 import { titleCase } from "@/lib/utils";
 import { api, apiFetch } from "@/lib/api";
+
+// Icon/glyph map for event types — distinguishable by shape, not hue
+const EVENT_ICON: Record<string, any> = {
+  task: ClipboardList,
+  obligation: Scale,
+  filing: FileOutput,
+  evidence: CheckSquare,
+  document: FileText,
+};
+
+const EVENT_GLYPH: Record<string, string> = {
+  task: "✦",
+  obligation: "⚖",
+  filing: "📤",
+  evidence: "✓",
+  document: "📄",
+};
+
 
 interface CalEvent {
   id: string;
@@ -169,18 +187,30 @@ export default function Calendar() {
               ) : (
                 <div className="space-y-1">
                   {filteredEvents.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">No deadlines this month.</div>}
-                  {filteredEvents.map((e) => (
-                    <div key={e.id} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
-                      <div className="text-xs text-muted-foreground w-16 shrink-0">{e.date.slice(5)}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{e.title}</div>
-                        {e.owner && <div className="text-xs text-muted-foreground">{e.owner}</div>}
+                  {filteredEvents.map((e) => {
+                    const EventIcon = EVENT_ICON[e.type] || FileText;
+                    const isOverdue = e.type === "task" && e.date < todayStr && e.status !== "completed";
+                    return (
+                      <div key={e.id} className="flex items-center gap-3 rounded-lg border p-3 text-sm">
+                        <div className="text-xs text-muted-foreground w-16 shrink-0">{e.date.slice(5)}</div>
+                        <div className="flex items-center justify-center h-7 w-7 rounded-md border bg-background shrink-0">
+                          <EventIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate" title={e.title}>{e.title}</div>
+                          {e.owner && <div className="text-xs text-muted-foreground">{e.owner}</div>}
+                        </div>
+                        <Badge variant="outline" className="text-[10px] gap-1 font-normal">
+                          {EVENT_GLYPH[e.type] || "·"} {e.type}
+                        </Badge>
+                        <Badge variant={e.status === "completed" ? "success" : isOverdue ? "destructive" : e.status === "not_started" ? "muted" : "warning"}>
+                          {isOverdue ? "Overdue" : e.status.replace("_", " ")}
+                        </Badge>
                       </div>
-                      <Badge variant={e.type === "task" ? "secondary" : "muted"}>{e.type}</Badge>
-                      <Badge variant={e.status === "completed" ? "success" : e.status === "not_started" ? "muted" : "warning"}>{e.status.replace("_", " ")}</Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+
               )}
             </TabContent>
           </Tabs>
@@ -195,12 +225,22 @@ export default function Calendar() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            {selectedDay && (eventsByDay.get(selectedDay) ?? []).map((e) => (
-              <div key={e.id} className="rounded-lg border p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="text-sm font-medium">{e.title}</div>
-                  <Badge variant={e.type === "task" ? "secondary" : "muted"}>{e.type}</Badge>
-                </div>
+                {selectedDay && (eventsByDay.get(selectedDay) ?? []).map((e) => {
+                  const EventIcon = EVENT_ICON[e.type] || FileText;
+                  return (
+                    <div key={e.id} className="rounded-lg border p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded border grid place-items-center">
+                            <EventIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                          <div className="text-sm font-medium line-clamp-3" title={e.title}>{e.title}</div>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] gap-1 font-normal">
+                          {EVENT_GLYPH[e.type] || "·"} {titleCase(e.type)}
+                        </Badge>
+                      </div>
+
                 {e.type === "task" && (
                   <div className="flex items-center gap-2">
                     <Input
@@ -219,16 +259,18 @@ export default function Calendar() {
                     </select>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <Badge variant={e.status === "completed" ? "success" : e.status === "not_started" ? "muted" : "warning"}>
-                    {e.status.replace("_", " ")}
-                  </Badge>
-                  {e.type === "obligation" && (
-                    <a href={`/obligations/${e.resource_id}`} className="text-xs text-muted-foreground hover:text-foreground">View obligation</a>
-                  )}
-                </div>
-              </div>
-            ))}
+                    <div className="flex items-center gap-2">
+                        <Badge variant={e.status === "completed" ? "success" : e.status === "not_started" ? "muted" : "warning"}>
+                          {e.status.replace("_", " ")}
+                        </Badge>
+                        {e.type === "obligation" && (
+                          <a href={`/obligations/${e.resource_id}`} className="text-xs text-muted-foreground hover:text-foreground">View obligation</a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
             {selectedDay && (eventsByDay.get(selectedDay) ?? []).length === 0 && (
               <div className="text-sm text-muted-foreground text-center py-4">Nothing due on this day.</div>
             )}

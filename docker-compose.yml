@@ -19,6 +19,12 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:7
@@ -32,6 +38,12 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   chromadb:
     image: chromadb/chroma:0.5.20
@@ -42,6 +54,12 @@ services:
     environment:
       IS_PERSISTENT: "TRUE"
       ANONYMIZED_TELEMETRY: "FALSE"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   api:
     build:
@@ -71,6 +89,12 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   worker:
     build:
@@ -98,6 +122,12 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # SSO — demo Keycloak realm (Tier 1). The realm is imported on first boot from
   # ./data/keycloak/. Validated against THIS test IdP, not a firm's live enterprise AD.
@@ -118,6 +148,33 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # LDAP — demo OpenLDAP server (Tier 3). Validated against THIS test IdP, not a live AD.
+  openldap:
+    image: osixia/openldap:1.5.0
+    ports:
+      - "389:389"
+    environment:
+      LDAP_ORGANISATION: "PRAXIS"
+      LDAP_DOMAIN: "praxis.local"
+      LDAP_ADMIN_PASSWORD: "admin"
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost:389", "-b", "dc=praxis,dc=local", "-s", "base"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   pgdata:

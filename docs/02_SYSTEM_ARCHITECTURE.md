@@ -8,48 +8,60 @@ the LLM is an external-but-local dependency.
 
 | Component | Tech | Location | Responsibility |
 |---|---|---|---|
-| API layer | FastAPI | `backend/api/` | REST endpoints, validation, auth (SSO), integration status |
+| API layer | FastAPI | `backend/api/` | REST endpoints, validation, JWT + API-key auth, RBAC, rate limiting |
 | Orchestration | LangGraph | `backend/services/` | 2-phase agentic pipeline (Phase A extraction, Phase B generation) |
 | Preprocessing funnel | Python | `backend/preprocessing/` | document_type → section classifier → fingerprint → rule_extractor |
+| Async worker | Python, Redis Streams | `backend/ingestion/worker.py` | consumes the `document.process` stream, runs Phase A off the request thread; scales horizontally per consumer group |
 | Integration adapters | Python (SMTP/IMAP/ICS/OAuth) | `backend/integrations/` | email, calendar, SSO, Slack, Jira, Drive, DocuSign |
 | Knowledge graph | Python projection | `backend/kg/graph.py` | on-demand graph + GraphML export |
-| Relational store | SQLAlchemy 2.x | `backend/db/` | models, CRUD, audit logging, session |
+| Relational store | SQLAlchemy 2.x + Alembic | `backend/db/`, `backend/alembic/` | models, CRUD, audit logging, session, versioned migrations |
+| Vector store | ChromaDB | `backend/rag/vector_store.py` | embedding index for hybrid retrieval (corpus + obligation search) |
+| Queue / cache | Redis | `backend/ingestion/service.py` | `document.process` stream (async pipeline), rate-limit counters in production |
 | LLM runtime | Ollama (local) | external service | default `llama3.1:8b`; no content leaves the host |
 | Web UI | React + TS + Vite | `frontend/` | operator console, review gate, dashboard, settings |
-| Identity | Keycloak (Docker) | `docker-compose.yml` | demo realm `praxis`, OIDC for SSO |
+| Identity | Keycloak (Docker) | `docker-compose.yml` | demo realm `praxis`, OIDC for SSO — issues the same PRAXIS JWT the password-login flow does |
+| Reverse proxy | nginx | `nginx/` | TLS termination, routes `/api` → backend, `/` → frontend |
 
 ## Container / module view
 
+Production topology (`docker-compose.prod.yml`) — 8 services behind one reverse proxy:
+
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  Frontend (React + TS, Vite)  :5173                          │
-│  ─ pages: Dashboard, Documents, Obligations, Review,         │
-│           Tasks, Calendar, Risk Register, Departments,       │
-│           Knowledge Graph, Audit, Settings                   │
-│  ─ react-query, useAreas() hook → /api/org-config/…          │
-└──────────────────────────┬───────────────────────────────────┘
-                           │  /api (Vite proxy → :8080)
-┌──────────────────────────▼───────────────────────────────────┐
-│  Backend (FastAPI)  :8080                                     │
-│  routes_documents  routes_obligations  routes_dashboard       │
-│  routes_tasks  routes_audit  routes_integrations  routes_kg   │
-│       │                        │                             │
-│  services.process_document (LangGraph)                        │
-│       │  Phase A (funnel + extraction)                        │
-│       │  Phase B (rules → tasks ∥ evidence)                   │
-│  preprocessing/  (document_type · classifier · fingerprint    │
-│                   · rule_extractor)                           │
-│  integrations/   (providers · ics · sso · slack · jira ·      │
-│                   drive · docusign)                           │
-│  kg/graph.py  (projection + GraphML)                          │
-│  db/  models.py · crud.py · session.py · audit               │
-└───────────┬───────────────────────────────┬──────────────────┘
-            │                               │
-   ┌────────▼─────────┐            ┌─────────▼──────────┐
-   │ SQLite/Postgres   │            │ Ollama (local LLM) │
-   │ system of record  │            │ llama3.1:8b         │
-   └───────────────────┘            └────────────────────┘
+                    ┌───────────────────────────┐
+ :80/:443  ────────►│  nginx (TLS termination)  │
+                    └───────┬───────────┬───────┘
+                            │           │
+                  /         │           │  /api
+        ┌─────────▼───────┐ │ ┌─────────▼──────────────────────┐
+        │ frontend :8080   │ │ │ api :8080 (FastAPI, 2 workers) │
+        │ React+TS, Vite   │ │ │ JWT/API-key auth, RBAC,        │
+        │ built, served    │ │ │ rate limiting, /metrics        │
+        │ by nginx         │ │ └────┬──────────┬────────┬───────┘
+        └──────────────────┘ │      │          │        │
+                              │      │ Redis    │ Ollama │ Postgres
+                              │      │ stream   │ (LLM)  │ (SQLAlchemy
+                              │      ▼          │        │  + Alembic)
+                              │ ┌─────────────┐ │        │
+                              │ │ worker       │ │        │
+                              │ │ (Phase A     │◄┘        │
+                              │ │ off-thread)  │           │
+                              │ └──────┬───────┘           │
+                              │        └───────────────────┘
+                              │
+                              └──► ChromaDB (embedding index for hybrid retrieval)
 ```
+
+- `api`/`worker`/`postgres`/`redis`/`chromadb`/`ollama` share an internal Docker network;
+  only `nginx` is published to the host.
+- Document upload can run Phase A synchronously (`process=true`, blocks the request) or
+  publish to the `document.process` Redis stream for the `worker` to pick up — the
+  scraper and the default upload flow both queue through the worker.
+- Backend modules: `routes_documents` `routes_obligations` `routes_compliance`
+  `routes_tasks` `routes_auth`/`routes_sso` `routes_integrations` (API layer) →
+  `services.process_document` (LangGraph orchestration) → `preprocessing/`
+  (document_type · classifier · fingerprint · rule_extractor) → `agents/` (LLM
+  extraction, prompt-injection-hardened) → `db/` (models · crud · Alembic migrations ·
+  audit).
 
 See [diagrams/architecture.mmd](../diagrams/architecture.mmd) for the rendered flow.
 
@@ -86,12 +98,25 @@ circular PDF ──► ingest ──► parse (+OCR) ──► funnel:
 
 5. **Postgres-first, SQLite-portable models.** Same ORM models run on both. No Docker? SQLite.
    Docker? Postgres via `PRAXIS_DATABASE_URL`. This removes a dependency from the demo surface.
+   Schema changes go through Alembic (`backend/alembic/`); `create_all()` still runs for a
+   fresh dev SQLite file, but new columns/tables are migrations, not ad-hoc `ALTER TABLE`s.
+
+6. **One auth dependency, two credential types.** `api/deps.py`'s `require_user` accepts
+   either a JWT bearer token (issued by `/api/auth/login` or the Keycloak SSO callback) or
+   an `X-API-Key` header — both resolve to the same `AuthedActor` (id, email, role), so
+   every downstream authorization check (`require_role`) and audit-log write is uniform
+   regardless of which credential was used.
 
 ## Runtime view
 
-- Backend: `PYTHONPATH=backend .venv/bin/uvicorn api.main:app --port 8080`
+- Backend: `PYTHONPATH=backend .venv/bin/uvicorn api.main:app --port 8080` (dev; no auto-
+  seeded admin or migration step needed — `init_db()` creates tables directly)
 - Frontend: Vite dev server `http://localhost:5173` (proxies `/api` to 8080)
 - LLM: Ollama serving locally (optional in "no-LLM" degraded mode)
 - Identity (optional): Keycloak container on `:8081`, realm `praxis`
+- Production only: `alembic upgrade head` runs before `uvicorn` starts (`docker-compose.prod.yml`);
+  `PRAXIS_ENVIRONMENT=production` enables a startup guard that refuses to boot with a
+  placeholder `PRAXIS_API_KEY`/`PRAXIS_JWT_SECRET` and skips seeding the dev-only demo admin.
 
-Full setup is in [14 Deployment](14_DEPLOYMENT.md).
+Full setup is in [14 Deployment](14_DEPLOYMENT.md). Auth/RBAC model is in
+[12 Security](12_SECURITY.md).

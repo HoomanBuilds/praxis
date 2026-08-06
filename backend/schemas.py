@@ -95,6 +95,10 @@ class DocumentStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     NEEDS_HUMAN_PARSE = "needs_human_parse"
+    # Set directly by the SEBI scraper (ingestion/sebi_scraper.py) when Phase A raises
+    # on an auto-fetched document — distinct from FAILED so operators can tell an
+    # unattended scrape failure apart from a manually-triggered one.
+    EXTRACTION_FAILED = "extraction_failed"
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +304,7 @@ class AuditReportRequest(BaseModel):
 
 
 class TaskUpdate(BaseModel):
-    status: Optional[str] = None
+    status: Optional[TaskStatus] = None
     primary_owner: Optional[str] = None
     owner_email: Optional[str] = None
     deadline: Optional[str] = None

@@ -12,6 +12,7 @@ are created (§6.2.5).
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import date, datetime, timedelta
 from functools import lru_cache
@@ -82,6 +83,51 @@ def _needs_documentation_dependency(rule: Optional[ComplianceRule], obligation: 
     return mentions_board and operational_area and rule.rule_type != RuleType.DOCUMENTATION
 
 
+# Verbs a compliance task legitimately starts with. When the rule's evaluation criterion
+# already begins with one, it reads as an instruction and is used as-is.
+_IMPERATIVE_VERBS = frozenset({
+    "appoint", "archive", "assess", "carry", "collect", "conduct", "confirm", "define",
+    "disclose", "display", "document", "ensure", "establish", "file", "formulate",
+    "identify", "implement", "maintain", "monitor", "notify", "obtain", "prepare",
+    "provide", "publish", "record", "register", "report", "review", "revise", "submit",
+    "train", "update", "verify",
+})
+
+# Legal preamble that carries no action — stripped so the task starts at the duty itself.
+_PREAMBLE_RE = re.compile(
+    r"^\s*(?:in terms of|vide|pursuant to|as per|with the issuance of|under)\b[^,]{0,160},\s*",
+    re.IGNORECASE,
+)
+
+
+def build_task_title(obligation_description: str, evaluation_criterion: str | None) -> str:
+    """Readable, verb-first task title.
+
+    The rule's evaluation criterion is preferred over the obligation text: the criterion
+    states the duty ("obtain relevant certification from NISM"), while the obligation
+    usually opens with a citation ("In terms of Regulation 7 of ..."). Deliberately NOT
+    truncated — the column holds 512 chars and the UI clamps for display, so the full
+    title stays available on hover and in exports.
+    """
+    source = (evaluation_criterion or "").strip() or (obligation_description or "").strip()
+    source = _PREAMBLE_RE.sub("", source).strip()
+    if not source:
+        return "Implement obligation"
+
+    # Collapse whitespace so wrapped PDF text does not produce ragged titles.
+    source = " ".join(source.split())
+    head = source.split(" ", 1)[0]
+    if head.strip(".,;:").lower() not in _IMPERATIVE_VERBS:
+        # Lower-case the first letter so it reads on from "Ensure" — but never touch an
+        # acronym or proper noun, or "PAIA"/"NISM" become "pAIA"/"nISM".
+        is_acronym = head.isupper() or sum(c.isupper() for c in head) > 1
+        lead = source if is_acronym else source[0].lower() + source[1:]
+        source = f"Ensure {lead}"
+
+    title = source[0].upper() + source[1:]
+    return title.rstrip(" .") if len(title) <= 500 else title[:499].rstrip() + "…"
+
+
 def map_workflows(
     obligations: list[Obligation],
     rules: dict[str, ComplianceRule],
@@ -100,7 +146,7 @@ def map_workflows(
             task_id=uuid.uuid4().hex,
             obligation_id=ob.identifier,
             rule_id=rule.rule_id if rule else None,
-            title=f"Implement: {ob.description[:90]}",
+            title=build_task_title(ob.description, rule.evaluation_criterion if rule else None),
             description=(
                 f"Obligation {ob.identifier} (source para {ob.source_paragraph_ref}). "
                 f"Evaluation: {rule.evaluation_criterion if rule else ob.description}"

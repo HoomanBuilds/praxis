@@ -2,18 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from jose import jwt, JWTError
+from jose import jwt
 
+from api.deps import decode_token
+from api.rate_limit import limiter
 from config import settings
 from db import crud
 from db.session import get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-_bearer = HTTPBearer(auto_error=False)
 
 
 class LoginRequest(BaseModel):
@@ -32,21 +32,9 @@ def create_access_token(user_id: str, email: str, role: str) -> str:
     return jwt.encode({"sub": user_id, "email": email, "role": role, "exp": expire}, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str) -> dict:
-    try:
-        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-    except JWTError:
-        raise HTTPException(401, "Invalid or expired token")
-
-
-def decode_token(credentials: HTTPAuthorizationCredentials = Depends(_bearer)) -> dict:
-    if not credentials:
-        raise HTTPException(401, "Not authenticated")
-    return decode_access_token(credentials.credentials)
-
-
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, session: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginRequest, session: Session = Depends(get_db)):
     user = crud.get_user_by_email(session, body.email)
     if not user or not user.is_active:
         raise HTTPException(401, "Invalid credentials")

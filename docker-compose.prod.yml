@@ -1,5 +1,11 @@
 name: praxis
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-backend-environment: &backend-environment
   PRAXIS_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-praxis}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-praxis}
   PRAXIS_REDIS_URL: redis://redis:6379/0
@@ -18,6 +24,7 @@ x-backend-environment: &backend-environment
   PRAXIS_BOOTSTRAP_ADMIN_EMAIL: ${PRAXIS_BOOTSTRAP_ADMIN_EMAIL:?Set PRAXIS_BOOTSTRAP_ADMIN_EMAIL}
   PRAXIS_BOOTSTRAP_ADMIN_PASSWORD: ${PRAXIS_BOOTSTRAP_ADMIN_PASSWORD:?Set PRAXIS_BOOTSTRAP_ADMIN_PASSWORD}
   PRAXIS_INTEGRATION_ENCRYPTION_KEY: ${PRAXIS_INTEGRATION_ENCRYPTION_KEY:?Set PRAXIS_INTEGRATION_ENCRYPTION_KEY}
+  PRAXIS_ENVIRONMENT: production
   PRAXIS_FRONTEND_URL: https://praxis.inferia.ai
   PRAXIS_SSO_REDIRECT_URI: https://praxis.inferia.ai/api/auth/sso/callback
   PRAXIS_KEYCLOAK_URL: ""
@@ -47,6 +54,8 @@ services:
   postgres:
     image: postgres:16
     restart: unless-stopped
+    logging: *default-logging
+    networks: [internal]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-praxis}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
@@ -62,6 +71,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
+    networks: [internal]
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redisdata:/data
@@ -74,6 +85,8 @@ services:
   chromadb:
     image: chromadb/chroma:1.5.9
     restart: unless-stopped
+    logging: *default-logging
+    networks: [internal]
     environment:
       IS_PERSISTENT: "TRUE"
       ANONYMIZED_TELEMETRY: "FALSE"
@@ -83,6 +96,8 @@ services:
   ollama:
     image: ollama/ollama:0.32.3
     restart: unless-stopped
+    logging: *default-logging
+    networks: [internal]
     environment:
       OLLAMA_KEEP_ALIVE: 30m
       OLLAMA_MAX_LOADED_MODELS: "1"
@@ -98,6 +113,8 @@ services:
   ollama-pull:
     image: ollama/ollama:0.32.3
     restart: "no"
+    logging: *default-logging
+    networks: [internal]
     environment:
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_MODEL: ${PRAXIS_LLM_MODEL:-llama3.1:8b}
@@ -112,6 +129,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: "no"
+    logging: *default-logging
+    networks: [internal]
     command: ["/bin/sh", "-c", "test -f /app/runtime/org_config.json || cp /app/data/org_config.json /app/runtime/org_config.json"]
     volumes:
       - appconfig:/app/runtime
@@ -121,7 +140,12 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips=*
+    command: >-
+      sh -c "python -m db.migrate &&
+      uvicorn api.main:app --host 0.0.0.0 --port 8080
+      --proxy-headers --forwarded-allow-ips=*"
+    logging: *default-logging
+    networks: [internal]
     environment: *backend-environment
     volumes: *backend-volumes
     depends_on:
@@ -147,6 +171,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
+    logging: *default-logging
+    networks: [internal]
     command: python -u -m ingestion.worker
     environment: *backend-environment
     volumes: *backend-volumes
@@ -157,6 +183,8 @@ services:
   edge:
     image: caddy:2.10-alpine
     restart: unless-stopped
+    logging: *default-logging
+    networks: [internal]
     environment:
       PRAXIS_DOMAIN: ${PRAXIS_DOMAIN:-praxis.inferia.ai}
     ports:
@@ -181,12 +209,16 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         VITE_ENABLE_SSO: ${VITE_ENABLE_SSO:-false}
+        VITE_DEMO_EMAIL: ${PRAXIS_BOOTSTRAP_ADMIN_EMAIL:-}
+        VITE_DEMO_PASSWORD: ${PRAXIS_BOOTSTRAP_ADMIN_PASSWORD:-}
     restart: unless-stopped
+    logging: *default-logging
+    networks: [internal]
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -195,6 +227,8 @@ services:
     image: cloudflare/cloudflared:latest
     profiles: ["cloudflare"]
     restart: unless-stopped
+    logging: *default-logging
+    networks: [internal]
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on:
       web:
@@ -210,3 +244,7 @@ volumes:
   exports:
   caddydata:
   caddyconfig:
+
+networks:
+  internal:
+    driver: bridge

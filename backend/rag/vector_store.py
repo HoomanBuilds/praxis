@@ -74,9 +74,13 @@ def add_texts(
 ) -> int:
     if not ids:
         return 0
-    collection = get_collection(collection_name)
-    vectors = emb.embed_texts(texts)
-    collection.upsert(ids=ids, documents=texts, metadatas=metadatas, embeddings=vectors)
+    try:
+        collection = get_collection(collection_name)
+        vectors = emb.embed_texts(texts)
+        collection.upsert(ids=ids, documents=texts, metadatas=metadatas, embeddings=vectors)
+    except Exception as exc:  # never let a broken index block the pipeline
+        print(f"[vector_store] add_texts failed ({collection_name}): {exc}")
+        return 0
     return len(ids)
 
 
@@ -86,17 +90,27 @@ def query(
     n_results: int = 6,
     where: Optional[dict] = None,
 ) -> list[Hit]:
-    collection = get_collection(collection_name)
-    count = collection.count()
-    if count == 0:
+    """Cosine-similarity search over precomputed embeddings.
+
+    Returns ``[]`` if the collection is empty OR the vector store is unavailable/corrupt —
+    callers treat "no hits" as "no cross-references found", so a broken index must never
+    take down document processing.
+    """
+    try:
+        collection = get_collection(collection_name)
+        count = collection.count()
+        if count == 0:
+            return []
+        vector = emb.embed_query(query_text)
+        res = collection.query(
+            query_embeddings=[vector],
+            n_results=min(n_results, count),
+            where=where,
+            include=["documents", "metadatas", "distances"],
+        )
+    except Exception as exc:  # corrupt/local-unavailable index -> degrade gracefully
+        print(f"[vector_store] query failed ({collection_name}): {exc}")
         return []
-    vector = emb.embed_query(query_text)
-    res = collection.query(
-        query_embeddings=[vector],
-        n_results=min(n_results, count),
-        where=where,
-        include=["documents", "metadatas", "distances"],
-    )
     hits: list[Hit] = []
     ids = res.get("ids", [[]])[0]
     docs = res.get("documents", [[]])[0]

@@ -13,10 +13,37 @@ def _node(nodes: dict, node_id: str, node_type: str, label: str, **props) -> str
     return node_id
 
 
-def _risk_score(ob: models.Obligation) -> tuple[str, str]:
-    """Compute a risk level and label from objective signals."""
+def _risk_score(
+    ob: models.Obligation,
+    *,
+    evidence_missing: bool = False,
+    task_overdue: bool = False,
+    is_superseded: bool = False,
+    stale_review: bool = False,
+) -> tuple[str, str]:
+    """Compute a risk level and human-readable label from objective compliance signals.
+
+    Signal priority (highest wins):
+    1. Rejected                    → critical
+    2. Superseded (modification_type=supersedes) → high
+    3. Task overdue                → high
+    4. Evidence missing on approved obligation → high
+    5. Pending review > 30 days    → high
+    6. Low confidence, unreviewed  → high
+    7. Below confidence threshold  → medium
+    8. Needs review                → low
+    9. Approved / compliant        → minimal
+    """
     if ob.status == "rejected":
         return ("critical", "Rejected — non-compliant")
+    if is_superseded:
+        return ("high", "Circular superseded — review required")
+    if task_overdue:
+        return ("high", "Implementation task overdue")
+    if evidence_missing and ob.status == "approved":
+        return ("high", "Evidence gap on approved obligation")
+    if stale_review:
+        return ("high", "Pending review > 30 days")
     if ob.status == "pending_review" and ob.confidence < 0.5:
         return ("high", "Low confidence, unreviewed")
     if ob.confidence < 0.65:

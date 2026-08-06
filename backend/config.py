@@ -62,16 +62,25 @@ class Settings(BaseSettings):
     ocr_trigger_quality: float = 0.80
     obligation_confidence_min: float = 0.65
 
+    # --- Environment ---
+    # "production" enables the startup guard that refuses to boot with a placeholder
+    # api_key/jwt_secret (see api/main.py _check_production_secrets) and skips seeding
+    # the demo admin account. Local dev / tests stay on the "development" default.
+    environment: str = "development"
+
     # --- Authentication ---
-    api_key: str = ""  # Empty = auth disabled (local dev / tests). Set a value to enforce.
+    api_key: str = ""  # Empty = no service API key issued (local dev / tests).
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 1440  # 24 hours
-    bootstrap_admin_email: str = "admin@praxis.local"
-    bootstrap_admin_password: str = "admin123"
+    jwt_expire_minutes: int = 60
+    bootstrap_admin_email: str = ""
+    bootstrap_admin_password: str = ""
 
     # --- Audit ---
     audit_retention_days: int = 2555  # ~7 years, SEBI requirement
+
+    # --- Logging ---
+    log_level: str = "INFO"
 
     # --- Retrieval ---
     retrieval_top_k: int = 6
@@ -92,7 +101,7 @@ class Settings(BaseSettings):
     keycloak_client_id: str = "praxis-web"
     keycloak_client_secret: str = "praxis-demo-secret"  # demo realm client secret (localhost only)
 
-    # Google Drive (Tier 2) — OAuth client from a Google Cloud test project.
+    # Google Drive (Tier 2) - OAuth client from a Google Cloud test project.
     drive_oauth_client_id: str = ""
     drive_oauth_client_secret: str = ""
     drive_oauth_redirect_uri: str = "http://localhost:8080/api/integrations/drive/callback"
@@ -100,7 +109,7 @@ class Settings(BaseSettings):
     drive_oauth_token_uri: str = "https://oauth2.googleapis.com/token"
     drive_oauth_scope: str = "https://www.googleapis.com/auth/drive.file"
 
-    # DocuSign (Tier 2) — developer sandbox JWT grant.
+    # DocuSign (Tier 2) - developer sandbox JWT grant.
     docusign_auth_base: str = "https://account-d.docusign.com"
     docusign_rest_base: str = "https://demo.docusign.net/restapi"
     docusign_integration_key: str = ""

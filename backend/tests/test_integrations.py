@@ -121,9 +121,31 @@ def test_get_integrations_never_returns_config_or_secrets(monkeypatch):
 def test_get_integrations_lists_all_types():
     client = TestClient(_app())
     types = {i["type"] for i in client.get("/api/integrations").json()}
-    assert types == {"email", "slack", "jira", "calendar", "docusign", "drive", "sso"}
+    assert types == {"email", "slack", "jira", "calendar", "docusign", "drive", "sso", "ldap"}
     drive = next(i for i in client.get("/api/integrations").json() if i["type"] == "drive")
     assert drive["status"] == "not_connected"
+
+
+def test_ldap_connect_success_then_disconnect(monkeypatch):
+    monkeypatch.setattr(providers, "test_connection", lambda type_, cfg: {"message": "ok"})
+    client = TestClient(_app())
+    r = client.post("/api/integrations/ldap/connect", json={"fields": {
+        "server": "ldap://localhost:389",
+        "bind_dn": "cn=admin,dc=praxis,dc=local",
+        "bind_password": "admin",
+        "user_base": "ou=users,dc=praxis,dc=local"
+    }})
+    assert r.status_code == 200
+    assert r.json()["status"] == "connected"
+
+    state = {i["type"]: i for i in client.get("/api/integrations").json()}
+    assert state["ldap"]["status"] == "connected"
+    assert state["ldap"]["configured_as"] == "LDAP · localhost:389"
+
+    d = client.post("/api/integrations/ldap/disconnect")
+    assert d.status_code == 200
+    state = {i["type"]: i for i in client.get("/api/integrations").json()}
+    assert state["ldap"]["status"] == "not_connected"
 
 
 def test_calendar_feed_token_flow(monkeypatch):
@@ -248,6 +270,100 @@ def test_overdue_sweep_notifies_once(monkeypatch, seeded_with_task):
     assert len(sent) == 1
     assert sent[0][0] == "cco@example.com"
     assert "overdue" in sent[0][2]
+
+
+def _connect_docusign():
+    with session_scope() as s:
+        crud.set_integration(
+            s, "docusign",
+            config_encrypted=encrypt_config({"account_id": "acct-1", "integration_key": "ik"}),
+            configured_as="DocuSign sandbox · acct-1",
+        )
+        crud.get_integration(s, "docusign").status = "connected"
+        s.flush()
+
+
+def _make_signable(task_id: str) -> None:
+    with session_scope() as s:
+        s.get(models.Task, task_id).workflow_template = "board_resolution_filing"
+        s.flush()
+
+
+def test_send_for_signature_requires_connected_docusign(seeded_with_task):
+    """No simulated path — an unconnected DocuSign must refuse, never fake an envelope."""
+    _make_signable(seeded_with_task["task_id"])
+    client = TestClient(_app())
+    r = client.post(
+        f"/api/tasks/{seeded_with_task['task_id']}/send-for-signature",
+        json={"signer_email": "director@example.com"},
+    )
+    assert r.status_code == 400
+    assert "not connected" in r.json()["detail"]
+
+
+def test_send_for_signature_rejects_non_signable_task(seeded_with_task):
+    _connect_docusign()  # the seeded task's template is "filing", not signable
+    client = TestClient(_app())
+    r = client.post(
+        f"/api/tasks/{seeded_with_task['task_id']}/send-for-signature",
+        json={"signer_email": "director@example.com"},
+    )
+    assert r.status_code == 400
+    assert "board-resolution" in r.json()["detail"]
+
+
+def test_send_for_signature_stores_envelope_id(monkeypatch, seeded_with_task):
+    """A successful send stores the envelope id on the task (bidirectional link) and
+    hands DocuSign a real, non-empty PDF built from the task."""
+    seen: dict = {}
+
+    def fake_envelope(cfg, *, pdf_bytes, filename, signer_email, signer_name, subject):
+        seen.update(pdf=pdf_bytes, email=signer_email, name=signer_name, subject=subject)
+        return "env-abc-123"
+
+    monkeypatch.setattr(providers, "create_docusign_envelope", fake_envelope)
+    _connect_docusign()
+    _make_signable(seeded_with_task["task_id"])
+    client = TestClient(_app())
+    r = client.post(
+        f"/api/tasks/{seeded_with_task['task_id']}/send-for-signature",
+        json={"signer_email": "director@example.com", "signer_name": "A Director"},
+    )
+    assert r.status_code == 200
+    assert r.json()["envelope_id"] == "env-abc-123"
+    assert seen["pdf"].startswith(b"%PDF")
+    assert seen["email"] == "director@example.com"
+
+    with session_scope() as s:
+        assert s.get(models.Task, seeded_with_task["task_id"]).docusign_envelope_id == "env-abc-123"
+
+    # A second send is idempotent — it must not create a duplicate envelope.
+    monkeypatch.setattr(providers, "create_docusign_envelope", lambda *a, **k: pytest.fail("duplicate envelope"))
+    again = client.post(
+        f"/api/tasks/{seeded_with_task['task_id']}/send-for-signature",
+        json={"signer_email": "director@example.com"},
+    )
+    assert again.json()["envelope_id"] == "env-abc-123"
+
+
+def test_send_for_signature_failure_marks_integration_error(monkeypatch, seeded_with_task):
+    def boom(*a, **k):
+        raise providers.ProviderError("DocuSign envelope creation failed (HTTP 401).")
+
+    monkeypatch.setattr(providers, "create_docusign_envelope", boom)
+    _connect_docusign()
+    _make_signable(seeded_with_task["task_id"])
+    client = TestClient(_app())
+    r = client.post(
+        f"/api/tasks/{seeded_with_task['task_id']}/send-for-signature",
+        json={"signer_email": "director@example.com"},
+    )
+    assert r.status_code == 200
+    assert r.json()["ok"] is False
+    state = {i["type"]: i for i in client.get("/api/integrations").json()}
+    assert state["docusign"]["status"] == "error"
+    with session_scope() as s:
+        assert s.get(models.Task, seeded_with_task["task_id"]).docusign_envelope_id is None
 
 
 def _app():

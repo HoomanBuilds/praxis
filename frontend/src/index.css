@@ -106,6 +106,64 @@
     background: hsl(var(--card) / 0.7);
     backdrop-filter: blur(12px);
   }
+  /* Documentation site typography — Switzer for text, Stack Sans Headline for display, JetBrains Mono for code. */
+  .docs-font {
+    --display-font: "Stack Sans Headline", "Switzer", -apple-system, system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    --w-med: 500;
+    --w-semi: 600;
+    --t-h1: 32px; --l-h1: 36px; --ls-h1: -.022em;
+    --t-h2: 24px; --l-h2: 1.33; --ls-h2: -.012em;
+    --t-h3: 20px; --l-h3: 1.6; --ls-h3: 0;
+    --t-h4: 17px; --l-h4: 1.4; --ls-h4: -.012em;
+    --t-body: 15px; --l-body: 1.6; --ls-body: -.011em;
+    --t-lead: 17px; --l-lead: 1.6; --ls-lead: 0;
+    --t-sm: 14px; --l-sm: 1.5; --ls-sm: -.013em;
+    --t-side: 14px;
+    --t-toc: 13px;
+    --block: 16px;
+    --block-sm: 8px;
+    --h-top: 56px;
+    --list-inset: 24px;
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px;
+    --s6: 24px; --s7: 32px; --s8: 48px; --s9: 64px;
+    --ink: #131316;
+    --ink-body: #3F4247;
+    --ink-2: #62656B;
+    --ink-3: #8C8C8C;
+    --ink-4: #C2C4C8;
+    --line: #EDEDEE;
+    --line-2: #E3E3E5;
+    --surface: #FAFAFA;
+    --surface-2: #F4F4F5;
+    font-family: "Switzer", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-feature-settings: "cv02" 1, "cv03" 1, "cv04" 1;
+    font-optical-sizing: auto;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .docs-mono {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  /* Docs scrollbars — almost invisible, thin, rounded. */
+  .docs-font ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .docs-font ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .docs-font ::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+  }
+  .docs-font:hover ::-webkit-scrollbar-thumb {
+    background: #C2C4C8;
+  }
+  .docs-font ::-webkit-scrollbar-thumb:hover {
+    background: #C2C4C8;
+  }
 }
 
 @keyframes fade-in {

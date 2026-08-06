@@ -155,11 +155,23 @@ export interface SearchResults {
   }[];
 }
 
+export interface CopilotCitation {
+  obligation_id: string;
+  obligation_identifier: string;
+  circular_reference: string;
+  paragraph: string;
+  functional_area: string;
+  status: string;
+  quote: string;
+}
+
 export interface CopilotResponse {
   answer: string | null;
   error?: string;
   sources?: string[];
+  citations?: CopilotCitation[];
   grounded?: boolean;
+  confidence?: number;
 }
 
 export interface ExplainResult {

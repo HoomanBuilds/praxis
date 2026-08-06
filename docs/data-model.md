@@ -127,7 +127,6 @@ extraction, each approval/edit, each rule and task, and each report generation.
 
 ## Schema management
 
-`db/session.py:init_db()` runs `Base.metadata.create_all` (idempotent) on startup. For the
-prototype on SQLite there is no migration tool; adding a column means recreating the local
-`data/praxis.db` (data is regenerable from the corpus). In Docker/Postgres, point
-`PRAXIS_DATABASE_URL` at the service and introduce Alembic when schema stability is required.
+`db/session.py:init_db()` runs `Base.metadata.create_all` (idempotent) on startup, which is
+enough for a fresh dev SQLite database. Schema changes ship as Alembic migrations
+(`backend/alembic/`) — `alembic upgrade head` runs before the API starts in production.

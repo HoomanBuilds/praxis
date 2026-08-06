@@ -3,7 +3,7 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, ScrollText, ListChecks, ClipboardList, Share2, Bot, BarChart3,
   FileBarChart, History, Settings as SettingsIcon, Search, Command, Bell,
-  FileCheck, CalendarClock, Radar, LogOut, Shield, FileOutput,
+  FileCheck, CalendarClock, Radar, LogOut, Shield, FileOutput, BookOpen,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -14,8 +14,16 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { useCopilot } from "@/context/CopilotContext";
 import { useAuth } from "@/context/AuthContext";
+import { useVocab } from "@/hooks/useVocab";
+import type { TermKey } from "@/lib/vocab/terms";
 
-const navGroups: { heading: string; items: { to: string; label: string; icon: any; end?: boolean }[] }[] = [
+// `termKey` overrides `label` when set, so a nav entry can read differently in business
+// and engineering mode. Routes never change — deep links and the command palette depend
+// on them staying stable.
+const navGroups: {
+  heading: string;
+  items: { to: string; label: string; termKey?: TermKey; icon: any; end?: boolean }[];
+}[] = [
   {
     heading: "Operate",
     items: [
@@ -31,11 +39,11 @@ const navGroups: { heading: string; items: { to: string; label: string; icon: an
   {
     heading: "Intelligence",
     items: [
-      { to: "/knowledge-graph", label: "Knowledge Graph", icon: Share2 },
+      { to: "/knowledge-graph", label: "Compliance Map", termKey: "nav.knowledge_graph", icon: Share2 },
       { to: "/risk-register", label: "Risk Register", icon: Shield },
-      { to: "/copilot", label: "AI Copilot", icon: Bot },
+      { to: "/copilot", label: "Copilot", icon: Bot },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
-      { to: "/watch", label: "Watch", icon: Radar },
+      { to: "/watch", label: "Watch", termKey: "nav.watch", icon: Radar },
     ],
   },
   {
@@ -52,6 +60,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const copilot = useCopilot();
   const { user, logout } = useAuth();
+  const { t, isBusiness } = useVocab();
   const llmUp = Boolean(health?.["llm"] && (health["llm"] as any).available);
 
   const navItem = (active: boolean) =>
@@ -68,12 +77,12 @@ export function Layout({ children }: { children: ReactNode }) {
       <CopilotSidebar />
       <div className="flex h-[calc(100vh-2rem)] overflow-hidden rounded-3xl border bg-card shadow-[0_10px_50px_-16px_hsl(224_40%_20%/0.16)]">
         {/* Sidebar (inside the shell) */}
-        <aside className="w-60 shrink-0 border-r flex flex-col px-3 py-4 overflow-y-auto">
-          <div className="px-2 mb-6 flex items-center gap-2">
+        <aside className="w-60 shrink-0 border-r flex flex-col px-3 py-4">
+          <div className="px-2 mb-6 flex items-center gap-2 shrink-0">
             <Logo className="h-7 w-7 text-foreground" />
             <span className="text-lg font-semibold tracking-tight lowercase">praxis</span>
           </div>
-          <nav className="space-y-4 flex-1">
+          <nav className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-1">
             {navGroups.map((group) => (
               <div key={group.heading}>
                 <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">{group.heading}</div>
@@ -83,7 +92,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     return (
                       <NavLink key={n.to} to={n.to} className={navItem(active)}>
                         <n.icon className="h-4 w-4" />
-                        {n.label}
+                        {n.termKey ? t(n.termKey) : n.label}
                       </NavLink>
                     );
                   })}
@@ -91,7 +100,10 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
             ))}
           </nav>
-          <div className="pt-2 mt-2 border-t">
+          <div className="pt-2 mt-2 border-t space-y-0.5">
+            <NavLink to="/docs" className={navItem(location.pathname.startsWith("/docs"))}>
+              <BookOpen className="h-4 w-4" /> Documentation
+            </NavLink>
             <NavLink to="/settings" className={navItem(location.pathname.startsWith("/settings"))}>
               <SettingsIcon className="h-4 w-4" /> Settings
             </NavLink>
@@ -99,9 +111,10 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="mt-3 rounded-xl border bg-secondary px-3 py-2.5">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className={cn("h-1.5 w-1.5 rounded-full", llmUp ? "bg-success pulse-dot" : "bg-destructive")} />
+              {/* Business mode states readiness; the model name is a diagnostic. */}
               <span className="truncate">
-                {llmUp ? "Local LLM online" : "LLM offline"}
-                {health?.["model"] ? ` · ${health["model"]}` : ""}
+                {t(llmUp ? "settings.online" : "settings.offline")}
+                {!isBusiness && health?.["model"] ? ` · ${health["model"]}` : ""}
               </span>
             </div>
           </div>

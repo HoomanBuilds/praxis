@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useVocab } from "@/hooks/useVocab";
+import { useActivityLabel, useActorLabel } from "@/components/vocab/ActivityLabel";
 import { useCopilot } from "@/context/CopilotContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,8 +13,9 @@ import { ObligationArtifacts } from "@/components/ObligationArtifacts";
 import { titleCase } from "@/lib/utils";
 import {
   ArrowLeft, Check, X, Pencil, Bot, ScrollText, MessageSquare, History as HistoryIcon,
-  Cpu, Link2, CheckCircle2,
+  Cpu, Link2, CheckCircle2, CalendarDays, Shield,
 } from "lucide-react";
+
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "";
@@ -29,6 +32,9 @@ export default function ObligationWorkspace() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { setScope, ask } = useCopilot();
+  const { t, isBusiness } = useVocab();
+  const activityLabel = useActivityLabel();
+  const actorLabel = useActorLabel();
 
   const { data: ob } = useQuery({ queryKey: ["obligation", id], queryFn: () => api.getObligation(id) });
   const { data: explain } = useQuery({ queryKey: ["explain", id], queryFn: () => api.explain(id) });
@@ -70,8 +76,8 @@ export default function ObligationWorkspace() {
         <Link to={`/documents/${ob.document_id}/review`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to document
         </Link>
-        <Button size="sm" variant="outline" onClick={() => ask("Why was this obligation extracted, and what does it require?")}>
-          <Bot className="h-3.5 w-3.5" /> Explain with Copilot
+        <Button size="sm" variant="outline" onClick={() => ask(t("obligation.explain_q"))}>
+          <Bot className="h-3.5 w-3.5" /> {t("obligation.explain")}
         </Button>
       </div>
 
@@ -94,7 +100,7 @@ export default function ObligationWorkspace() {
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <Card>
               <CardHeader><CardTitle className="text-sm">Obligation</CardTitle></CardHeader>
               <CardContent className="text-sm space-y-2">
@@ -124,17 +130,57 @@ export default function ObligationWorkspace() {
                 <blockquote className="text-sm border-l-2 border-primary/40 pl-3 text-muted-foreground italic">"{ob.source_text}"</blockquote>
               </CardContent>
             </Card>
+            {/* Impact card — Part D */}
+            <Card>
+              <CardHeader><CardTitle className="text-sm flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> Impact</CardTitle></CardHeader>
+              <CardContent className="text-sm space-y-2">
+                {ob.deadline_hint && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-medium">Effective:</span>
+                    <span className="text-muted-foreground">{ob.deadline_hint}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="font-medium">Regulation ref:</span>
+                  <span className="text-muted-foreground font-mono">{ob.source_paragraph_ref ? `¶${ob.source_paragraph_ref}` : ob.document_id?.slice(0, 8)}</span>
+                </div>
+                {ob.linked_prior_obligation_id && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-medium">Supersedes:</span>
+                    <button
+                      className="text-primary hover:underline font-mono"
+                      onClick={() => navigate(`/obligations/${ob.linked_prior_obligation_id}`)}
+                    >
+                      {ob.linked_prior_obligation_id.slice(0, 8)}
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="font-medium">{t("obligation.confidence")}:</span>
+                  <ConfidenceBadge value={ob.confidence} />
+                </div>
+                {ob.needs_review && (
+                  <div className="mt-1 rounded-md bg-warning/10 border border-warning/30 px-2 py-1 text-[11px] text-warning">
+                    {t("obligation.flagged")}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* AI reasoning — real, recomputed explainability */}
           {explain && (
             <Card className="border-primary/25">
-              <CardHeader><CardTitle className="text-sm flex items-center gap-1.5"><Cpu className="h-4 w-4 text-primary" /> AI Reasoning</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm flex items-center gap-1.5"><Cpu className="h-4 w-4 text-primary" /> {t("obligation.reasoning")}</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <p>{explain.why_method}</p>
-                <div className="text-xs text-muted-foreground">Model: {explain.model}</div>
+                {!isBusiness && <div className="text-xs text-muted-foreground">Model: {explain.model}</div>}
                 <div>
-                  <div className="text-xs font-medium mb-1.5">Confidence {(explain.confidence * 100).toFixed(0)}% — signals</div>
+                  <div className="text-xs font-medium mb-1.5">{t("obligation.signals")}</div>
                   <div className="space-y-1">
                     {explain.confidence_factors.map((f, i) => (
                       <div key={i} className="flex items-start gap-2 text-xs">
@@ -147,12 +193,12 @@ export default function ObligationWorkspace() {
                 </div>
                 {explain.related_obligations.length > 0 && (
                   <div>
-                    <div className="text-xs font-medium mb-1.5 flex items-center gap-1"><Link2 className="h-3.5 w-3.5" /> Related obligations</div>
+                    <div className="text-xs font-medium mb-1.5 flex items-center gap-1"><Link2 className="h-3.5 w-3.5" /> {t("obligation.related")}</div>
                     <div className="space-y-1">
                       {explain.related_obligations.map((r) => (
                         <button key={r.id} onClick={() => navigate(`/obligations/${r.id}`)}
                           className="w-full text-left rounded-md border px-2 py-1.5 hover:border-primary/40 transition-colors">
-                          <div className="text-[10px] text-muted-foreground">{r.identifier} · {(r.score * 100).toFixed(0)}% similar</div>
+                          <div className="text-[10px] text-muted-foreground">{r.identifier} · {(r.score * 100).toFixed(0)}% {t("obligation.similar")}</div>
                           <div className="text-xs truncate">{r.description}</div>
                         </button>
                       ))}
@@ -185,8 +231,8 @@ export default function ObligationWorkspace() {
                         {i < history.length - 1 && <div className="w-px flex-1 bg-border" />}
                       </div>
                       <div className="pb-3 -mt-0.5">
-                        <div className="text-xs">{titleCase(ev.action.replace(/[._]/g, " "))}</div>
-                        <div className="text-[10px] text-muted-foreground">{ev.actor.replace(/_/g, " ")} · {timeAgo(ev.timestamp)}</div>
+                        <div className="text-xs">{activityLabel(ev.action)}</div>
+                        <div className="text-[10px] text-muted-foreground">{actorLabel(ev.actor)} · {timeAgo(ev.timestamp)}</div>
                       </div>
                     </div>
                   ))}

@@ -45,6 +45,12 @@ CONNECT_FIELDS: dict[str, list[dict]] = {
         {"name": "account_id", "label": "Account ID", "placeholder": "…", "type": "text"},
         {"name": "private_key", "label": "RSA private key (PEM)", "placeholder": "-----BEGIN RSA PRIVATE KEY-----", "type": "textarea"},
     ],
+    "ldap": [
+        {"name": "server", "label": "LDAP server URL", "placeholder": "ldap://localhost:389", "type": "text"},
+        {"name": "bind_dn", "label": "Bind DN (Username)", "placeholder": "cn=admin,dc=praxis,dc=local", "type": "text"},
+        {"name": "bind_password", "label": "Bind password", "placeholder": "••••••••", "type": "password"},
+        {"name": "user_base", "label": "User search base", "placeholder": "ou=users,dc=praxis,dc=local", "type": "text", "required": False},
+    ],
 }
 
 
@@ -461,6 +467,31 @@ def create_docusign_envelope(
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# LDAP / Active Directory — real test bind using ldap3
+# ---------------------------------------------------------------------------
+
+def test_ldap(cfg: dict) -> dict:
+    import ldap3
+    server_url = (cfg.get("server") or "").strip()
+    bind_dn = (cfg.get("bind_dn") or "").strip()
+    password = cfg.get("bind_password") or ""
+    if not server_url or not bind_dn:
+        raise ProviderError("LDAP server URL and Bind DN are required.")
+    try:
+        server = ldap3.Server(server_url, connect_timeout=5)
+        conn = ldap3.Connection(server, user=bind_dn, password=password, auto_bind=True)
+        user_base = (cfg.get("user_base") or "").strip()
+        if user_base:
+            conn.search(search_base=user_base, search_filter='(objectClass=*)', attributes=['cn'])
+            count = len(conn.entries)
+            return {"message": f"Connected to LDAP. Found {count} entries in search base."}
+        return {"message": "Connected to LDAP server."}
+    except Exception as exc:
+        raise ProviderError(f"LDAP connection failed: {exc}")
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table
 # ---------------------------------------------------------------------------
 
@@ -478,6 +509,8 @@ def test_connection(type_: str, cfg: dict) -> dict:
         return test_drive(cfg)
     if type_ == "docusign":
         return test_docusign(cfg)
+    if type_ == "ldap":
+        return test_ldap(cfg)
     raise ProviderError(f"Unknown integration type: {type_}")
 
 
@@ -501,4 +534,10 @@ def summarize(type_: str, cfg: dict) -> str:
     if type_ == "docusign":
         account = (cfg.get("account_id") or "").strip()
         return f"DocuSign sandbox · {account}" if account else "DocuSign sandbox"
+    if type_ == "ldap":
+        server = (cfg.get("server") or "").strip()
+        if server:
+            host = server.split("://", 1)[-1].split("/", 1)[0]
+            return f"LDAP · {host}"
+        return "LDAP server"
     return ""

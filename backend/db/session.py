@@ -29,10 +29,11 @@ def _build_engine() -> Engine:
         @event.listens_for(engine, "connect")
         def _sqlite_connect(dbapi_conn, _record):  # noqa: ANN001
             # WAL allows readers during long writes (background processing); busy_timeout
-            # makes concurrent writers wait briefly instead of erroring immediately.
+            # makes concurrent writers wait instead of erroring immediately. 60s covers
+            # long-running Phase A LLM extractions that legitimately hold a write txn.
             cur = dbapi_conn.cursor()
             cur.execute("PRAGMA journal_mode=WAL")
-            cur.execute("PRAGMA busy_timeout=15000")
+            cur.execute("PRAGMA busy_timeout=60000")
             cur.execute("PRAGMA synchronous=NORMAL")
             cur.close()
 
@@ -60,10 +61,12 @@ def init_db() -> None:
     _ensure_columns(get_engine())
 
 
-# Lightweight forward migrations: ``create_all`` never alters existing tables, so new
-# columns on shipped tables are added here (idempotent, both SQLite and Postgres).
+# Frozen — schema changes now go through Alembic (backend/alembic/), which has a
+# baseline revision covering everything below. Do not add a 6th table/column here;
+# this only still runs to keep create_all() working for fresh dev SQLite databases
+# and to apply the columns added before Alembic existed.
 _NEW_COLUMNS: dict[str, list[tuple[str, str]]] = {
-    "obligations": [("scores_reference", "VARCHAR(255)")],
+    "obligations": [("scores_reference", "VARCHAR(255)"), ("updated_at", "DATETIME")],
     "tasks": [
         ("jira_issue_key", "VARCHAR(64)"),
         ("docusign_envelope_id", "VARCHAR(64)"),
@@ -91,8 +94,15 @@ def _ensure_columns(engine: Engine) -> None:
             for name, ddl_type in columns:
                 if name in existing:
                     continue
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl_type}"))
+                portable_type = _portable_ddl_type(engine.dialect.name, ddl_type)
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {portable_type}"))
                 print(f"[db] migration: added {table}.{name}")
+
+
+def _portable_ddl_type(dialect: str, ddl_type: str) -> str:
+    if dialect == "postgresql" and ddl_type == "DATETIME":
+        return "TIMESTAMP"
+    return ddl_type
 
 
 @contextmanager

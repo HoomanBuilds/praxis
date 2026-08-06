@@ -132,8 +132,8 @@ Append-only trail — inserts only; never updated or deleted in application code
 
 ## Schema management
 
-`db/session.py:init_db()` runs `Base.metadata.create_all` (idempotent) on startup. For the
-prototype on SQLite there is no migration tool; adding a column means recreating the local
-`data/praxis.db` (data is regenerable from the corpus). In Docker/Postgres, point
-`PRAXIS_DATABASE_URL` at the service and introduce Alembic when schema stability is required —
-see [17 Limitations & Roadmap](17_LIMITATIONS_AND_ROADMAP.md).
+`db/session.py:init_db()` runs `Base.metadata.create_all` (idempotent) on startup, which is
+enough for a fresh dev SQLite database. Schema changes ship as Alembic migrations
+(`backend/alembic/`) — `alembic upgrade head` runs before the API starts in production
+(`docker-compose.prod.yml`); the pre-Alembic columns are still applied via `session.py`'s
+`_NEW_COLUMNS` for backward compatibility, but new changes go through Alembic only.

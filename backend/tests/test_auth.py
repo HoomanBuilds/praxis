@@ -1,9 +1,19 @@
+import pytest
 from fastapi.testclient import TestClient
 
+from api.deps import require_user
 from api.main import app
 from config import settings
 from db import crud
 from db.session import session_scope
+
+
+@pytest.fixture(autouse=True)
+def use_real_authentication():
+    previous_override = app.dependency_overrides.pop(require_user, None)
+    yield
+    if previous_override is not None:
+        app.dependency_overrides[require_user] = previous_override
 
 
 def test_protected_api_accepts_browser_bearer_token():

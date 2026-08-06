@@ -53,6 +53,22 @@ def initdb():
     console.print("[green]Database initialised.[/green]")
 
 
+@app.command(name="create-admin")
+def create_admin(
+    email: str = typer.Option(..., prompt=True),
+    name: str = typer.Option(..., prompt=True),
+    password: str = typer.Option(..., prompt=True, hide_input=True, confirmation_prompt=True),
+):
+    """Create an admin user. Production deployments don't auto-seed one — run this once."""
+    init_db()
+    with session_scope() as session:
+        if crud.get_user_by_email(session, email):
+            raise typer.BadParameter(f"A user with email {email} already exists.")
+        user = crud.create_user(session, email, name, password, role="admin")
+        session.commit()
+    console.print(f"[green]Admin created[/green]: {user.email}")
+
+
 @app.command()
 def ingest(
     path: str,

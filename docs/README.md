@@ -85,5 +85,5 @@ Mermaid sources under [`diagrams/`](../diagrams/): `architecture.mmd` (system + 
 
 The corpus circulars under `data/seed/` are **synthetic** (SEBI-style, for demonstration); the
 two master circulars used for scalability testing are real SEBI PDFs. Honest limitations of the
-prototype (SCORES manual field, unconnected third-party connectors, no RBAC/migrations) are
-documented in [17](17_LIMITATIONS_AND_ROADMAP.md).
+prototype (SCORES manual field, unconnected third-party connectors, single-tenant data model)
+are documented in [17](17_LIMITATIONS_AND_ROADMAP.md).

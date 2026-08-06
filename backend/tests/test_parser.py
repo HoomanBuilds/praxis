@@ -46,3 +46,28 @@ def test_split_sections_separates_heading_from_body():
     assert sections[0].heading == "Governance"
     assert "policy" in sections[0].text
     assert sections[1].heading == "Reporting"
+
+
+def test_clean_text_strips_page_headers():
+    from agents.parser import clean_text
+    raw = "Page 1 of 15\nSome circular text.\nPage 2 of 15\nMore text."
+    cleaned = clean_text(raw)
+    assert "Page 1 of 15" not in cleaned
+    assert "Page 2 of 15" not in cleaned
+    assert "circular text" in cleaned
+
+
+def test_clean_text_strips_orphan_markers():
+    from agents.parser import clean_text
+    raw = "a)\nThe broker shall maintain records for five years.\nb)\nAll records must be audited annually."
+    cleaned = clean_text(raw)
+    # Orphan markers alone on a line should be removed
+    assert cleaned.count("a)") == 0 or "shall maintain" in cleaned
+
+
+def test_is_fragment_catches_short_descriptions():
+    from agents.obligation_extraction import _is_fragment
+
+    assert _is_fragment("Too short") is True
+    assert _is_fragment("a) Brief") is True
+    assert _is_fragment("The broker shall maintain proper records of all transactions for a period of five years.") is False

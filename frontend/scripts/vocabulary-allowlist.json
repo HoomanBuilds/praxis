@@ -1,0 +1,22 @@
+[
+  {
+    "file": "src/pages/Settings.tsx",
+    "term": "embedding"
+  },
+  {
+    "file": "src/pages/Settings.tsx",
+    "term": "llm"
+  },
+  {
+    "file": "src/pages/Settings.tsx",
+    "term": "parser"
+  },
+  {
+    "file": "src/pages/Settings.tsx",
+    "term": "provenance"
+  },
+  {
+    "file": "src/pages/Settings.tsx",
+    "term": "rag"
+  }
+]

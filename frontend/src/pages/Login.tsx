@@ -13,7 +13,11 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const ssoEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_SSO === "true";
+  const demoEmail = import.meta.env.VITE_DEMO_EMAIL || (import.meta.env.DEV ? "admin@praxis.local" : "");
+  const demoPassword = import.meta.env.VITE_DEMO_PASSWORD || (import.meta.env.DEV ? "admin123" : "");
+  const demoEnabled = Boolean(demoEmail && demoPassword);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -52,6 +56,21 @@ export default function Login() {
     }
   };
 
+  // Real login through the same /api/auth/login flow as the form above, with the
+  // seeded demo admin's credentials filled in automatically, so evaluators can get in
+  // with one click instead of typing/copying admin@praxis.local / admin123.
+  const handleDemoLogin = async () => {
+    setError("");
+    setDemoLoading(true);
+    try {
+      await login(demoEmail, demoPassword);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Demo login failed");
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-sm">
@@ -86,17 +105,28 @@ export default function Login() {
               {loading ? "Signing in…" : "Sign in"}
             </Button>
           </form>
+          {(ssoEnabled || demoEnabled) && (
+            <div className="flex items-center gap-2 my-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-[11px] text-muted-foreground">or</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+          )}
           {ssoEnabled && (
-            <>
-              <div className="flex items-center gap-2 my-3">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-[11px] text-muted-foreground">or</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-              <Button type="button" variant="outline" className="w-full" onClick={startSso}>
-                Sign in with SSO (Keycloak)
-              </Button>
-            </>
+            <Button type="button" variant="outline" className="w-full" onClick={startSso}>
+              Sign in with SSO (Keycloak)
+            </Button>
+          )}
+          {demoEnabled && (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full mt-2"
+              onClick={handleDemoLogin}
+              disabled={demoLoading || loading}
+            >
+              {demoLoading ? "Signing in…" : "Try Demo"}
+            </Button>
           )}
           {import.meta.env.DEV && (
             <p className="text-[11px] text-muted-foreground text-center mt-3">

@@ -97,6 +97,9 @@ def process_document(session: Session, document_id: str) -> dict:
     session.flush()
 
     crud.set_document_status(session, doc, "extracting")
+    # Commit the status change so the long LLM phase below does not hold the write lock
+    # (in WAL mode a second writer would otherwise block/fail the whole request).
+    session.commit()
 
     # 1. Parse + structure.
     parsed = parser.parse_document(doc.file_path)
@@ -209,7 +212,12 @@ def approve_all_pending(session: Session, document_id: str, reviewer: str = "aut
 
 
 def generate_for_document(
-    session: Session, document_id: str, *, auto_approve: bool = False, actor: str = "compliance_officer"
+    session: Session,
+    document_id: str,
+    *,
+    auto_approve: bool = False,
+    actor: str = "compliance_officer",
+    background_tasks=None,
 ) -> dict:
     doc = crud.get_document(session, document_id)
     if not doc:
@@ -233,10 +241,8 @@ def generate_for_document(
         crud.reset_artifacts(session, ob.id)
     for obligation_id, rule in state.rules.items():
         crud.create_rule(session, obligation_id, rule)
-    from integrations import notify
     for task in state.tasks:
-        crud.create_task(session, task)
-        notify.notify_task_created(task)
+        crud.create_task(session, task, background_tasks=background_tasks)
     for req in state.evidence:
         crud.create_evidence_requirement(session, req)
 

@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useVocab } from "@/hooks/useVocab";
+import { PipelineSummary } from "@/components/vocab/PipelineStrip";
+import { fromAggregate } from "@/lib/vocab/pipeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { titleCase } from "@/lib/utils";
 import { dayKey } from "@/lib/format";
@@ -45,6 +48,7 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 }
 
 export default function Analytics() {
+  const { t } = useVocab();
   const { data: summary } = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
   const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
   const { data: activity } = useQuery({ queryKey: ["activity", "analytics"], queryFn: () => api.activity(200) });
@@ -71,14 +75,14 @@ export default function Analytics() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold">Analytics</h1>
-        <p className="text-sm text-muted-foreground">Executive view of compliance posture and pipeline efficiency — computed live from platform state.</p>
+        <p className="text-sm text-muted-foreground">{t("analytics.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Metric label="Compliance Score" value={`${summary?.compliance_score ?? 0}%`} sub={`${summary?.approved ?? 0} approved`} />
-        <Metric label="LLM Savings" value={`${savedPct}%`} sub={funnel ? `${funnel.llm_calls} calls vs ~${funnel.naive} naive` : "—"} />
-        <Metric label="Knowledge Graph" value={`${kg?.stats.node_count ?? 0}`} sub={`${kg?.stats.edge_count ?? 0} relationships`} />
-        <Metric label="Human Overrides" value={`${overrides}`} sub="edits + rejections (audit log)" />
+        <Metric label={t("pipeline.savings")} value={`${savedPct}%`} sub={funnel ? `${funnel.deterministic} of ${funnel.candidates} ${t("pipeline.savings_sub")}` : "—"} />
+        <Metric label={t("analytics.relationships")} value={`${kg?.stats.node_count ?? 0}`} sub={`${kg?.stats.edge_count ?? 0} ${t("kg.count_links").toLowerCase()}`} />
+        <Metric label="Human Overrides" value={`${overrides}`} sub={t("analytics.review_activity")} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -102,22 +106,15 @@ export default function Analytics() {
 
       {funnel && (
         <Card className="border-primary/25">
-          <CardHeader><CardTitle className="text-sm">Pipeline Efficiency</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t("pipeline.efficiency")}</CardTitle></CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-              <div><div className="text-xl font-semibold tabular">{funnel.sections}</div><div className="text-[11px] text-muted-foreground">sections parsed</div></div>
-              <div><div className="text-xl font-semibold tabular">{funnel.candidates}</div><div className="text-[11px] text-muted-foreground">candidates</div></div>
-              <div><div className="text-xl font-semibold tabular">{funnel.deterministic}</div><div className="text-[11px] text-muted-foreground">regex, no LLM</div></div>
-              <div><div className="text-xl font-semibold tabular text-primary">{funnel.llm_calls}</div><div className="text-[11px] text-muted-foreground">LLM calls</div></div>
-              <div><div className="text-xl font-semibold tabular text-success">{savedPct}%</div><div className="text-[11px] text-muted-foreground">calls saved</div></div>
-            </div>
+            <PipelineSummary stats={fromAggregate(funnel)} />
           </CardContent>
         </Card>
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        Metrics are computed live from real platform state. Not yet instrumented: per-document review time and
-        extraction accuracy vs. a gold set (planned — requires timing capture and a labelled corpus).
+        Metrics are computed live from real platform state. {t("analytics.not_instrumented")}
       </p>
     </div>
   );

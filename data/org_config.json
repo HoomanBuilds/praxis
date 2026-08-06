@@ -1,9 +1,11 @@
 {
   "firm_name": "Demo Advisory LLP",
-  "firm_type": "Investment Adviser",
+  "firm_type": "stockbroker",
   "intermediary_classes": [
     "stockbroker",
-    "depository_participant"
+    "depository_participant",
+    "investment_adviser",
+    "portfolio_manager"
   ],
   "functional_areas": {
     "operations": {
