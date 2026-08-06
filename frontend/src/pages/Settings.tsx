@@ -77,7 +77,7 @@ export default function Settings() {
   const llm = (health?.["llm"] as Record<string, unknown>) || {};
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       <div>
         <h1 className="text-xl font-semibold">Settings</h1>
         <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>

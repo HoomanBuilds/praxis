@@ -43,16 +43,16 @@ export default function Obligations() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold">Obligations</h1>
           <p className="text-sm text-muted-foreground">{t("obligations.subtitle")}</p>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <select value={area} onChange={(e) => setArea(e.target.value)} className="h-9 rounded-lg border bg-card px-3">
+        <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:items-center">
+          <select aria-label="Filter by department" value={area} onChange={(e) => setArea(e.target.value)} className="h-11 min-w-0 rounded-lg border bg-card px-2 sm:h-9 sm:px-3">
             {areas.map((a) => <option key={a} value={a}>{a === "all" ? "All departments" : titleCase(a)}</option>)}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border bg-card px-3">
+          <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className="h-11 min-w-0 rounded-lg border bg-card px-2 sm:h-9 sm:px-3">
             {OBLIGATION_STATUSES.map((s) => <option key={s} value={s}>{s === "all" ? "All statuses" : titleCase(s)}</option>)}
           </select>
         </div>
@@ -65,7 +65,24 @@ export default function Obligations() {
 
       <Card>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
+          <div className="divide-y md:hidden">
+            {rows.map((o) => (
+              <button key={o.id} onClick={() => navigate(`/obligations/${o.id}`)} className="block min-h-11 w-full p-4 text-left hover:bg-accent/40">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-mono text-xs text-muted-foreground">{o.identifier}</span>
+                  <StatusBadge status={o.status} />
+                </div>
+                <div className="mt-2 text-sm leading-5">{o.description}</div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <AreaBadge area={o.functional_area} />
+                  <MethodBadge method={o.extraction_method} />
+                  <ConfidenceBadge value={o.confidence} />
+                </div>
+              </button>
+            ))}
+            {rows.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">No obligations match these filters.</div>}
+          </div>
+          <table className="hidden w-full text-sm md:table">
             <thead className="text-left text-muted-foreground border-b">
               <tr>
                 <th className="py-3 px-4 font-medium">ID</th>

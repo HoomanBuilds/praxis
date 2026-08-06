@@ -90,7 +90,7 @@ function HealthTile({ icon: Icon, label, value, sub, tone, onClick }: {
     <button
       onClick={onClick}
       className={cn(
-        "text-left rounded-lg border bg-card p-4 transition-colors",
+        "min-w-0 text-left rounded-lg border bg-card p-4 transition-colors",
         onClick ? "hover:border-primary/40 cursor-pointer" : "cursor-default"
       )}
     >
@@ -170,7 +170,7 @@ export default function Dashboard() {
   const approvedCount = useCountUp(summary?.approved ?? 0);
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Command Center</h1>
         <p className="text-sm text-muted-foreground">{t("dashboard.subtitle")}</p>
@@ -196,14 +196,14 @@ export default function Dashboard() {
         <HealthTile icon={FileText} label="Documents" value={summary?.total_documents ?? 0} sub={`${summary?.total_rules ?? 0} rules generated`} onClick={() => navigate("/documents")} />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
+      <div className="grid min-w-0 lg:grid-cols-3 gap-4">
         {/* Activity feed */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2"><Boxes className="h-4 w-4" /> {t("dashboard.activity")}</CardTitle>
             <div className="flex items-center gap-3">
               <Badge variant="muted" className="gap-1"><span className="h-1.5 w-1.5 rounded-full bg-success pulse-dot" /> live</Badge>
-              <Link to="/audit" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">View logs <ArrowRight className="h-3 w-3" /></Link>
+              <Link to="/audit" className="flex min-h-11 items-center gap-1 text-xs text-muted-foreground hover:text-foreground sm:min-h-0">View logs <ArrowRight className="h-3 w-3" /></Link>
             </div>
           </CardHeader>
           <CardContent>
@@ -261,18 +261,18 @@ export default function Dashboard() {
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Recent Documents</CardTitle>
-          <button onClick={() => navigate("/documents")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">All <ArrowRight className="h-3 w-3" /></button>
+          <button onClick={() => navigate("/documents")} className="flex min-h-11 items-center gap-1 text-xs text-muted-foreground hover:text-foreground sm:min-h-0">All <ArrowRight className="h-3 w-3" /></button>
         </CardHeader>
         <CardContent>
           {documents?.length ? (
             <div className="divide-y">
               {documents.slice(0, 5).map((d) => (
-                <button key={d.id} onClick={() => navigate(`/documents/${d.id}/review`)} className="w-full flex items-center justify-between py-2.5 hover:bg-accent/30 -mx-2 px-2 rounded text-left">
+                <button key={d.id} onClick={() => navigate(`/documents/${d.id}/review`)} className="w-full flex min-h-11 items-center justify-between gap-3 py-2.5 hover:bg-accent/30 -mx-2 px-2 rounded text-left">
                   <div className="min-w-0">
                     <div className="text-sm truncate">{d.title || d.reference || d.id.slice(0, 8)}</div>
                     <div className="text-[11px] text-muted-foreground">{titleCase(d.document_type)} · {d.page_count} pages</div>
                   </div>
-                  {d.funnel && <span className="text-[11px] text-muted-foreground shrink-0">{d.funnel.obligations_total} obligations · {d.funnel.llm_calls} {t("pipeline.ai_calls").toLowerCase()}</span>}
+                  {d.funnel && <span className="hidden max-w-[45%] shrink-0 truncate text-[11px] text-muted-foreground sm:block">{d.funnel.obligations_total} obligations · {d.funnel.llm_calls} {t("pipeline.ai_calls").toLowerCase()}</span>}
                 </button>
               ))}
             </div>

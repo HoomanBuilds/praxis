@@ -17,7 +17,7 @@ export function Tabs({ value, onValueChange, children, className }: { value: str
 }
 
 export function TabList({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("flex gap-1 border-b", className)}>{children}</div>;
+  return <div className={cn("flex max-w-full gap-1 overflow-x-auto border-b", className)}>{children}</div>;
 }
 
 export function TabTrigger({ value, children, className }: { value: string; children: React.ReactNode; className?: string }) {
@@ -27,7 +27,7 @@ export function TabTrigger({ value, children, className }: { value: string; chil
     <button
       onClick={() => ctx.onValueChange(value)}
       className={cn(
-        "px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+        "min-h-11 shrink-0 px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors sm:min-h-0",
         active ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
         className
       )}
