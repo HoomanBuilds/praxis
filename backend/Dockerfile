@@ -11,11 +11,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch \
+    && pip install --no-cache-dir -r /app/requirements.txt
 
 # Application code lives under backend/praxis; add it to the path.
 COPY backend /app/backend
 COPY data /app/data
+RUN python /app/data/seed/build_pdfs.py
 ENV PYTHONPATH=/app/backend
 
 EXPOSE 8080

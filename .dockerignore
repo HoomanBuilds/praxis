@@ -1,0 +1,15 @@
+.git
+.github
+.venv
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+frontend/dist
+.env
+.env.production
+data/chroma
+data/documents
+data/exports
+data/*.db
+docs
+diagrams

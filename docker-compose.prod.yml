@@ -1,0 +1,212 @@
+name: praxis
+
+x-backend-environment: &backend-environment
+  PRAXIS_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-praxis}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-praxis}
+  PRAXIS_REDIS_URL: redis://redis:6379/0
+  PRAXIS_CHROMA_HOST: chromadb
+  PRAXIS_CHROMA_PORT: "8000"
+  PRAXIS_OLLAMA_HOST: http://ollama:11434
+  PRAXIS_LLM_MODEL: ${PRAXIS_LLM_MODEL:-llama3.1:8b}
+  PRAXIS_LLM_NUM_CTX: ${PRAXIS_LLM_NUM_CTX:-8192}
+  PRAXIS_LLM_REQUEST_TIMEOUT: ${PRAXIS_LLM_REQUEST_TIMEOUT:-300}
+  PRAXIS_DOC_STORE_PATH: /app/data/documents
+  PRAXIS_CORPUS_PATH: /app/data/corpus
+  PRAXIS_EXPORT_PATH: /app/data/exports
+  PRAXIS_ORG_CONFIG_PATH: /app/runtime/org_config.json
+  PRAXIS_API_KEY: ${PRAXIS_API_KEY:?Set PRAXIS_API_KEY}
+  PRAXIS_JWT_SECRET: ${PRAXIS_JWT_SECRET:?Set PRAXIS_JWT_SECRET}
+  PRAXIS_BOOTSTRAP_ADMIN_EMAIL: ${PRAXIS_BOOTSTRAP_ADMIN_EMAIL:?Set PRAXIS_BOOTSTRAP_ADMIN_EMAIL}
+  PRAXIS_BOOTSTRAP_ADMIN_PASSWORD: ${PRAXIS_BOOTSTRAP_ADMIN_PASSWORD:?Set PRAXIS_BOOTSTRAP_ADMIN_PASSWORD}
+  PRAXIS_INTEGRATION_ENCRYPTION_KEY: ${PRAXIS_INTEGRATION_ENCRYPTION_KEY:?Set PRAXIS_INTEGRATION_ENCRYPTION_KEY}
+  PRAXIS_FRONTEND_URL: https://praxis.inferia.ai
+  PRAXIS_SSO_REDIRECT_URI: https://praxis.inferia.ai/api/auth/sso/callback
+  PRAXIS_KEYCLOAK_URL: ""
+  PRAXIS_DRIVE_OAUTH_REDIRECT_URI: ${PRAXIS_DRIVE_OAUTH_REDIRECT_URI:-https://praxis.inferia.ai/api/integrations/drive/callback}
+  PRAXIS_SMTP_HOST: ${PRAXIS_SMTP_HOST:-}
+  PRAXIS_SMTP_PORT: ${PRAXIS_SMTP_PORT:-587}
+  PRAXIS_SMTP_USERNAME: ${PRAXIS_SMTP_USERNAME:-}
+  PRAXIS_SMTP_PASSWORD: ${PRAXIS_SMTP_PASSWORD:-}
+  PRAXIS_SMTP_FROM: ${PRAXIS_SMTP_FROM:-}
+  PRAXIS_SLACK_WEBHOOK_URL: ${PRAXIS_SLACK_WEBHOOK_URL:-}
+  PRAXIS_JIRA_BASE_URL: ${PRAXIS_JIRA_BASE_URL:-}
+  PRAXIS_JIRA_EMAIL: ${PRAXIS_JIRA_EMAIL:-}
+  PRAXIS_JIRA_API_TOKEN: ${PRAXIS_JIRA_API_TOKEN:-}
+  PRAXIS_DRIVE_OAUTH_CLIENT_ID: ${PRAXIS_DRIVE_OAUTH_CLIENT_ID:-}
+  PRAXIS_DRIVE_OAUTH_CLIENT_SECRET: ${PRAXIS_DRIVE_OAUTH_CLIENT_SECRET:-}
+  PRAXIS_DOCUSIGN_INTEGRATION_KEY: ${PRAXIS_DOCUSIGN_INTEGRATION_KEY:-}
+  PRAXIS_DOCUSIGN_USER_ID: ${PRAXIS_DOCUSIGN_USER_ID:-}
+  PRAXIS_DOCUSIGN_PRIVATE_KEY: ${PRAXIS_DOCUSIGN_PRIVATE_KEY:-}
+  PRAXIS_DOCUSIGN_ACCOUNT_ID: ${PRAXIS_DOCUSIGN_ACCOUNT_ID:-}
+
+x-backend-volumes: &backend-volumes
+  - appconfig:/app/runtime
+  - documents:/app/data/documents
+  - exports:/app/data/exports
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-praxis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-praxis}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  chromadb:
+    image: chromadb/chroma:1.5.9
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - chromadata:/chroma/chroma
+
+  ollama:
+    image: ollama/ollama:0.32.3
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes:
+      - ollamadata:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  ollama-pull:
+    image: ollama/ollama:0.32.3
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${PRAXIS_LLM_MODEL:-llama3.1:8b}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["ollama pull \"$${OLLAMA_MODEL}\""]
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  appconfig-init:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: "no"
+    command: ["/bin/sh", "-c", "test -f /app/runtime/org_config.json || cp /app/data/org_config.json /app/runtime/org_config.json"]
+    volumes:
+      - appconfig:/app/runtime
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips=*
+    environment: *backend-environment
+    volumes: *backend-volumes
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      ollama-pull:
+        condition: service_completed_successfully
+      appconfig-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    command: python -u -m ingestion.worker
+    environment: *backend-environment
+    volumes: *backend-volumes
+    depends_on:
+      api:
+        condition: service_healthy
+
+  edge:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      PRAXIS_DOMAIN: ${PRAXIS_DOMAIN:-praxis.inferia.ai}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/aws/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_ENABLE_SSO: ${VITE_ENABLE_SSO:-false}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["cloudflare"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  chromadata:
+  ollamadata:
+  appconfig:
+  documents:
+  exports:
+  caddydata:
+  caddyconfig:

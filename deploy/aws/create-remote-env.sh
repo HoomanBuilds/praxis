@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR=${APP_DIR:-/opt/praxis}
+ADMIN_EMAIL=${ADMIN_EMAIL:-admin@inferia.ai}
+ENV_FILE="$APP_DIR/.env.production"
+
+if [[ -s "$ENV_FILE" ]]; then
+  exit 0
+fi
+
+umask 077
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
+PRAXIS_API_KEY=$(openssl rand -hex 32)
+PRAXIS_JWT_SECRET=$(openssl rand -hex 32)
+ADMIN_PASSWORD=${ADMIN_PASSWORD:-$(openssl rand -base64 18 | tr '+/' '-_')}
+INTEGRATION_KEY=$(openssl rand -base64 32 | tr '+/' '-_')
+
+printf '%s\n' \
+  'POSTGRES_USER=praxis' \
+  'POSTGRES_DB=praxis' \
+  "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" \
+  "PRAXIS_API_KEY=$PRAXIS_API_KEY" \
+  "PRAXIS_JWT_SECRET=$PRAXIS_JWT_SECRET" \
+  "PRAXIS_BOOTSTRAP_ADMIN_EMAIL=$ADMIN_EMAIL" \
+  "PRAXIS_BOOTSTRAP_ADMIN_PASSWORD=$ADMIN_PASSWORD" \
+  "PRAXIS_INTEGRATION_ENCRYPTION_KEY=$INTEGRATION_KEY" \
+  'PRAXIS_LLM_MODEL=llama3.1:8b' \
+  'PRAXIS_LLM_NUM_CTX=8192' \
+  'PRAXIS_LLM_REQUEST_TIMEOUT=300' \
+  'CLOUDFLARE_TUNNEL_TOKEN=' \
+  'VITE_ENABLE_SSO=false' > "$ENV_FILE"
+
+unset POSTGRES_PASSWORD PRAXIS_API_KEY PRAXIS_JWT_SECRET ADMIN_PASSWORD INTEGRATION_KEY
+chmod 600 "$ENV_FILE"

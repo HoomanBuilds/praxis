@@ -1,0 +1,189 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Isolated EC2 host for the PRAXIS Docker Compose stack
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: praxis-aws
+  InstanceType:
+    Type: String
+    Default: m6a.2xlarge
+    Description: 8 vCPUs and 32 GiB RAM for the CPU-only deployment.
+  RootVolumeSize:
+    Type: Number
+    Default: 50
+    MinValue: 40
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: praxis-aws
+  SshCidr:
+    Type: String
+    Description: Single trusted IPv4 address in CIDR notation for SSH access.
+    AllowedPattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/32$"
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Default: ami-0d15e9052c94acb75
+    Description: Pinned Amazon Linux 2023 AMI for ap-south-1. Update deliberately.
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.42.0.0/24
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-igw
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.42.0.0/25
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref PublicSubnet
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public HTTP access plus restricted SSH
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - Description: SSH from the approved administrator address
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SshCidr
+        - Description: Public HTTP access to the Nginx frontend
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: Public HTTPS access to the TLS proxy
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-host
+
+  Host:
+    Type: AWS::EC2::Instance
+    DependsOn: DefaultRoute
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            DeleteOnTermination: true
+            Encrypted: true
+            VolumeSize: !Ref RootVolumeSize
+            VolumeType: gp3
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf install -y docker git jq openssl rsync
+          fallocate -l 8G /swapfile
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
+          echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          mkdir -p /etc/docker
+          cat > /etc/docker/daemon.json <<'EOF'
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          }
+          EOF
+          systemctl enable --now docker
+          usermod -aG docker ec2-user
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -fsSL https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+          curl -fsSL https://github.com/docker/buildx/releases/download/v0.36.0/buildx-v0.36.0.linux-amd64 -o /usr/local/lib/docker/cli-plugins/docker-buildx
+          echo '07823fdfcd82a41be90155a8b16876c1a780a6462de805a9f3f63b3119ccfb99  /usr/local/lib/docker/cli-plugins/docker-buildx' | sha256sum --check
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+          install -d -o ec2-user -g ec2-user /opt/praxis
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-host
+        - Key: Project
+          Value: !Ref ProjectName
+
+  HostElasticIp:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachment
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Host
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-eip
+        - Key: Project
+          Value: !Ref ProjectName
+
+Outputs:
+  AmiId:
+    Value: !Ref AmiId
+  InstanceId:
+    Value: !Ref Host
+  Region:
+    Value: !Ref AWS::Region
+  PublicIp:
+    Value: !Ref HostElasticIp
+  SshUser:
+    Value: ec2-user
