@@ -6,7 +6,9 @@ paragraph are re-read from the database rather than trusted from the model outpu
 """
 from __future__ import annotations
 
-from api.routes_copilot import Citation, CopilotAnswer, _verify_citations
+from types import SimpleNamespace
+
+from api.routes_copilot import Citation, CopilotAnswer, _verify_citations, _workspace_response
 
 
 CITABLE = {
@@ -82,3 +84,31 @@ def test_answer_schema_requires_grounded_and_confidence():
 
     with pytest.raises(ValidationError):
         CopilotAnswer(answer="x", grounded=True, confidence=1.7)  # out of range
+
+
+def test_greeting_is_answered_without_querying_the_model():
+    response = _workspace_response(None, "hi")
+    assert response is not None
+    assert response["response_type"] == "greeting"
+    assert response["answer"].startswith("Hello.")
+
+
+def test_pending_review_query_uses_workspace_records(monkeypatch):
+    obligations = [
+        SimpleNamespace(
+            id="id1",
+            identifier="ABC-OB-001",
+            description="Maintain a compliance register",
+            source_text="The intermediary shall maintain a compliance register.",
+            document_id=None,
+            source_paragraph_ref="4.2",
+            functional_area="compliance",
+            status="pending_review",
+        )
+    ]
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session, **kwargs: obligations)
+    response = _workspace_response(None, "Find obligations that need review")
+    assert response is not None
+    assert response["response_type"] == "obligation_list"
+    assert response["sources"] == ["ABC-OB-001"]
+    assert "1 pending-review obligations" in response["answer"]

@@ -3,8 +3,9 @@ import { api } from "@/lib/api";
 import { useVocab } from "@/hooks/useVocab";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { SendHorizonal, Loader2, User, Bot, Trash2, AlertTriangle } from "lucide-react";
+import { SendHorizonal, Loader2, User, Bot, Trash2, AlertTriangle, Database } from "lucide-react";
 import type { CopilotCitation } from "@/lib/types";
+import { canSendCopilotQuestion, COPILOT_HISTORY_KEY } from "@/lib/copilot";
 
 interface Msg {
   role: "user" | "assistant";
@@ -14,6 +15,7 @@ interface Msg {
   grounded?: boolean;
   confidence?: number;
   error?: boolean;
+  responseType?: "analysis" | "error" | "greeting" | "obligation_list" | "workspace_summary";
 }
 
 const QUICK = [
@@ -25,22 +27,20 @@ const QUICK = [
   "Generate a board-level compliance summary",
 ];
 
-const STORE = "praxis-copilot-history";
-
 export default function CopilotPage() {
   const [messages, setMessages] = useState<Msg[]>(() => {
-    try { return JSON.parse(localStorage.getItem(STORE) || "[]"); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(COPILOT_HISTORY_KEY) || "[]"); } catch { return []; }
   });
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { try { localStorage.setItem(STORE, JSON.stringify(messages.slice(-40))); } catch { /* ignore */ } }, [messages]);
+  useEffect(() => { try { localStorage.setItem(COPILOT_HISTORY_KEY, JSON.stringify(messages.slice(-40))); } catch { /* ignore */ } }, [messages]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages, sending]);
 
   const send = async (q: string) => {
     const text = q.trim();
-    if (text.length < 3 || sending) return;
+    if (!canSendCopilotQuestion(text, sending)) return;
     setMessages((m) => [...m, { role: "user", text: q }]);
     setInput("");
     setSending(true);
@@ -56,6 +56,7 @@ export default function CopilotPage() {
               citations: res.citations,
               grounded: res.grounded,
               confidence: res.confidence,
+              responseType: res.response_type,
             }
           : { role: "assistant", text: res.error || "No answer.", error: true },
       ]);
@@ -70,6 +71,7 @@ export default function CopilotPage() {
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2"><Bot className="h-5 w-5 text-primary" /> Copilot</h1>
           <p className="text-sm text-muted-foreground">Ask questions about your compliance data — obligations, rules, tasks and regulations.</p>
+          {messages.length > 0 && <p className="text-xs text-muted-foreground mt-1">Conversation saved in this browser</p>}
         </div>
         {messages.length > 0 && (
           <Button variant="ghost" size="sm" onClick={() => setMessages([])}><Trash2 className="h-3.5 w-3.5" /> Clear</Button>
@@ -96,7 +98,7 @@ export default function CopilotPage() {
               <div className={cn("rounded-2xl px-4 py-2.5 text-sm max-w-[75%] whitespace-pre-wrap", m.role === "user" ? "bg-primary/10" : m.error ? "bg-destructive/10 text-destructive" : "bg-muted")}>
                 {m.text}
                 {m.role === "assistant" && !m.error && (
-                  <CitationBlock citations={m.citations} grounded={m.grounded} confidence={m.confidence} />
+                  <CitationBlock citations={m.citations} grounded={m.grounded} confidence={m.confidence} responseType={m.responseType} />
                 )}
               </div>
             </div>
@@ -109,8 +111,9 @@ export default function CopilotPage() {
         <textarea value={input} onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
           rows={1} placeholder="Ask Praxis…"
+          aria-label="Copilot question"
           className="flex-1 resize-none rounded-xl border bg-card px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-32" />
-        <button disabled={sending || input.trim().length < 3} onClick={() => send(input)} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40">
+        <button aria-label="Send question" disabled={!canSendCopilotQuestion(input, sending)} onClick={() => send(input)} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40">
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizonal className="h-4 w-4" />}
         </button>
       </div>
@@ -125,12 +128,23 @@ function CitationBlock({
   citations,
   grounded,
   confidence,
+  responseType,
 }: {
   citations?: CopilotCitation[];
   grounded?: boolean;
   confidence?: number;
+  responseType?: Msg["responseType"];
 }) {
   const { t, isBusiness } = useVocab();
+  if (responseType === "greeting") return null;
+  if (responseType === "workspace_summary") {
+    return (
+      <div className="mt-2 flex items-start gap-1.5 text-[11px] text-muted-foreground border-t pt-2">
+        <Database className="h-3 w-3 mt-0.5 shrink-0" />
+        <span>Calculated from current workspace records.</span>
+      </div>
+    );
+  }
   if (!citations?.length) {
     return (
       <div className="mt-2 flex items-start gap-1.5 text-[11px] text-muted-foreground border-t pt-2">

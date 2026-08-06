@@ -7,6 +7,8 @@ over the obligation index) and instructs the local model to answer only from tha
 from __future__ import annotations
 
 import logging
+import re
+from collections import Counter
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -21,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class CopilotRequest(BaseModel):
-    question: str = Field(..., min_length=3, max_length=2000)
+    question: str = Field(..., min_length=2, max_length=2000)
     document_id: str | None = None
     obligation_id: str | None = None
 
@@ -165,9 +167,105 @@ def _verify_citations(raw_citations, citable: dict[str, dict]) -> list[dict]:
     return verified
 
 
+_GREETING_RE = re.compile(r"^(?:hi|hello|hey)(?:\s+(?:there|praxis))?[!,.?\s]*$", re.IGNORECASE)
+
+
+def _workspace_response(session: Session, question: str) -> dict | None:
+    normalized = " ".join(question.lower().split()).strip(" !,.?")
+    if _GREETING_RE.fullmatch(question.strip()):
+        return {
+            "answer": (
+                "Hello. I can help you review obligations, summarize compliance status, "
+                "find ownership gaps, and trace answers to source records."
+            ),
+            "citations": [],
+            "sources": [],
+            "grounded": False,
+            "confidence": 1.0,
+            "response_type": "greeting",
+        }
+
+    obligations = None
+    if "technology obligation" in normalized or "cyber obligation" in normalized:
+        obligations = crud.list_obligations(session, functional_area="technology")
+        heading = "technology"
+    elif "obligation" in normalized and ("need review" in normalized or "pending review" in normalized):
+        obligations = crud.list_obligations(session, status="pending_review")
+        heading = "pending-review"
+
+    if obligations is not None:
+        selected = obligations[:8]
+        citations = [
+            {**_citable(session, ob), "quote": (ob.source_text or ob.description)[:300]}
+            for ob in selected
+        ]
+        if selected:
+            lines = [f"- {ob.identifier}: {ob.description}" for ob in selected]
+            remainder = len(obligations) - len(selected)
+            suffix = f"\n\n{remainder} more are available in Obligations." if remainder else ""
+            answer = f"I found {len(obligations)} {heading} obligations.\n\n" + "\n".join(lines) + suffix
+        else:
+            answer = f"No {heading} obligations are currently recorded in this workspace."
+        return {
+            "answer": answer,
+            "citations": citations,
+            "sources": [item["obligation_identifier"] for item in citations],
+            "grounded": bool(citations),
+            "confidence": 1.0,
+            "response_type": "obligation_list",
+        }
+
+    posture_query = (
+        "overall compliance posture" in normalized
+        or "board-level compliance summary" in normalized
+    )
+    area_query = "departments carry the most obligations" in normalized
+    recent_query = "platform processed recently" in normalized
+    if not (posture_query or area_query or recent_query):
+        return None
+
+    if recent_query:
+        documents = crud.list_documents(session)
+        lines = [f"- {doc.title or doc.reference} ({doc.status})" for doc in documents[:5]]
+        answer = (
+            f"The workspace contains {len(documents)} processed regulations. Most recent:\n\n"
+            + ("\n".join(lines) if lines else "No regulations have been processed yet.")
+        )
+    else:
+        all_obligations = crud.list_obligations(session)
+        by_status = Counter(ob.status for ob in all_obligations)
+        by_area = Counter(ob.functional_area for ob in all_obligations)
+        if area_query:
+            leaders = by_area.most_common(5)
+            answer = "Largest compliance areas by obligation count:\n\n" + (
+                "\n".join(f"- {area.replace('_', ' ').title()}: {count}" for area, count in leaders)
+                if leaders else "No obligations have been classified yet."
+            )
+        else:
+            approved = by_status.get("approved", 0) + by_status.get("edited", 0)
+            pending = by_status.get("pending_review", 0)
+            answer = (
+                f"Current compliance posture: {len(all_obligations)} obligations, "
+                f"{approved} approved or edited, and {pending} pending review. "
+                f"Coverage is {round(approved / len(all_obligations) * 100) if all_obligations else 0}%."
+            )
+    return {
+        "answer": answer,
+        "citations": [],
+        "sources": [],
+        "grounded": True,
+        "confidence": 1.0,
+        "response_type": "workspace_summary",
+    }
+
+
 @router.post("/copilot")
 @limiter.limit("20/minute")
 def copilot(request: Request, payload: CopilotRequest, session: Session = Depends(get_db)):
+    workspace_response = _workspace_response(session, payload.question)
+    if workspace_response:
+        return workspace_response
+
     blocks: list[str] = []
     citable: dict[str, dict] = {}
 
@@ -211,6 +309,7 @@ def copilot(request: Request, payload: CopilotRequest, session: Session = Depend
             "citations": [],
             "sources": [],
             "grounded": False,
+            "response_type": "error",
         }
 
     parsed: CopilotAnswer = result.parsed  # type: ignore[assignment]
@@ -226,4 +325,5 @@ def copilot(request: Request, payload: CopilotRequest, session: Session = Depend
         "confidence": round(parsed.confidence, 2),
         "prompt_version": PROMPT_VERSION,
         "prompt_hash": PROMPT_HASH,
+        "response_type": "analysis",
     }

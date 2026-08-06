@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 import { useCopilot } from "@/context/CopilotContext";
 import { cn } from "@/lib/utils";
 import { X, SendHorizonal, Loader2, User, Bot } from "lucide-react";
+import { canSendCopilotQuestion, COPILOT_HISTORY_KEY } from "@/lib/copilot";
 
 interface Msg {
   role: "user" | "assistant";
@@ -21,13 +22,15 @@ function suggestions(scope: { obligationId?: string; documentId?: string }): str
 
 export function CopilotSidebar() {
   const { open, setOpen, scope, pending, clearPending } = useCopilot();
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>(() => {
+    try { return JSON.parse(localStorage.getItem(COPILOT_HISTORY_KEY) || "[]"); } catch { return []; }
+  });
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const send = async (question: string) => {
-    if (!question.trim() || sending) return;
+    if (!canSendCopilotQuestion(question, sending)) return;
     setMessages((m) => [...m, { role: "user", text: question }]);
     setInput("");
     setSending(true);
@@ -62,12 +65,16 @@ export function CopilotSidebar() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
 
+  useEffect(() => {
+    try { localStorage.setItem(COPILOT_HISTORY_KEY, JSON.stringify(messages.slice(-40))); } catch { /* ignore */ }
+  }, [messages]);
+
   if (!open) return null;
 
   const contextLabel = scope.label || "Whole workspace";
 
   return (
-    <aside className="fixed right-3 top-3 bottom-3 z-30 flex w-96 flex-col rounded-2xl border bg-card shadow-xl overflow-hidden animate-in">
+    <aside className="fixed inset-0 z-50 flex w-full flex-col bg-card shadow-xl overflow-hidden animate-in sm:inset-y-3 sm:left-auto sm:right-3 sm:w-96 sm:rounded-2xl sm:border">
       <div className="flex items-center gap-2 border-b px-4 h-14 shrink-0">
         <div className="grid h-6 w-6 place-items-center rounded-md bg-primary/15 border border-primary/30">
           <Bot className="h-3.5 w-3.5 text-primary" />
@@ -76,7 +83,7 @@ export function CopilotSidebar() {
           <div className="text-sm font-semibold">Praxis Copilot</div>
           <div className="text-[10px] text-muted-foreground">answers from your compliance records</div>
         </div>
-        <button className="ml-auto text-muted-foreground hover:text-foreground" onClick={() => setOpen(false)}>
+        <button aria-label="Close Copilot" className="ml-auto grid h-11 w-11 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setOpen(false)}>
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -139,10 +146,11 @@ export function CopilotSidebar() {
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
             rows={1}
             placeholder="Ask Praxis…"
+            aria-label="Copilot question"
             className="flex-1 resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-28"
           />
-          <button disabled={sending || input.trim().length < 3} onClick={() => send(input)}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground disabled:opacity-40">
+          <button aria-label="Send question" disabled={!canSendCopilotQuestion(input, sending)} onClick={() => send(input)}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground disabled:opacity-40">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizonal className="h-4 w-4" />}
           </button>
         </div>
