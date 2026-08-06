@@ -17,6 +17,8 @@ const Reports = lazy(() => import("@/pages/Reports"));
 const AuditTrail = lazy(() => import("@/pages/AuditTrail"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const Login = lazy(() => import("@/pages/Login"));
+const Landing = lazy(() => import("@/pages/Landing"));
+const ProductTour = lazy(() => import("@/pages/ProductTour"));
 const Users = lazy(() => import("@/pages/Users"));
 const EvidenceCenter = lazy(() => import("@/pages/EvidenceCenter"));
 const Calendar = lazy(() => import("@/pages/Calendar"));
@@ -55,6 +57,7 @@ function AppRoutes() {
         <Route path="/docs" element={<DocsHome />} />
         <Route path="/docs/:slug" element={<DocsPage />} />
         <Route path="/docs/*" element={<Navigate to="/docs" replace />} />
+        <Route path="/tour" element={<ProductTour />} />
 
         {isAuthenticated ? (
           <Route element={<AppLayout />}>
@@ -85,8 +88,9 @@ function AppRoutes() {
           </Route>
         ) : (
           <>
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}
       </Routes>

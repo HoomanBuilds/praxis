@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -72,34 +72,48 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
+    <div className="min-h-screen bg-background flex flex-col">
+      <header className="mx-auto flex h-20 w-full max-w-6xl items-center px-5 sm:px-8">
+        <Link to="/" className="flex items-center gap-2.5" aria-label="Praxis home">
+          <Logo className="h-7 w-7 text-foreground" />
+          <span className="text-lg font-semibold tracking-tight lowercase">praxis</span>
+        </Link>
+        <Link to="/tour" className="ml-auto text-sm text-muted-foreground hover:text-foreground">Product tour</Link>
+      </header>
+      <main className="flex flex-1 items-center justify-center p-4 pb-20">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-3">
             <Logo className="h-10 w-10 text-foreground" />
           </div>
-          <CardTitle className="text-xl lowercase">praxis</CardTitle>
-          <CardDescription>Sign in to the compliance platform</CardDescription>
+          <CardTitle className="text-xl">Sign in to Praxis</CardTitle>
+          <CardDescription>Open the compliance operations workspace</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-3">
             {error && (
-              <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</div>
+              <div role="alert" className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</div>
             )}
+            <label htmlFor="email" className="block text-left text-sm font-medium">Email</label>
             <Input
+              id="email"
               type="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
+              autoComplete="email"
             />
+            <label htmlFor="password" className="block pt-1 text-left text-sm font-medium">Password</label>
             <Input
+              id="password"
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
             />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in…" : "Sign in"}
@@ -118,23 +132,26 @@ export default function Login() {
             </Button>
           )}
           {demoEnabled && (
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-full mt-2"
-              onClick={handleDemoLogin}
-              disabled={demoLoading || loading}
-            >
-              {demoLoading ? "Signing in…" : "Try Demo"}
-            </Button>
-          )}
-          {import.meta.env.DEV && (
-            <p className="text-[11px] text-muted-foreground text-center mt-3">
-              Demo: admin@praxis.local / admin123
-            </p>
+            <div className="mt-3 rounded-xl border bg-secondary/60 p-3">
+              <div className="mb-2 text-left text-xs font-medium">Demo credentials</div>
+              <dl className="space-y-1.5 text-left text-xs">
+                <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Email</dt><dd><code>{demoEmail}</code></dd></div>
+                <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Password</dt><dd><code>{demoPassword}</code></dd></div>
+              </dl>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full mt-3 border"
+                onClick={handleDemoLogin}
+                disabled={demoLoading || loading}
+              >
+                {demoLoading ? "Signing in…" : "Use demo account"}
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
+      </main>
     </div>
   );
 }
