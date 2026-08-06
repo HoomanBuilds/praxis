@@ -15,7 +15,13 @@ from config import settings
 def get_redis():
     import redis
 
-    return redis.from_url(settings.redis_url, decode_responses=True)
+    return redis.from_url(
+        settings.redis_url,
+        decode_responses=True,
+        socket_connect_timeout=5,
+        socket_timeout=10,
+        health_check_interval=30,
+    )
 
 
 def ensure_group() -> None:
@@ -37,6 +43,10 @@ def publish_process_event(document_id: str) -> str:
 def queue_depth() -> int:
     client = get_redis()
     try:
+        groups = client.xinfo_groups(settings.redis_stream)
+        for group in groups:
+            if group.get("name") == settings.redis_group:
+                return int(group.get("pending", 0)) + int(group.get("lag") or 0)
         return client.xlen(settings.redis_stream)
     except Exception:
         return 0
