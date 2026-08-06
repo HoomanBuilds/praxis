@@ -3,13 +3,13 @@
 ## Inputs
 
 - An authenticated AWS CLI session with CloudFormation, EC2, and networking permissions.
+- An authenticated GitHub CLI session with administration access to `HoomanBuilds/praxis`.
 - A dedicated `praxis-aws` EC2 key pair and matching local SSH key.
 - The administrator's current public IPv4 address for the restricted SSH rule.
-- A Cloudflare Tunnel run token when public HTTPS is enabled.
 
 The default region is Mumbai (`ap-south-1`). The host is an `m6a.2xlarge` with 8 vCPUs, 32 GiB RAM, a 50 GiB encrypted gp3 root volume, and 8 GiB swap. Estimated on-demand cost is about USD 170 per 730-hour month before tax, snapshots, and data transfer.
 
-## Provision and Configure SSH
+## Provision Infrastructure
 
 Pass a single trusted address to CloudFormation:
 
@@ -28,21 +28,29 @@ Host praxis-aws
   StrictHostKeyChecking accept-new
 ```
 
-Synchronize the current workspace and release it:
+Provisioning creates a dedicated VPC, encrypted storage, security group, private release bucket, and EC2 instance. It also creates two restricted IAM roles: one for the EC2 host and one that GitHub can assume through OIDC. It does not create IAM users or permanent AWS access keys. SSH remains restricted to `SSH_CIDR`; HTTP and HTTPS serve the application.
+
+## Configure GitHub Deployment
+
+Install the AWS CLI and SSM agent on an existing host:
 
 ```bash
-./deploy/aws/release.sh
+./deploy/aws/bootstrap-management.sh
 ```
 
-Provisioning creates a dedicated VPC, encrypted storage, security group, and EC2 instance without IAM users or roles. SSH is open only to `SSH_CIDR`; HTTP and HTTPS remain closed. The release script excludes local dependencies, Git metadata, and environment files. On the first release, production secrets are generated directly on the host with mode `0600`.
-
-Before Cloudflare is connected, forward the host loopback port through SSH:
+Keep deployment disabled while checking a new setup:
 
 ```bash
-ssh -L 8080:127.0.0.1:8080 praxis-aws
+ENABLE_EC2_DEPLOY=false ./deploy/aws/configure-github.sh
 ```
 
-Then open `http://localhost:8080`.
+After SSM connectivity and a manual workflow run are verified, enable automatic deployment:
+
+```bash
+ENABLE_EC2_DEPLOY=true ./deploy/aws/configure-github.sh
+```
+
+A successful `CI` run on `main` then packages the reviewed commit, uploads it to the private S3 bucket, and deploys it through SSM. Release objects expire after 30 days. GitHub receives short-lived AWS credentials and does not store the EC2 SSH key.
 
 ## Verify
 
@@ -61,6 +69,6 @@ docker compose --env-file .env.production -f docker-compose.prod.yml ps
 docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail=200
 ```
 
-## Update and Roll Back
+## Manual Recovery
 
-Rerun `release.sh` to synchronize a reviewed workspace. Keep versioned release archives before changes that need rollback. Database schema changes require a separate migration and backup procedure before production use.
+If GitHub Actions or SSM is unavailable, run `./deploy/aws/release.sh` from a reviewed local checkout over the restricted SSH connection. Database schema changes require a separate migration and backup procedure before production use.

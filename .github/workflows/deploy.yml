@@ -1,9 +1,5 @@
 name: Deploy PRAXIS
 
-# Gated on the CI workflow (backend pytest + frontend build) succeeding on main — a
-# push to main no longer deploys straight from git pull with zero tests run. The
-# workflow_dispatch path stays available for a manual deploy that bypasses CI on
-# purpose (e.g. redeploying an unchanged image after an infra-only change).
 on:
   workflow_run:
     workflows: ["CI"]
@@ -11,38 +7,43 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: praxis-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    if: ${{ vars.ENABLE_EC2_DEPLOY == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
+    if: >-
+      ${{
+        vars.ENABLE_EC2_DEPLOY == 'true' &&
+        (
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+        )
+      }}
     runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_RELEASE_BUCKET: ${{ vars.AWS_RELEASE_BUCKET }}
+      AWS_INSTANCE_ID: ${{ vars.AWS_INSTANCE_ID }}
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Check out tested revision
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Upload release files
-        uses: appleboy/scp-action@v1
+      - name: Configure temporary AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "backend,frontend,data,deploy,nginx,docker-compose.prod.yml,requirements.txt"
-          target: /opt/praxis-upload
-          rm: true
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: praxis-${{ github.run_id }}
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -euo pipefail
-            install -d /opt/praxis
-            rsync -a --delete --exclude .env.production /opt/praxis-upload/ /opt/praxis/
-            cd /opt/praxis
-            chmod +x deploy/aws/create-remote-env.sh deploy/aws/remote-release.sh
-            ./deploy/aws/create-remote-env.sh
-            ./deploy/aws/remote-release.sh
-            curl -fsS https://praxis.inferia.ai/api/health
+      - name: Publish and deploy release
+        run: ./deploy/aws/github-deploy.sh "$RELEASE_SHA"
