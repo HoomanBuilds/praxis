@@ -24,8 +24,110 @@ Parameters:
     Type: AWS::EC2::Image::Id
     Default: ami-0d15e9052c94acb75
     Description: Pinned Amazon Linux 2023 AMI for ap-south-1. Update deliberately.
+  GitHubRepository:
+    Type: String
+    Default: HoomanBuilds/praxis
+    Description: GitHub owner and repository allowed to deploy.
+    AllowedPattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+  GitHubBranch:
+    Type: String
+    Default: main
+    Description: GitHub branch allowed to deploy.
+    AllowedPattern: "^[A-Za-z0-9._/-]+$"
 
 Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  ReleaseBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireReleaseArtifacts
+            Status: Enabled
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 7
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-releases
+        - Key: Project
+          Value: !Ref ProjectName
+
+  ReleaseBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ReleaseBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt ReleaseBucket.Arn
+              - !Sub ${ReleaseBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  HostRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-host
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ReadReleaseArtifacts
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:GetBucketLocation
+                Resource: !GetAtt ReleaseBucket.Arn
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub ${ReleaseBucket.Arn}/releases/*
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  HostInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${ProjectName}-host
+      Roles:
+        - !Ref HostRole
+
   Vpc:
     Type: AWS::EC2::VPC
     Properties:
@@ -115,6 +217,7 @@ Resources:
     Properties:
       ImageId: !Ref AmiId
       InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref HostInstanceProfile
       KeyName: !Ref KeyName
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
@@ -164,6 +267,47 @@ Resources:
         - Key: Project
           Value: !Ref ProjectName
 
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-github-deploy
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:ref:refs/heads/${GitHubBranch}
+      Policies:
+        - PolicyName: PublishAndDeploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:PutObject
+                Resource: !Sub ${ReleaseBucket.Arn}/releases/*
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript
+                  - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Host}
+              - Effect: Allow
+                Action:
+                  - ssm:CancelCommand
+                  - ssm:GetCommandInvocation
+                  - ssm:ListCommandInvocations
+                  - ssm:ListCommands
+                Resource: "*"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
   HostElasticIp:
     Type: AWS::EC2::EIP
     DependsOn: GatewayAttachment
@@ -187,3 +331,9 @@ Outputs:
     Value: !Ref HostElasticIp
   SshUser:
     Value: ec2-user
+  ReleaseBucketName:
+    Value: !Ref ReleaseBucket
+  GitHubDeployRoleArn:
+    Value: !GetAtt GitHubDeployRole.Arn
+  HostRoleArn:
+    Value: !GetAtt HostRole.Arn
