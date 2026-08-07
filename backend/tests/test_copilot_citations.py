@@ -248,7 +248,7 @@ def test_standalone_workspace_question_drops_unrelated_history(monkeypatch):
 
     monkeypatch.setattr("llm.copilot_structured_complete", complete)
     payload = CopilotRequest(
-        question="What evidence is required for KYC obligations?",
+        question="Explain the KYC obligation and its operational impact",
         history=[
             {"role": "user", "content": "Review obligations"},
             {"role": "assistant", "content": "Start with the pending review queue."},
@@ -290,12 +290,52 @@ def test_ungrounded_workspace_answer_is_replaced_with_verified_context(monkeypat
 
     response = copilot.__wrapped__(
         SimpleNamespace(),
+        CopilotRequest(question="What does the KYC obligation require operationally?"),
+        None,
+    )
+
+    assert "could not verify a complete answer" in response["answer"]
+    assert "PAN card" not in response["answer"]
+    assert response["sources"] == ["ABC-OB-003"]
+    assert response["grounded"] is True
+
+
+def test_evidence_question_uses_structured_workspace_data_without_model(monkeypatch):
+    obligation = SimpleNamespace(
+        id="kyc",
+        identifier="ABC-OB-003",
+        description="Complete KYC verification before account activation",
+        source_text="The intermediary shall complete KYC verification.",
+        document_id=None,
+        source_paragraph_ref="4",
+        functional_area="client_services",
+        status="pending_review",
+        deadline_hint=None,
+        confidence=0.9,
+    )
+    requirement = SimpleNamespace(
+        document_type="KYC verification record",
+        required_content="Identity and address checks with verification status.",
+        collector="Client onboarding",
+    )
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session: [obligation])
+    monkeypatch.setattr(
+        "api.routes_copilot.crud.list_evidence_requirements",
+        lambda session, **kwargs: [requirement],
+    )
+    monkeypatch.setattr(
+        "llm.copilot_structured_complete",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("model should not run")),
+    )
+
+    response = copilot.__wrapped__(
+        SimpleNamespace(),
         CopilotRequest(question="What evidence is required for KYC obligations?"),
         None,
     )
 
-    assert "does not define a general KYC evidence checklist" in response["answer"]
-    assert "PAN card" not in response["answer"]
+    assert "KYC verification record" in response["answer"]
+    assert "Client onboarding" in response["answer"]
     assert response["sources"] == ["ABC-OB-003"]
     assert response["grounded"] is True
 

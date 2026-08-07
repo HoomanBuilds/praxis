@@ -563,6 +563,49 @@ def _grounding_guard_response(
     }
 
 
+def _evidence_response(
+    session: Session,
+    question: str,
+    matches: list[models.Obligation],
+) -> dict | None:
+    normalized = question.lower()
+    if "evidence" not in normalized and not (
+        "document" in normalized and "required" in normalized
+    ):
+        return None
+
+    requirements = []
+    supporting = []
+    for obligation in matches[:5]:
+        obligation_requirements = crud.list_evidence_requirements(
+            session,
+            obligation_id=obligation.id,
+        )
+        if obligation_requirements:
+            supporting.append(obligation)
+            requirements.extend((obligation, requirement) for requirement in obligation_requirements[:3])
+
+    if not requirements:
+        return _grounding_guard_response(session, question, matches)
+
+    lines = ["Required evidence recorded in this workspace:", ""]
+    for obligation, requirement in requirements[:8]:
+        owner = f" Collector: {requirement.collector}." if requirement.collector else ""
+        lines.append(
+            f"- {obligation.identifier}: {requirement.document_type}. "
+            f"{requirement.required_content}{owner}"
+        )
+    citations = [_citable(session, obligation) for obligation in supporting]
+    return {
+        "answer": "\n".join(lines),
+        "citations": citations,
+        "sources": [item["obligation_identifier"] for item in citations],
+        "grounded": True,
+        "confidence": 0.95,
+        "response_type": "analysis",
+    }
+
+
 @router.post("/copilot")
 @limiter.limit("20/minute")
 def copilot(request: Request, payload: CopilotRequest, session: Session = Depends(get_db)):
@@ -584,6 +627,8 @@ def copilot(request: Request, payload: CopilotRequest, session: Session = Depend
     matches = _direct_matches(session, payload.question, scoped or None) if needs_context else []
     if not matches and scoped:
         matches = scoped[:5]
+    if matches and (evidence_response := _evidence_response(session, payload.question, matches)):
+        return evidence_response
 
     citable = {ob.identifier: _citable(session, ob) for ob in matches if ob.identifier}
     context = "\n\n".join(_obligation_block(session, ob) for ob in matches)
