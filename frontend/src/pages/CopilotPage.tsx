@@ -98,7 +98,7 @@ export default function CopilotPage() {
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto p-5">
+          <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto p-3 sm:p-5">
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
                 <div className="grid h-12 w-12 place-items-center rounded-2xl border border-primary/30 bg-primary/10">
@@ -122,15 +122,15 @@ export default function CopilotPage() {
               </div>
             ) : (
               messages.map((message, index) => (
-                <div key={index} className={cn("flex gap-3", message.role === "user" && "flex-row-reverse")}>
+                <div key={index} className={cn("flex gap-2 sm:gap-3", message.role === "user" && "flex-row-reverse")}>
                   <div className={cn(
-                    "grid h-7 w-7 shrink-0 place-items-center rounded-full border",
+                    "grid h-6 w-6 shrink-0 place-items-center rounded-full border sm:h-7 sm:w-7",
                     message.role === "user" ? "bg-primary/15" : "bg-muted",
                   )}>
                     {message.role === "user" ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5 text-primary" />}
                   </div>
                   <div className={cn(
-                    "max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm",
+                    "max-w-[calc(100%-2rem)] whitespace-pre-wrap rounded-2xl px-3 py-2.5 text-sm sm:max-w-[80%] sm:px-4",
                     message.role === "user"
                       ? "bg-primary/10"
                       : message.error
