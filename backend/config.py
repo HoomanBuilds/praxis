@@ -28,25 +28,27 @@ class Settings(BaseSettings):
     llm_provider: str = "ollama"
     ollama_host: str = "http://localhost:11434"
     llm_model: str = "llama3.1:8b"
+    llm_fallback_models: str = "glm-5.1,minimax-m3"
+    llm_local_model: str = "llama3.1:8b"
+    llm_base_url: str = "https://router-api.0g.ai/v1"
+    llm_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("PRAXIS_LLM_API_KEY", "ZEROG_COMPUTE_API_KEY"),
+    )
     llm_temperature: float = 0.0
     llm_num_ctx: int = 8192
+    llm_num_predict: int = 2048
     llm_request_timeout: int = 300
+    llm_cloud_request_timeout: int = 30
+    llm_cloud_timeout: int = 90
+    llm_local_timeout: int = 300
+    llm_provider_sort: str = "latency"
     llm_keep_alive: str = "30m"  # keep the model resident between pipeline calls
-    copilot_provider: str = "ollama"
-    copilot_model: str = ""
-    copilot_fallback_models: str = "glm-5.1,deepseek-v4-flash,qwen3.7-plus,minimax-m3"
-    copilot_local_model: str = "llama3.2:3b"
-    copilot_base_url: str = "https://router-api.0g.ai/v1"
-    copilot_api_key: str = Field(
-        default="",
-        validation_alias=AliasChoices("PRAXIS_COPILOT_API_KEY", "ZEROG_COMPUTE_API_KEY"),
-    )
-    copilot_request_timeout: int = 25
+    copilot_request_timeout: int = 12
     copilot_cloud_timeout: int = 30
     copilot_local_timeout: int = 30
-    copilot_provider_sort: str = "latency"
     copilot_num_ctx: int = 4096
-    copilot_num_predict: int = 256
+    copilot_num_predict: int = 512
 
     # --- Embeddings ---
     embedding_model: str = "sentence-transformers/all-mpnet-base-v2"
