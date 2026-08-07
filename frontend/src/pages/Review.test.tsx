@@ -97,6 +97,7 @@ describe("Document review", () => {
     expect(await screen.findByRole("heading", { name: document.title })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate rules/i })).toBeDisabled();
     expect(screen.getByText(/approve at least one obligation/i)).toBeInTheDocument();
+    expect(screen.getByText(/does not assign work yet/i)).toBeInTheDocument();
   });
 
   it("offers recovery when the review cannot be loaded", async () => {

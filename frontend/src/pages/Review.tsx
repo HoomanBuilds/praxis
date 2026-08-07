@@ -226,6 +226,13 @@ export default function Review() {
         </div>
       </div>
 
+      <div className="rounded-xl border bg-muted/40 p-4 text-sm">
+        <div className="font-medium">What approval does</div>
+        <div className="mt-1 text-muted-foreground">
+          Approve confirms that an extracted requirement applies and accurately reflects the cited source. It does not assign work yet. After approving, use Generate rules & tasks to create owners, deadlines, and evidence requirements.
+        </div>
+      </div>
+
       {generate.isError && (
         <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {generate.error instanceof Error ? generate.error.message : "Rules and tasks could not be generated. Please try again."}
