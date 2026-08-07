@@ -166,7 +166,7 @@ export default function Watch() {
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{h.summary}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-[10px] text-muted-foreground">{timeAgo(h.created_at)}</span>
-                  {h.url && <a href={h.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground flex items-center gap-1 hover:text-foreground"><ExternalLink className="h-2.5 w-2.5" /> Source</a>}
+                  {h.url && <a href={h.url} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground sm:min-h-0"><ExternalLink className="h-2.5 w-2.5" /> Source</a>}
                 </div>
               </div>
             ))}

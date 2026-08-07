@@ -284,7 +284,7 @@ export default function Dashboard() {
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Recent Documents</CardTitle>
-          <button onClick={() => navigate("/documents")} className="flex min-h-11 items-center gap-1 text-xs text-muted-foreground hover:text-foreground sm:min-h-0">All <ArrowRight className="h-3 w-3" /></button>
+          <button onClick={() => navigate("/documents")} className="flex min-h-11 min-w-11 items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground sm:min-h-0 sm:min-w-0">All <ArrowRight className="h-3 w-3" /></button>
         </CardHeader>
         <CardContent>
           {documents?.length ? (

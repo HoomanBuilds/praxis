@@ -260,7 +260,7 @@ export default function Calendar() {
               id="calendar-area"
               value={area}
               onChange={(event) => setArea(event.target.value)}
-              className="h-9 rounded-lg border bg-card px-2 text-xs"
+              className="h-11 rounded-lg border bg-card px-2 text-xs sm:h-9"
             >
               {areas.map((item) => (
                 <option key={item} value={item}>{item === "all" ? "All departments" : titleCase(item)}</option>
@@ -271,7 +271,7 @@ export default function Calendar() {
               id="calendar-status"
               value={filterStatus}
               onChange={(event) => setFilterStatus(event.target.value)}
-              className="h-9 rounded-lg border bg-card px-2 text-xs"
+              className="h-11 rounded-lg border bg-card px-2 text-xs sm:h-9"
             >
               <option value="all">All statuses</option>
               {statuses.map((status) => <option key={status} value={status}>{titleCase(status)}</option>)}
@@ -420,7 +420,7 @@ export default function Calendar() {
             ))}
             {filteredUnscheduled.length > 8 && (
               <div className="pt-1 text-xs text-muted-foreground">
-                {filteredUnscheduled.length - 8} more timing rules. <Link to="/obligations" className="font-medium text-foreground hover:underline">Review all obligations</Link>
+                {filteredUnscheduled.length - 8} more timing rules. <Link to="/obligations" className="inline-flex min-h-11 items-center font-medium text-foreground hover:underline sm:min-h-0">Review all obligations</Link>
               </div>
             )}
           </CardContent>
