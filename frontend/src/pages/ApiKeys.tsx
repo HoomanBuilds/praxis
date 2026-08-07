@@ -5,13 +5,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Key, Plus, Copy, AlertTriangle } from "lucide-react";
 import { timeAgo } from "@/lib/format";
 
 export default function ApiKeys() {
   const qc = useQueryClient();
-  const { data: keys } = useQuery({ queryKey: ["api-keys"], queryFn: api.listApiKeys });
+  const keysQuery = useQuery({ queryKey: ["api-keys"], queryFn: api.listApiKeys });
+  const keys = keysQuery.data;
   const [createOpen, setCreateOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [createdKey, setCreatedKey] = useState<{ label: string; key: string } | null>(null);
@@ -31,9 +33,17 @@ export default function ApiKeys() {
     if (createdKey) { navigator.clipboard.writeText(createdKey.key); setCopied(true); }
   };
 
+  if (keysQuery.isLoading) {
+    return <PageSkeleton label="Loading API keys" cards={0} />;
+  }
+
+  if (keysQuery.isError && keys === undefined) {
+    return <QueryError title="API keys could not be loaded" onRetry={() => void keysQuery.refetch()} />;
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2"><Key className="h-5 w-5" /> API Keys</h1>
           <p className="text-sm text-muted-foreground">Manage programmatic access keys for integrations.</p>
@@ -42,8 +52,8 @@ export default function ApiKeys() {
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
+        <CardContent className="overflow-x-auto p-0">
+          <table className="min-w-[720px] w-full text-sm">
             <thead className="text-left text-muted-foreground border-b">
               <tr>
                 <th className="py-3 px-4 font-medium">Label</th>
@@ -79,10 +89,17 @@ export default function ApiKeys() {
         </CardContent>
       </Card>
 
+      {(createMut.isError || revokeMut.isError) && (
+        <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {createMut.error?.message || revokeMut.error?.message}
+        </div>
+      )}
+
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Create API Key</DialogTitle></DialogHeader>
-          <Input placeholder="Key label (e.g. staging-integration)" value={label} onChange={(e) => setLabel(e.target.value)} />
+          <label htmlFor="api-key-label" className="text-sm font-medium">Key label</label>
+          <Input id="api-key-label" placeholder="For example, staging-integration" value={label} onChange={(e) => setLabel(e.target.value)} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
             <Button onClick={() => createMut.mutate()} disabled={createMut.isPending || !label}>Create</Button>

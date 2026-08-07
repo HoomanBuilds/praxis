@@ -2,11 +2,21 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { Database, Download } from "lucide-react";
 
 export default function DataRetention() {
-  const { data: status } = useQuery({ queryKey: ["retention-status"], queryFn: api.retentionStatus });
+  const statusQuery = useQuery({ queryKey: ["retention-status"], queryFn: api.retentionStatus });
+  const status = statusQuery.data;
   const exportMut = useMutation({ mutationFn: api.exportAudit });
+
+  if (statusQuery.isLoading) {
+    return <PageSkeleton label="Loading data retention settings" cards={3} />;
+  }
+
+  if (statusQuery.isError && status === undefined) {
+    return <QueryError title="Data retention settings could not be loaded" onRetry={() => void statusQuery.refetch()} />;
+  }
 
   return (
     <div className="space-y-5">
@@ -18,7 +28,7 @@ export default function DataRetention() {
       <div className="grid md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">Retention Period</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-semibold">{status?.retention_days ?? "—"}</div><div className="text-xs text-muted-foreground">days (~{Math.round((status?.retention_days ?? 0) / 365)} years)</div></CardContent>
+          <CardContent><div className="text-2xl font-semibold">{status?.retention_days ?? "-"}</div><div className="text-xs text-muted-foreground">days (~{Math.round((status?.retention_days ?? 0) / 365)} years)</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">Audit Log Entries</CardTitle></CardHeader>
@@ -37,6 +47,7 @@ export default function DataRetention() {
           <Button disabled={exportMut.isPending} onClick={() => exportMut.mutate()}>
             {exportMut.isPending ? "Generating…" : "Export audit package"}
           </Button>
+          {exportMut.isError && <div role="alert" className="text-sm text-destructive">{exportMut.error.message}</div>}
           {exportMut.data && (
             <div className="rounded-lg border border-success/40 bg-success/5 p-3 text-sm">
               Export ready:{" "}

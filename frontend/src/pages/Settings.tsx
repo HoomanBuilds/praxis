@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ListSkeleton } from "@/components/ui/data-state";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabList, TabTrigger, TabContent } from "@/components/ui/tabs";
 import { Cpu, Boxes, Plug, ShieldCheck, Check, Copy, Loader2, AlertTriangle } from "lucide-react";
@@ -40,8 +41,8 @@ const AGENTS: [string, string, string, string][] = [
 
 const INTEGRATION_META: Record<string, { name: string; desc: string }> = {
   email: { name: "Email (SMTP)", desc: "Notify owners of new tasks and deadlines." },
-  slack: { name: "Chat Notifications", desc: "Channel/DM notifications for the compliance team — Slack (webhook)." },
-  calendar: { name: "Calendar Sync", desc: "Live .ics feed of compliance deadlines — subscribe from Outlook or Google Calendar." },
+  slack: { name: "Chat Notifications", desc: "Channel/DM notifications for the compliance team - Slack (webhook)." },
+  calendar: { name: "Calendar Sync", desc: "Live .ics feed of compliance deadlines - subscribe from Outlook or Google Calendar." },
   sso: { name: "SSO (OIDC / Keycloak)", desc: "Enterprise authentication + RBAC via a demo Keycloak realm." },
   jira: { name: "GRC / Ticketing", desc: "Sync obligations and tasks into your own Jira site." },
   drive: { name: "Document Management", desc: "Store evidence uploads in your Google Drive instead of local disk." },
@@ -49,7 +50,7 @@ const INTEGRATION_META: Record<string, { name: string; desc: string }> = {
   ldap: { name: "LDAP / Active Directory", desc: "Enterprise directory service sync validated against a local OpenLDAP test container." },
 };
 
-const SCORES_DESC = "Track investor grievance redress status against SCORES filings. SEBI has no public SCORES API — the reference is entered manually by your compliance officer.";
+const SCORES_DESC = "Track investor grievance redress status against SCORES filings. SEBI has no public SCORES API - the reference is entered manually by your compliance officer.";
 
 function statusBadge(status: string) {
   if (status === "connected") return <Badge variant="success"><Check className="h-3 w-3" /> Connected</Badge>;
@@ -73,7 +74,8 @@ export default function Settings() {
   const [tab, setTab] = useState("overview");
   const { t, mode, isBusiness } = useVocab();
   const { toggleAdvanced } = useUIMode();
-  const { data: health } = useQuery({ queryKey: ["health"], queryFn: api.health });
+  const healthQuery = useQuery({ queryKey: ["health"], queryFn: api.health });
+  const health = healthQuery.data;
   const llm = (health?.["llm"] as Record<string, unknown>) || {};
 
   return (
@@ -99,22 +101,33 @@ export default function Settings() {
               <Card>
                 <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Cpu className="h-4 w-4" /> {t("settings.ai_engine")}</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
+                  {healthQuery.isLoading ? (
+                    <ListSkeleton label="Loading AI engine status" rows={3} />
+                  ) : healthQuery.isError && health === undefined ? (
+                    <div role="alert" className="space-y-3 rounded-lg bg-destructive/10 p-3 text-destructive">
+                      <p>AI engine status could not be loaded.</p>
+                      <Button size="sm" variant="outline" onClick={() => void healthQuery.refetch()}>Retry</Button>
+                    </div>
+                  ) : (
+                    <>
                   <Row
                     label={t("settings.ai_status")}
                     value={llm.available ? t("settings.ai_ready") : t("settings.ai_unavailable")}
                     tone={llm.available ? "success" : "destructive"}
                   />
-                  {/* Provider, model tag and index size are diagnostics — a model name has
+                  {/* Provider, model tag and index size are diagnostics - a model name has
                       no business meaning to a compliance officer. */}
                   {!isBusiness && (
                     <>
-                      <Row label="Provider" value={String(llm.provider || "—")} />
-                      <Row label="Model" value={String(health?.["model"] || llm.model || "—")} />
+                      <Row label="Provider" value={String(llm.provider || "-")} />
+                      <Row label="Model" value={String(health?.["model"] || llm.model || "-")} />
                       <Row label="Host" value={String(llm.host || "local")} />
                       <Row label="Embedding index" value={`${health?.["corpus_chunks"] ?? 0} chunks`} />
                     </>
                   )}
                   <div className="text-[11px] text-muted-foreground pt-1">{t("settings.residency")}</div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -176,7 +189,8 @@ export default function Settings() {
 
 function IntegrationsPanel() {
   const qc = useQueryClient();
-  const { data: integrations } = useQuery({ queryKey: ["integrations"], queryFn: api.listIntegrations });
+  const integrationsQuery = useQuery({ queryKey: ["integrations"], queryFn: api.listIntegrations });
+  const integrations = integrationsQuery.data;
   const byType = new Map((integrations ?? []).map((i) => [i.type, i]));
   const [connecting, setConnecting] = useState<Integration | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -192,7 +206,7 @@ function IntegrationsPanel() {
           if (ev.data && ev.data.type === "praxis:drive-connected") {
             qc.invalidateQueries({ queryKey: ["integrations"] });
             if (ev.data.ok) setResult({ message: "Connected to Google Drive." });
-            else setResult({ message: "Drive connection failed — see the card's error state." });
+            else setResult({ message: "Drive connection failed - see the card's error state." });
           }
         });
         if (w) {
@@ -238,6 +252,27 @@ function IntegrationsPanel() {
 
   const cardTypes = [...Object.keys(INTEGRATION_META), "scores"];
 
+  if (integrationsQuery.isLoading) {
+    return (
+      <Card>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Plug className="h-4 w-4" /> Integrations</CardTitle></CardHeader>
+        <CardContent><ListSkeleton label="Loading integrations" rows={4} /></CardContent>
+      </Card>
+    );
+  }
+
+  if (integrationsQuery.isError && integrations === undefined) {
+    return (
+      <Card>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Plug className="h-4 w-4" /> Integrations</CardTitle></CardHeader>
+        <CardContent className="space-y-3" role="alert">
+          <p className="text-sm text-destructive">Integrations could not be loaded.</p>
+          <Button size="sm" variant="outline" onClick={() => void integrationsQuery.refetch()}>Retry</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Plug className="h-4 w-4" /> Integrations</CardTitle></CardHeader>
@@ -246,7 +281,7 @@ function IntegrationsPanel() {
           {cardTypes.map((type) => {
             if (type === "scores") {
               return (
-                <div key="scores" className="flex items-center gap-3 rounded-lg border p-3">
+                <div key="scores" className="flex flex-col items-start gap-3 rounded-lg border p-3 sm:flex-row sm:items-center">
                   <div>
                     <div className="text-sm font-medium">SEBI SCORES</div>
                     <div className="text-xs text-muted-foreground">{SCORES_DESC}</div>
@@ -261,7 +296,7 @@ function IntegrationsPanel() {
             const meta = INTEGRATION_META[type];
             const isSSO = type === "sso";
             return (
-              <div key={type} className="flex items-center gap-3 rounded-lg border p-3">
+              <div key={type} className="flex flex-col items-start gap-3 rounded-lg border p-3 sm:flex-row sm:items-center">
                 <div className="min-w-0">
                   <div className="text-sm font-medium flex items-center gap-2">
                     {meta.name}
@@ -273,7 +308,7 @@ function IntegrationsPanel() {
                         <span className="text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {integ.last_error}</span>
                       )}
                       {integ.status === "connected" && (
-                        <span className="text-success">→ {integ.configured_as}</span>
+                        <span className="text-success">Connected as {integ.configured_as}</span>
                       )}
                       {integ.status === "connected" && integ.last_used_at && (
                         <div className="text-muted-foreground mt-0.5">Last tested: {fmtTime(integ.last_used_at)}</div>
@@ -297,9 +332,10 @@ function IntegrationsPanel() {
             );
           })}
         </div>
+        {disconnectMut.isError && <div role="alert" className="mt-3 text-sm text-destructive">{disconnectMut.error.message}</div>}
         <p className="text-[11px] text-muted-foreground mt-3">
           Every integration is a production connection with a live test-on-connect. Jira, Google Drive and DocuSign
-          connect to your own accounts. SEBI SCORES has no public API — tracked manually, never faked. Credentials are
+          connect to your own accounts. SEBI SCORES has no public API - tracked manually, never faked. Credentials are
           encrypted at rest and never exposed.
         </p>
       </CardContent>
@@ -352,7 +388,7 @@ function ConnectDialog({
           <DialogTitle>Connect {INTEGRATION_META[integration.type]?.name ?? integration.type}</DialogTitle>
           <p className="text-sm text-muted-foreground">
             {isDrive
-              ? "Opens Google's consent screen — sign in and grant access, then the browser popup returns here."
+              ? "Opens Google's consent screen - sign in and grant access, then the browser popup returns here."
               : isCalendar
                 ? "No credentials needed. Connecting enables a private .ics feed URL you can subscribe to in any calendar app."
                 : isLdap
@@ -365,9 +401,10 @@ function ConnectDialog({
           <div className="space-y-3">
             {integration.fields.map((f: IntegrationField) => (
               <div key={f.name} className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">{f.label}</label>
+                <label htmlFor={`integration-${integration.type}-${f.name}`} className="text-xs font-medium text-muted-foreground">{f.label}</label>
                 {f.type === "textarea" ? (
                   <textarea
+                    id={`integration-${integration.type}-${f.name}`}
                     className="w-full min-h-[90px] rounded-md border bg-transparent px-3 py-2 text-sm font-mono"
                     placeholder={f.placeholder}
                     value={fields[f.name] ?? ""}
@@ -375,6 +412,7 @@ function ConnectDialog({
                   />
                 ) : (
                   <Input
+                    id={`integration-${integration.type}-${f.name}`}
                     type={f.type === "password" ? "password" : f.type === "email" ? "email" : "text"}
                     placeholder={f.placeholder}
                     value={fields[f.name] ?? ""}
@@ -387,7 +425,7 @@ function ConnectDialog({
         )}
 
         {result && (
-          <div className={`text-sm rounded-lg px-3 py-2 ${result.message.includes("failed") || result.message.toLowerCase().includes("error") || result.message.toLowerCase().includes("unreachable") ? "text-destructive bg-destructive/10" : "text-success bg-success/10"}`}>
+          <div role="status" className={`text-sm rounded-lg px-3 py-2 ${result.message.includes("failed") || result.message.toLowerCase().includes("error") || result.message.toLowerCase().includes("unreachable") ? "text-destructive bg-destructive/10" : "text-success bg-success/10"}`}>
             {result.message}
             {result.feed_url && (
               <div className="mt-2 flex items-center gap-2">
@@ -396,7 +434,7 @@ function ConnectDialog({
               </div>
             )}
             {result.feed_url && (
-              <div className="text-[11px] text-muted-foreground mt-2">This URL is shown once — it contains the private feed token.</div>
+              <div className="text-[11px] text-muted-foreground mt-2">This URL is shown once - it contains the private feed token.</div>
             )}
           </div>
         )}

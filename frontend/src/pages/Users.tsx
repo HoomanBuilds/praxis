@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Users as UsersIcon, Plus, Shield } from "lucide-react";
 import { timeAgo } from "@/lib/format";
@@ -27,14 +28,15 @@ const ROLE_OPTIONS = [
 
 export default function Users() {
   const qc = useQueryClient();
-  const { data: users } = useQuery({
+  const usersQuery = useQuery({
     queryKey: ["users"],
     queryFn: async (): Promise<UserRow[]> => {
       const res = await apiFetch("/api/users");
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) throw new Error("Users could not be loaded.");
       return res.json();
     },
   });
+  const users = usersQuery.data;
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [form, setForm] = useState({ email: "", name: "", password: "", role: "viewer" });
@@ -61,9 +63,17 @@ export default function Users() {
     onError: (err: unknown) => setFormError(err instanceof Error ? err.message : "Failed"),
   });
 
+  if (usersQuery.isLoading) {
+    return <PageSkeleton label="Loading users" cards={0} />;
+  }
+
+  if (usersQuery.isError && users === undefined) {
+    return <QueryError title="Users could not be loaded" onRetry={() => void usersQuery.refetch()} />;
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2"><UsersIcon className="h-5 w-5" /> Users & Roles</h1>
           <p className="text-sm text-muted-foreground">Manage team access and role assignments.</p>
@@ -72,8 +82,8 @@ export default function Users() {
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
+        <CardContent className="overflow-x-auto p-0">
+          <table className="min-w-[620px] w-full text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground">
                 <th className="px-4 py-3 font-medium">User</th>
@@ -115,11 +125,11 @@ export default function Users() {
             <DialogTitle>Invite User</DialogTitle>
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); inviteMutation.mutate(form); }} className="space-y-3">
-            {formError && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{formError}</div>}
-            <Input placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <Input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-            <Input type="password" placeholder="Password (min 6 chars)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} />
-            <Select options={ROLE_OPTIONS} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
+            {formError && <div role="alert" className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{formError}</div>}
+            <div className="space-y-1.5"><label htmlFor="invite-name" className="text-sm font-medium">Full name</label><Input id="invite-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
+            <div className="space-y-1.5"><label htmlFor="invite-email" className="text-sm font-medium">Email</label><Input id="invite-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
+            <div className="space-y-1.5"><label htmlFor="invite-password" className="text-sm font-medium">Password</label><Input id="invite-password" type="password" placeholder="Minimum 6 characters" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} /></div>
+            <div className="space-y-1.5"><label htmlFor="invite-role" className="text-sm font-medium">Role</label><Select id="invite-role" options={ROLE_OPTIONS} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={inviteMutation.isPending}>{inviteMutation.isPending ? "Inviting…" : "Invite"}</Button>
