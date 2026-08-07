@@ -12,18 +12,21 @@ x-backend-environment: &backend-environment
   PRAXIS_CHROMA_HOST: chromadb
   PRAXIS_CHROMA_PORT: "8000"
   PRAXIS_OLLAMA_HOST: http://ollama:11434
-  PRAXIS_LLM_MODEL: ${PRAXIS_LLM_MODEL:-llama3.1:8b}
+  PRAXIS_LLM_PROVIDER: ${PRAXIS_LLM_PROVIDER:-0g}
+  PRAXIS_LLM_MODEL: ${PRAXIS_LLM_MODEL:-qwen3.8-max}
+  PRAXIS_LLM_FALLBACK_MODELS: ${PRAXIS_LLM_FALLBACK_MODELS:-glm-5.1,minimax-m3}
+  PRAXIS_LLM_LOCAL_MODEL: ${PRAXIS_LLM_LOCAL_MODEL:-llama3.1:8b}
+  PRAXIS_LLM_BASE_URL: ${PRAXIS_LLM_BASE_URL:-https://router-api.0g.ai/v1}
   PRAXIS_LLM_NUM_CTX: ${PRAXIS_LLM_NUM_CTX:-8192}
+  PRAXIS_LLM_NUM_PREDICT: ${PRAXIS_LLM_NUM_PREDICT:-2048}
   PRAXIS_LLM_REQUEST_TIMEOUT: ${PRAXIS_LLM_REQUEST_TIMEOUT:-300}
-  PRAXIS_COPILOT_PROVIDER: ${PRAXIS_COPILOT_PROVIDER:-0g}
-  PRAXIS_COPILOT_MODEL: ${PRAXIS_COPILOT_MODEL:-qwen3.8-max}
-  PRAXIS_COPILOT_FALLBACK_MODELS: ${PRAXIS_COPILOT_FALLBACK_MODELS:-glm-5.1,deepseek-v4-flash,qwen3.7-plus,minimax-m3}
-  PRAXIS_COPILOT_LOCAL_MODEL: ${PRAXIS_COPILOT_LOCAL_MODEL:-llama3.2:3b}
-  PRAXIS_COPILOT_BASE_URL: ${PRAXIS_COPILOT_BASE_URL:-https://router-api.0g.ai/v1}
+  PRAXIS_LLM_CLOUD_REQUEST_TIMEOUT: ${PRAXIS_LLM_CLOUD_REQUEST_TIMEOUT:-30}
+  PRAXIS_LLM_CLOUD_TIMEOUT: ${PRAXIS_LLM_CLOUD_TIMEOUT:-90}
+  PRAXIS_LLM_LOCAL_TIMEOUT: ${PRAXIS_LLM_LOCAL_TIMEOUT:-300}
+  PRAXIS_LLM_PROVIDER_SORT: ${PRAXIS_LLM_PROVIDER_SORT:-latency}
   PRAXIS_COPILOT_REQUEST_TIMEOUT: ${PRAXIS_COPILOT_REQUEST_TIMEOUT:-12}
   PRAXIS_COPILOT_CLOUD_TIMEOUT: ${PRAXIS_COPILOT_CLOUD_TIMEOUT:-30}
   PRAXIS_COPILOT_LOCAL_TIMEOUT: ${PRAXIS_COPILOT_LOCAL_TIMEOUT:-30}
-  PRAXIS_COPILOT_PROVIDER_SORT: ${PRAXIS_COPILOT_PROVIDER_SORT:-latency}
   PRAXIS_COPILOT_NUM_CTX: ${PRAXIS_COPILOT_NUM_CTX:-4096}
   PRAXIS_COPILOT_NUM_PREDICT: ${PRAXIS_COPILOT_NUM_PREDICT:-512}
   PRAXIS_DOC_STORE_PATH: /app/data/documents
@@ -128,15 +131,10 @@ services:
     networks: [internal]
     environment:
       OLLAMA_HOST: http://ollama:11434
-      OLLAMA_MODEL: ${PRAXIS_LLM_MODEL:-llama3.1:8b}
-      OLLAMA_COPILOT_MODEL: ${PRAXIS_COPILOT_LOCAL_MODEL:-llama3.2:3b}
+      OLLAMA_MODEL: ${PRAXIS_LLM_LOCAL_MODEL:-llama3.1:8b}
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - >-
-        ollama pull "$${OLLAMA_MODEL}" &&
-        if [ "$${OLLAMA_COPILOT_MODEL}" != "$${OLLAMA_MODEL}" ]; then
-          ollama pull "$${OLLAMA_COPILOT_MODEL}";
-        fi
+      - ollama pull "$${OLLAMA_MODEL}"
     depends_on:
       ollama:
         condition: service_healthy
@@ -193,7 +191,9 @@ services:
     logging: *default-logging
     networks: [internal]
     command: python -u -m ingestion.worker
-    environment: *backend-environment
+    environment:
+      <<: *backend-environment
+      ZEROG_COMPUTE_API_KEY: ${ZEROG_COMPUTE_API_KEY:?Set ZEROG_COMPUTE_API_KEY}
     volumes: *backend-volumes
     depends_on:
       api:
