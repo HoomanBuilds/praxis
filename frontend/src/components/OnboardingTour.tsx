@@ -117,7 +117,9 @@ export function OnboardingTour({ userId }: { userId: string }) {
     };
     const frame = window.requestAnimationFrame(() => {
       const element = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
-      element?.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (typeof element?.scrollIntoView === "function") {
+        element.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
       updateTarget();
     });
     const observer = new MutationObserver(updateTarget);
