@@ -90,6 +90,7 @@ describe("useCopilotChat", () => {
     act(() => result.current.selectSession(firstSessionId));
 
     expect(result.current.messages).toHaveLength(2);
+    expect(result.current.sessions).toHaveLength(1);
     expect(result.current.messages[0].text).toBe("Summarize the compliance workspace");
   });
 });

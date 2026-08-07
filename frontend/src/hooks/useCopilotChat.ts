@@ -153,9 +153,15 @@ export function useCopilotChat(scope: CopilotScope = {}) {
 
   const selectSession = useCallback((sessionId: string) => {
     if (sendingRef.current) return;
-    setChatStore((current) => current.sessions.some((session) => session.id === sessionId)
-      ? { ...current, activeSessionId: sessionId }
-      : current);
+    setChatStore((current) => {
+      if (!current.sessions.some((session) => session.id === sessionId)) return current;
+      return {
+        activeSessionId: sessionId,
+        sessions: current.sessions.filter((session) => (
+          session.messages.length > 0 || session.id === sessionId
+        )),
+      };
+    });
     setLastQuestion("");
     setInput("");
   }, [setChatStore]);
