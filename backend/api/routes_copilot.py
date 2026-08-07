@@ -454,7 +454,7 @@ def _direct_matches(
             obligation.description or "",
             obligation.source_text or "",
             obligation.functional_area or "",
-            obligation.status or "",
+            getattr(obligation, "status", "") or "",
             " ".join(
                 f"{task.title} {task.primary_owner or ''} {task.status}"
                 for task in tasks
