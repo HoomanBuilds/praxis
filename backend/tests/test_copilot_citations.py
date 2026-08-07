@@ -350,7 +350,9 @@ def test_general_question_uses_model_without_workspace_citations(monkeypatch):
             source_ids=[],
             grounded=False,
             confidence=0.95,
-        )
+        ),
+        provider="0g",
+        model="qwen3.8-max",
     ))
 
     response = copilot.__wrapped__(
@@ -362,3 +364,5 @@ def test_general_question_uses_model_without_workspace_citations(monkeypatch):
     assert response["answer"].startswith("Securities regulators protect")
     assert response["citations"] == []
     assert response["grounded"] is False
+    assert response["analysis_provider"] == "0g"
+    assert response["analysis_model"] == "qwen3.8-max"

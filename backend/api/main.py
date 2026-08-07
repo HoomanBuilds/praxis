@@ -172,7 +172,7 @@ app.include_router(routes_integrations.router, dependencies=[Depends(require_use
 @app.get("/api/health")
 def health():
     from ingestion.service import queue_depth
-    from llm import health_check
+    from llm import copilot_configuration, health_check
 
     out = {"status": "ok", "corpus_chunks": 0, "queue_depth": 0}
     try:
@@ -187,6 +187,10 @@ def health():
         out["llm"] = health_check(probe_generation=False)
     except Exception as exc:
         out["llm"] = {"error": str(exc)}
+    try:
+        out["copilot"] = copilot_configuration()
+    except Exception as exc:
+        out["copilot"] = {"error": str(exc)}
     out["model"] = settings.llm_model
     return out
 

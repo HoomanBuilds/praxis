@@ -662,6 +662,9 @@ def copilot(request: Request, payload: CopilotRequest, session: Session = Depend
         return _fallback_response(session, payload.question, payload.history, matches)
 
     parsed: CopilotAnswer = result.parsed  # type: ignore[assignment]
+    result_provider = getattr(result, "provider", "unknown")
+    result_model = getattr(result, "model", "unknown")
+    logger.info("Copilot response provider=%s model=%s", result_provider, result_model)
     citations = []
     seen: set[str] = set()
     for identifier in parsed.source_ids:
@@ -682,5 +685,7 @@ def copilot(request: Request, payload: CopilotRequest, session: Session = Depend
         "confidence": round(confidence, 2),
         "prompt_version": PROMPT_VERSION,
         "prompt_hash": PROMPT_HASH,
+        "analysis_provider": result_provider,
+        "analysis_model": result_model,
         "response_type": "analysis",
     }

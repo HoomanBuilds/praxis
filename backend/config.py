@@ -34,12 +34,17 @@ class Settings(BaseSettings):
     llm_keep_alive: str = "30m"  # keep the model resident between pipeline calls
     copilot_provider: str = "ollama"
     copilot_model: str = ""
+    copilot_fallback_models: str = "glm-5.1,deepseek-v4-flash,qwen3.7-plus,minimax-m3"
+    copilot_local_model: str = "llama3.2:3b"
     copilot_base_url: str = "https://router-api.0g.ai/v1"
     copilot_api_key: str = Field(
         default="",
         validation_alias=AliasChoices("PRAXIS_COPILOT_API_KEY", "ZEROG_COMPUTE_API_KEY"),
     )
     copilot_request_timeout: int = 25
+    copilot_cloud_timeout: int = 30
+    copilot_local_timeout: int = 30
+    copilot_provider_sort: str = "latency"
     copilot_num_ctx: int = 4096
     copilot_num_predict: int = 256
 
