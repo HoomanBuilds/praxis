@@ -17,9 +17,10 @@ import { useCopilot } from "@/context/CopilotContext";
 import { useAuth } from "@/context/AuthContext";
 import { useVocab } from "@/hooks/useVocab";
 import type { TermKey } from "@/lib/vocab/terms";
+import { preloadRoute, preloadWorkspaceRoutes } from "@/lib/routePreload";
 
 // `termKey` overrides `label` when set, so a nav entry can read differently in business
-// and engineering mode. Routes never change — deep links and the command palette depend
+// and engineering mode. Routes never change - deep links and the command palette depend
 // on them staying stable.
 const navGroups: {
   heading: string;
@@ -67,6 +68,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => setMobileNavOpen(false), [location.pathname]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => void preloadWorkspaceRoutes(), 300);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const navItem = (active: boolean) =>
     cn(
       "flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2 text-sm transition-colors lg:min-h-0",
@@ -99,7 +105,13 @@ export function Layout({ children }: { children: ReactNode }) {
               {group.items.map((n) => {
                 const active = n.end ? location.pathname === n.to : location.pathname.startsWith(n.to);
                 return (
-                  <NavLink key={n.to} to={n.to} className={navItem(active)}>
+                  <NavLink
+                    key={n.to}
+                    to={n.to}
+                    className={navItem(active)}
+                    onMouseEnter={() => void preloadRoute(n.to)}
+                    onFocus={() => void preloadRoute(n.to)}
+                  >
                     <n.icon className="h-4 w-4" />
                     {n.termKey ? t(n.termKey) : n.label}
                   </NavLink>
@@ -113,7 +125,12 @@ export function Layout({ children }: { children: ReactNode }) {
         <NavLink to="/docs" className={navItem(location.pathname.startsWith("/docs"))}>
           <BookOpen className="h-4 w-4" /> Documentation
         </NavLink>
-        <NavLink to="/settings" className={navItem(location.pathname.startsWith("/settings"))}>
+        <NavLink
+          to="/settings"
+          className={navItem(location.pathname.startsWith("/settings"))}
+          onMouseEnter={() => void preloadRoute("/settings")}
+          onFocus={() => void preloadRoute("/settings")}
+        >
           <SettingsIcon className="h-4 w-4" /> Settings
         </NavLink>
       </div>

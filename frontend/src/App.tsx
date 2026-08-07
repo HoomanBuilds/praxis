@@ -3,35 +3,36 @@ import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Layout } from "@/components/Layout";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { routeLoaders } from "@/lib/routePreload";
 
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const Documents = lazy(() => import("@/pages/Documents"));
-const Review = lazy(() => import("@/pages/Review"));
-const Obligations = lazy(() => import("@/pages/Obligations"));
-const ObligationWorkspace = lazy(() => import("@/pages/ObligationWorkspace"));
-const Tasks = lazy(() => import("@/pages/Tasks"));
-const KnowledgeGraphPage = lazy(() => import("@/pages/KnowledgeGraph"));
-const CopilotPage = lazy(() => import("@/pages/CopilotPage"));
-const Analytics = lazy(() => import("@/pages/Analytics"));
-const Reports = lazy(() => import("@/pages/Reports"));
-const AuditTrail = lazy(() => import("@/pages/AuditTrail"));
-const Settings = lazy(() => import("@/pages/Settings"));
+const Dashboard = lazy(routeLoaders.dashboard);
+const Documents = lazy(routeLoaders.documents);
+const Review = lazy(routeLoaders.review);
+const Obligations = lazy(routeLoaders.obligations);
+const ObligationWorkspace = lazy(routeLoaders.obligationWorkspace);
+const Tasks = lazy(routeLoaders.tasks);
+const KnowledgeGraphPage = lazy(routeLoaders.knowledgeGraph);
+const CopilotPage = lazy(routeLoaders.copilot);
+const Analytics = lazy(routeLoaders.analytics);
+const Reports = lazy(routeLoaders.reports);
+const AuditTrail = lazy(routeLoaders.auditTrail);
+const Settings = lazy(routeLoaders.settings);
 const Login = lazy(() => import("@/pages/Login"));
 const Landing = lazy(() => import("@/pages/Landing"));
 const ProductTour = lazy(() => import("@/pages/ProductTour"));
-const Users = lazy(() => import("@/pages/Users"));
-const EvidenceCenter = lazy(() => import("@/pages/EvidenceCenter"));
-const Calendar = lazy(() => import("@/pages/Calendar"));
-const RiskRegister = lazy(() => import("@/pages/RiskRegister"));
-const FirmProfile = lazy(() => import("@/pages/FirmProfile"));
-const Departments = lazy(() => import("@/pages/Departments"));
-const Filings = lazy(() => import("@/pages/Filings"));
-const ApiKeys = lazy(() => import("@/pages/ApiKeys"));
-const DataRetention = lazy(() => import("@/pages/DataRetention"));
-const Watch = lazy(() => import("@/pages/Watch"));
-const Notifications = lazy(() => import("@/pages/Notifications"));
-const DocsHome = lazy(() => import("@/pages/docs/DocsHome"));
-const DocsPage = lazy(() => import("@/pages/docs/DocsPage"));
+const Users = lazy(routeLoaders.users);
+const EvidenceCenter = lazy(routeLoaders.evidence);
+const Calendar = lazy(routeLoaders.calendar);
+const RiskRegister = lazy(routeLoaders.riskRegister);
+const FirmProfile = lazy(routeLoaders.firmProfile);
+const Departments = lazy(routeLoaders.departments);
+const Filings = lazy(routeLoaders.filings);
+const ApiKeys = lazy(routeLoaders.apiKeys);
+const DataRetention = lazy(routeLoaders.dataRetention);
+const Watch = lazy(routeLoaders.watch);
+const Notifications = lazy(routeLoaders.notifications);
+const DocsHome = lazy(routeLoaders.docsHome);
+const DocsPage = lazy(routeLoaders.docsPage);
 
 function PageLoader() {
   return (
@@ -44,7 +45,9 @@ function PageLoader() {
 function AppLayout() {
   return (
     <Layout>
-      <Outlet />
+      <Suspense fallback={<PageLoader />}>
+        <Outlet />
+      </Suspense>
     </Layout>
   );
 }
