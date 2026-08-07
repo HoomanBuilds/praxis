@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageSkeleton, QueryError } from "@/components/ui/data-state";
+import { AuditPackageDownloads } from "@/components/AuditPackageDownloads";
 import { FileDown, Loader2, Bot, FileText, Building2, Copy, Check } from "lucide-react";
 
 const AI_REPORTS = [
@@ -72,12 +73,7 @@ export default function Reports() {
             </Button>
           </div>
           {audit.isError && <div role="alert" className="text-sm text-destructive">{audit.error.message}</div>}
-          {files.length > 0 && (
-            <div className="rounded-lg border border-success/40 bg-success/5 p-3 text-sm">
-              Package ready:{" "}
-              {files.map((fn) => <a key={fn} href={`/api/audit/download/${fn}`} className="text-primary underline mr-3">{fn}</a>)}
-            </div>
-          )}
+          <AuditPackageDownloads files={files} />
         </CardContent>
       </Card>
 

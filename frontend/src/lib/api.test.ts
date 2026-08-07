@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { api, ApiError } from "./api";
 
 // Locks in the C1 fix: every request must carry the stored JWT as a Bearer token.
@@ -114,5 +114,53 @@ describe("listAllObligations", () => {
     const result = await resultPromise;
 
     expect(result.map((item) => item.id)).toEqual(["first", "second", "third"]);
+  });
+});
+
+describe("downloadAuditFile", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("downloads through the authenticated API request", async () => {
+    localStorage.setItem("praxis_token", "download-token");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(["pdf-data"], { type: "application/pdf" }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const createObjectURL = vi.fn().mockReturnValue("blob:report");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+    let downloadedFilename = "";
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function () {
+      downloadedFilename = this.download;
+    });
+
+    await api.downloadAuditFile("audit firm.pdf");
+
+    const [path, init] = fetchMock.mock.calls[0];
+    expect(path).toBe("/api/audit/download/audit%20firm.pdf");
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer download-token");
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(downloadedFilename).toBe("audit firm.pdf");
+  });
+
+  it("does not start a download when the API rejects it", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "Report not found" }), { status: 404 })
+    ));
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    await expect(api.downloadAuditFile("missing.pdf")).rejects.toThrow("Report not found");
+
+    expect(click).not.toHaveBeenCalled();
   });
 });

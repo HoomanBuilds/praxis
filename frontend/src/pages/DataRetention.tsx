@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageSkeleton, QueryError } from "@/components/ui/data-state";
+import { AuditPackageDownloads } from "@/components/AuditPackageDownloads";
 import { Database, Download } from "lucide-react";
 
 export default function DataRetention() {
@@ -48,14 +49,7 @@ export default function DataRetention() {
             {exportMut.isPending ? "Generating…" : "Export audit package"}
           </Button>
           {exportMut.isError && <div role="alert" className="text-sm text-destructive">{exportMut.error.message}</div>}
-          {exportMut.data && (
-            <div className="rounded-lg border border-success/40 bg-success/5 p-3 text-sm">
-              Export ready:{" "}
-              {Object.entries(exportMut.data.files).map(([fmt, fn]) => (
-                <a key={fn} className="text-foreground underline mr-3" href={`/api/audit/download/${fn}`}>{fmt}</a>
-              ))}
-            </div>
-          )}
+          <AuditPackageDownloads files={Object.values(exportMut.data?.files ?? {})} label="Export ready" />
         </CardContent>
       </Card>
     </div>

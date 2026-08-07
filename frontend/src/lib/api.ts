@@ -195,6 +195,20 @@ export const api = {
       body: JSON.stringify({ scope, ...ids, formats: ["pdf", "xlsx"] }),
     }),
 
+  downloadAuditFile: async (filename: string) => {
+    const path = `${BASE}/audit/download/${encodeURIComponent(filename)}`;
+    const res = await apiFetch(path);
+    if (!res.ok) return throwApiError(res, path);
+    const url = URL.createObjectURL(await res.blob());
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+
   login: (email: string, password: string) =>
     fetch(`${BASE}/auth/login`, {
       method: "POST",

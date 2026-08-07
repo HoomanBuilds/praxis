@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { ObligationArtifacts } from "@/components/ObligationArtifacts";
+import { AuditPackageDownloads } from "@/components/AuditPackageDownloads";
 import { titleCase } from "@/lib/utils";
 import { useAreas } from "@/hooks/useAreas";
 import {
@@ -259,14 +260,7 @@ export default function Review() {
         </Card>
       )}
 
-      {audit?.files?.length ? (
-        <div className="rounded-md border border-success/40 bg-success/5 p-3 text-sm">
-          Audit package ready:{" "}
-          {audit.files.map((fn) => (
-            <a key={fn} className="text-primary underline mr-3" href={`/api/audit/download/${fn}`}>{fn}</a>
-          ))}
-        </div>
-      ) : null}
+      <AuditPackageDownloads files={audit?.files ?? []} label="Audit package ready" />
 
       <div className="space-y-3">
         {obligations?.length ? (
