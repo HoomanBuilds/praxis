@@ -133,11 +133,7 @@ describe("downloadAuditFile", () => {
   it("downloads through the authenticated API request", async () => {
     localStorage.setItem("praxis_token", "download-token");
     const fetchMock = vi.fn().mockResolvedValue(
-      {
-        ok: true,
-        status: 200,
-        blob: vi.fn().mockResolvedValue(new Blob(["pdf-data"], { type: "application/pdf" })),
-      } as Response
+      new Response("pdf-data", { status: 200, headers: { "Content-Type": "application/pdf" } })
     );
     vi.stubGlobal("fetch", fetchMock);
     const createObjectURL = vi.fn().mockReturnValue("blob:report");
