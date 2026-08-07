@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
-import { Bot, Loader2, RotateCcw, SendHorizonal, Square, User, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bot, History, Loader2, Plus, RotateCcw, SendHorizonal, Square, User, X } from "lucide-react";
 import { CopilotCitationBlock } from "@/components/CopilotCitationBlock";
+import { CopilotSessionList } from "@/components/CopilotSessionList";
 import { Button } from "@/components/ui/button";
 import { useCopilot } from "@/context/CopilotContext";
 import { useCopilotChat } from "@/hooks/useCopilotChat";
@@ -29,9 +30,16 @@ export function CopilotSidebar() {
     send,
     stop,
     retry,
+    sessions,
+    activeSessionId,
+    newSession,
+    selectSession,
+    renameSession,
+    deleteSession,
   } = useCopilotChat(scope);
   const scrollRef = useRef<HTMLDivElement>(null);
   const handledPendingRef = useRef<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const lastMessage = messages[messages.length - 1];
 
   useEffect(() => {
@@ -62,8 +70,25 @@ export function CopilotSidebar() {
         </div>
         <button
           type="button"
+          aria-label="New chat"
+          disabled={sending}
+          className="ml-auto grid h-11 w-11 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={newSession}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Local chat history"
+          className="grid h-11 w-11 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={() => setHistoryOpen((current) => !current)}
+        >
+          <History className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
           aria-label="Close Copilot"
-          className="ml-auto grid h-11 w-11 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="grid h-11 w-11 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={() => setOpen(false)}
         >
           <X className="h-4 w-4" />
@@ -74,6 +99,23 @@ export function CopilotSidebar() {
         <span className="text-[11px] text-muted-foreground">Context: </span>
         <span className="text-[11px] font-medium">{scope.label || "Whole workspace"}</span>
       </div>
+
+      {historyOpen && (
+        <div className="max-h-72 shrink-0 overflow-hidden border-b bg-muted/20">
+          <CopilotSessionList
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            disabled={sending}
+            onNew={newSession}
+            onSelect={(sessionId) => {
+              selectSession(sessionId);
+              setHistoryOpen(false);
+            }}
+            onRename={renameSession}
+            onDelete={deleteSession}
+          />
+        </div>
+      )}
 
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
