@@ -8,6 +8,7 @@ from api.routes_copilot import (
     CopilotRequest,
     _direct_matches,
     _needs_workspace_context,
+    _product_help_response,
     _workspace_response,
     copilot,
 )
@@ -35,6 +36,16 @@ def test_product_questions_are_answered_without_regulatory_search(monkeypatch):
         assert response["response_type"] == "product_help"
         assert expected in response["answer"]
         assert response["citations"] == []
+
+
+def test_regulatory_questions_are_not_mistaken_for_product_help():
+    questions = [
+        "What is required for KYC obligations?",
+        "Explain the KYC obligation and its operational impact",
+        "What does the KYC obligation require operationally?",
+    ]
+
+    assert all(_product_help_response(question) is None for question in questions)
 
 
 def test_whole_workspace_overview_reports_real_gaps(monkeypatch):

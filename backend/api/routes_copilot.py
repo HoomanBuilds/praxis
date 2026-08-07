@@ -192,10 +192,6 @@ _PRODUCT_HELP = (
     ),
 )
 
-_PRODUCT_HELP_CUES = (
-    "what is", "what are", "what does", "what do", "explain", "tell me about",
-    "how does", "where is", "we have",
-)
 _FOLLOW_UP_RE = re.compile(
     r"\b(?:it|that|this|those|these|them|previous|earlier|clarify|more detail|you mean)\b",
     re.IGNORECASE,
@@ -234,10 +230,24 @@ def _needs_workspace_context(question: str) -> bool:
 
 def _product_help_response(question: str) -> dict | None:
     normalized = " ".join(question.lower().replace("centre", "center").split()).strip(" !,.?")
-    if not any(cue in normalized for cue in _PRODUCT_HELP_CUES):
-        return None
     for aliases, answer in _PRODUCT_HELP:
-        if any(re.search(rf"\b{re.escape(alias)}\b", normalized) for alias in aliases):
+        is_product_question = any(
+            re.fullmatch(
+                rf"(?:what (?:is|are)|explain|tell me about) (?:the )?"
+                rf"{re.escape(alias)}(?: here| in praxis| we have)?",
+                normalized,
+            )
+            or re.fullmatch(
+                rf"(?:what does|how does) (?:the )?{re.escape(alias)}(?: page)? work",
+                normalized,
+            )
+            or re.fullmatch(
+                rf"where is (?:the )?{re.escape(alias)}(?: page)?",
+                normalized,
+            )
+            for alias in aliases
+        )
+        if is_product_question:
             return {
                 "answer": answer,
                 "citations": [],
