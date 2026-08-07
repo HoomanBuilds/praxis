@@ -305,7 +305,7 @@ def _workflow_help_response(question: str) -> dict | None:
     if upload_question:
         answer = (
             "Open Regulations and use Manual Upload to add the official PDF. Praxis processes "
-            "the document into candidate obligations and preserves the source paragraph for "
+            "the document into reviewable obligations and preserves the source paragraph for "
             "human review."
         )
     elif approval_question:
