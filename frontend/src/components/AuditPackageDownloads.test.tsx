@@ -11,7 +11,7 @@ describe("AuditPackageDownloads", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("downloads each file through the authenticated client", async () => {
-    vi.mocked(api.downloadAuditFile).mockResolvedValue();
+    vi.mocked(api.downloadAuditFile).mockResolvedValue(undefined);
     render(<AuditPackageDownloads files={["audit.pdf", "audit.xlsx"]} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Download audit.pdf" }));
