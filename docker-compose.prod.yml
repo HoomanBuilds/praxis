@@ -16,12 +16,12 @@ x-backend-environment: &backend-environment
   PRAXIS_LLM_NUM_CTX: ${PRAXIS_LLM_NUM_CTX:-8192}
   PRAXIS_LLM_REQUEST_TIMEOUT: ${PRAXIS_LLM_REQUEST_TIMEOUT:-300}
   PRAXIS_COPILOT_PROVIDER: ${PRAXIS_COPILOT_PROVIDER:-ollama}
-  PRAXIS_COPILOT_MODEL: ${PRAXIS_COPILOT_MODEL:-}
+  PRAXIS_COPILOT_MODEL: ${PRAXIS_COPILOT_MODEL:-llama3.2:3b}
   PRAXIS_COPILOT_BASE_URL: ${PRAXIS_COPILOT_BASE_URL:-https://router-api.0g.ai/v1}
   ZEROG_COMPUTE_API_KEY: ${ZEROG_COMPUTE_API_KEY:-}
   PRAXIS_COPILOT_REQUEST_TIMEOUT: ${PRAXIS_COPILOT_REQUEST_TIMEOUT:-25}
   PRAXIS_COPILOT_NUM_CTX: ${PRAXIS_COPILOT_NUM_CTX:-4096}
-  PRAXIS_COPILOT_NUM_PREDICT: ${PRAXIS_COPILOT_NUM_PREDICT:-384}
+  PRAXIS_COPILOT_NUM_PREDICT: ${PRAXIS_COPILOT_NUM_PREDICT:-256}
   PRAXIS_DOC_STORE_PATH: /app/data/documents
   PRAXIS_CORPUS_PATH: /app/data/corpus
   PRAXIS_EXPORT_PATH: /app/data/exports
@@ -107,7 +107,7 @@ services:
     networks: [internal]
     environment:
       OLLAMA_KEEP_ALIVE: 30m
-      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_MAX_LOADED_MODELS: "2"
       OLLAMA_NUM_PARALLEL: "1"
     volumes:
       - ollamadata:/root/.ollama
@@ -125,8 +125,14 @@ services:
     environment:
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_MODEL: ${PRAXIS_LLM_MODEL:-llama3.1:8b}
+      OLLAMA_COPILOT_MODEL: ${PRAXIS_COPILOT_MODEL:-llama3.2:3b}
     entrypoint: ["/bin/sh", "-c"]
-    command: ["ollama pull \"$${OLLAMA_MODEL}\""]
+    command:
+      - >-
+        ollama pull "$${OLLAMA_MODEL}" &&
+        if [ "$${OLLAMA_COPILOT_MODEL}" != "$${OLLAMA_MODEL}" ]; then
+          ollama pull "$${OLLAMA_COPILOT_MODEL}";
+        fi
     depends_on:
       ollama:
         condition: service_healthy

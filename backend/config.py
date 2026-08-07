@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     )
     copilot_request_timeout: int = 25
     copilot_num_ctx: int = 4096
-    copilot_num_predict: int = 384
+    copilot_num_predict: int = 256
 
     # --- Embeddings ---
     embedding_model: str = "sentence-transformers/all-mpnet-base-v2"
