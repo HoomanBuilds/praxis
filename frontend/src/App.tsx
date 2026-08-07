@@ -36,8 +36,18 @@ const DocsPage = lazy(routeLoaders.docsPage);
 
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
+    <div className="space-y-6" role="status" aria-label="Loading page">
+      <span className="sr-only">Loading page</span>
+      <div className="space-y-2" aria-hidden="true">
+        <div className="h-7 w-52 animate-pulse rounded bg-muted" />
+        <div className="h-4 w-full max-w-sm animate-pulse rounded bg-muted" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+        {[0, 1, 2, 3].map((item) => (
+          <div key={item} className="h-28 animate-pulse rounded-2xl border bg-muted/40" />
+        ))}
+      </div>
+      <div className="h-72 animate-pulse rounded-2xl border bg-muted/40" aria-hidden="true" />
     </div>
   );
 }
