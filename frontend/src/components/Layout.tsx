@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, ScrollText, ListChecks, ClipboardList, Share2, Bot, BarChart3,
-  FileBarChart, History, Settings as SettingsIcon, Search, Command, Bell,
+  FileBarChart, History, Settings as SettingsIcon, Search, Command, Bell, Home,
   FileCheck, CalendarClock, Radar, LogOut, Shield, FileOutput, BookOpen,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -134,6 +134,14 @@ export function Layout({ children }: { children: ReactNode }) {
               </kbd>
             </button>
             <div className="ml-auto flex items-center gap-1.5">
+              <Link
+                to="/landing"
+                title="Back to the PRAXIS home page"
+                aria-label="Back to the PRAXIS home page"
+                className="grid h-9 w-9 place-items-center rounded-xl border bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Home className="h-4 w-4" />
+              </Link>
               <ThemeToggle />
               <Link to="/notifications" title="Notifications" className="relative grid h-9 w-9 place-items-center rounded-xl border bg-secondary text-muted-foreground hover:text-foreground transition-colors">
                 <Bell className="h-4 w-4" />
