@@ -169,7 +169,7 @@ export function OnboardingTour({ userId }: { userId: string }) {
 
   const popoverWidth = 384;
   const popoverHeight = 340;
-  const canAnchor = target !== null && window.innerWidth >= 768;
+  const canAnchor = target !== null && window.innerWidth >= 1024;
   const placement = target && canAnchor
     ? target.left + target.width + popoverWidth + 32 < window.innerWidth
       ? "right"
