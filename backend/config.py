@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Repo root = two levels up from this file: backend/config.py -> repo root
@@ -32,6 +32,16 @@ class Settings(BaseSettings):
     llm_num_ctx: int = 8192
     llm_request_timeout: int = 300
     llm_keep_alive: str = "30m"  # keep the model resident between pipeline calls
+    copilot_provider: str = "ollama"
+    copilot_model: str = ""
+    copilot_base_url: str = "https://router-api.0g.ai/v1"
+    copilot_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("PRAXIS_COPILOT_API_KEY", "ZEROG_COMPUTE_API_KEY"),
+    )
+    copilot_request_timeout: int = 25
+    copilot_num_ctx: int = 4096
+    copilot_num_predict: int = 384
 
     # --- Embeddings ---
     embedding_model: str = "sentence-transformers/all-mpnet-base-v2"

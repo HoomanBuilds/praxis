@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from llm import health_check, structured_complete
+from llm import _copilot_chat, copilot_structured_complete, health_check, structured_complete
 
 
 class ListingClient:
@@ -68,3 +68,66 @@ def test_structured_completion_applies_request_limits(monkeypatch):
     assert timeouts == [12]
     assert calls[0]["options"]["num_ctx"] == 2048
     assert calls[0]["options"]["num_predict"] == 128
+
+
+def test_copilot_completion_preserves_conversation_history(monkeypatch):
+    captured = {}
+
+    class Answer(BaseModel):
+        answer: str
+
+    def chat(messages, schema_json):
+        captured["messages"] = messages
+        captured["schema"] = schema_json
+        return '{"answer":"clarified"}'
+
+    monkeypatch.setattr("llm._copilot_chat", chat)
+    result = copilot_structured_complete(
+        "system",
+        [
+            {"role": "user", "content": "Explain the review queue"},
+            {"role": "assistant", "content": "It contains pending obligations."},
+        ],
+        "What do you mean?",
+        Answer,
+        retries=0,
+    )
+
+    assert result.parsed.answer == "clarified"
+    assert captured["messages"][1:3] == [
+        {"role": "user", "content": "Explain the review queue"},
+        {"role": "assistant", "content": "It contains pending obligations."},
+    ]
+    assert captured["schema"]["title"] == "Answer"
+
+
+def test_0g_copilot_uses_openai_compatible_json_mode(monkeypatch):
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"choices": [{"message": {"content": '{"answer":"ok"}'}}]}
+
+    def post(url, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return Response()
+
+    monkeypatch.setattr("llm.settings.copilot_provider", "0g")
+    monkeypatch.setattr("llm.settings.copilot_model", "0gm-1.0-35b-a3b")
+    monkeypatch.setattr("llm.settings.copilot_api_key", "test-key")
+    monkeypatch.setattr("llm.httpx.post", post)
+
+    raw = _copilot_chat(
+        [{"role": "user", "content": "Hello"}],
+        {"type": "object"},
+    )
+
+    assert raw == '{"answer":"ok"}'
+    assert captured["url"] == "https://router-api.0g.ai/v1/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer test-key"
+    assert captured["json"]["response_format"] == {"type": "json_object"}
+    assert captured["json"]["chat_template_kwargs"] == {"enable_thinking": False}

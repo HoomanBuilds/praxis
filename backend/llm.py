@@ -9,9 +9,11 @@ failure raises ``StructuredOutputError`` so the caller can route the item to hum
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Type, TypeVar
 
+import httpx
 import ollama as _ollama
 from pydantic import BaseModel, ValidationError
 
@@ -66,6 +68,112 @@ def _content_to_str(content) -> str:
     if isinstance(content, list):
         return "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in content)
     return str(content)
+
+
+def _copilot_provider() -> str:
+    return settings.copilot_provider.strip().lower().replace("-", "_")
+
+
+def _copilot_model() -> str:
+    if settings.copilot_model.strip():
+        return settings.copilot_model.strip()
+    if _copilot_provider() == "ollama":
+        return settings.llm_model
+    return "0gm-1.0-35b-a3b"
+
+
+def _copilot_chat(messages: list[dict[str, str]], schema_json: dict | None = None) -> str:
+    provider = _copilot_provider()
+    model = _copilot_model()
+    if provider == "ollama":
+        response = _ollama.Client(
+            host=settings.ollama_host,
+            timeout=settings.copilot_request_timeout,
+        ).chat(
+            model=model,
+            messages=messages,
+            format=schema_json,
+            keep_alive=settings.llm_keep_alive,
+            options={
+                "temperature": settings.llm_temperature,
+                "num_ctx": settings.copilot_num_ctx,
+                "num_predict": settings.copilot_num_predict,
+            },
+        )
+        return _content_to_str(response["message"]["content"]).strip()
+
+    if provider not in {"0g", "openai_compatible"}:
+        raise RuntimeError(f"Unsupported Copilot provider: {settings.copilot_provider}")
+    if not settings.copilot_api_key:
+        raise RuntimeError("Copilot API key is not configured")
+
+    payload: dict = {
+        "model": model,
+        "messages": messages,
+        "temperature": settings.llm_temperature,
+        "max_tokens": settings.copilot_num_predict,
+    }
+    if schema_json is not None:
+        payload["response_format"] = {"type": "json_object"}
+    if provider == "0g" and (model.startswith("0gm-") or "glm" in model.lower()):
+        payload["chat_template_kwargs"] = {"enable_thinking": False}
+
+    response = httpx.post(
+        f"{settings.copilot_base_url.rstrip('/')}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {settings.copilot_api_key}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=settings.copilot_request_timeout,
+    )
+    response.raise_for_status()
+    data = response.json()
+    try:
+        return _content_to_str(data["choices"][0]["message"]["content"]).strip()
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError("Copilot provider returned an invalid response") from exc
+
+
+def copilot_structured_complete(
+    system_prompt: str,
+    history: list[dict[str, str]],
+    user_prompt: str,
+    schema: Type[T],
+    retries: int = 1,
+) -> LLMResult:
+    schema_json = schema.model_json_schema()
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                f"{system_prompt}\n\nReturn only one JSON object matching this schema:\n"
+                f"{json.dumps(schema_json, separators=(',', ':'))}"
+            ),
+        },
+        *history,
+        {"role": "user", "content": user_prompt},
+    ]
+
+    last_error: Exception | None = None
+    for _ in range(retries + 1):
+        raw = _copilot_chat(messages, schema_json)
+        candidate = raw.strip()
+        if candidate.startswith("```"):
+            candidate = re.sub(r"^```(?:json)?\s*|\s*```$", "", candidate, flags=re.IGNORECASE)
+        try:
+            parsed = schema.model_validate(json.loads(candidate))
+            return LLMResult(parsed=parsed, raw=raw)
+        except (json.JSONDecodeError, ValidationError) as exc:
+            last_error = exc
+            messages.extend([
+                {"role": "assistant", "content": raw},
+                {
+                    "role": "user",
+                    "content": "The response was invalid. Return only a valid JSON object matching the schema.",
+                },
+            ])
+    raise StructuredOutputError(f"schema={schema.__name__}: {last_error}")
 
 
 def structured_complete(

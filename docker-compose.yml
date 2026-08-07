@@ -74,6 +74,10 @@ services:
       PRAXIS_CHROMA_HOST: chromadb
       PRAXIS_CHROMA_PORT: "8000"
       PRAXIS_OLLAMA_HOST: http://host.docker.internal:11434
+      PRAXIS_COPILOT_PROVIDER: ${PRAXIS_COPILOT_PROVIDER:-ollama}
+      PRAXIS_COPILOT_MODEL: ${PRAXIS_COPILOT_MODEL:-}
+      PRAXIS_COPILOT_BASE_URL: ${PRAXIS_COPILOT_BASE_URL:-https://router-api.0g.ai/v1}
+      ZEROG_COMPUTE_API_KEY: ${ZEROG_COMPUTE_API_KEY:-}
       PRAXIS_DOC_STORE_PATH: /app/data/documents
       PRAXIS_CORPUS_PATH: /app/data/corpus
       PRAXIS_EXPORT_PATH: /app/data/exports
