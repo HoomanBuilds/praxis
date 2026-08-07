@@ -114,7 +114,7 @@ def _citable(session: Session, ob: models.Obligation) -> dict:
 
 _GREETING_RE = re.compile(r"^(?:hi|hello|hey)(?:\s+(?:there|praxis))?[!,.?\s]*$", re.IGNORECASE)
 _IDENTITY_RE = re.compile(
-    r"^(?:(?:hey|hello)\s+)?(?:who|what)\s+are\s+you[!,.?\s]*$",
+    r"^(?:(?:hey|hello)\s+)?(?:who|what)\s+(?:(?:are|r|is|t)\s+)?(?:you|u)[!,.?\s]*$",
     re.IGNORECASE,
 )
 _CAPABILITY_RE = re.compile(
@@ -233,8 +233,19 @@ def _product_help_response(question: str) -> dict | None:
     for aliases, answer in _PRODUCT_HELP:
         is_product_question = any(
             re.fullmatch(
-                rf"(?:what (?:is|are)|explain|tell me about) (?:the )?"
-                rf"{re.escape(alias)}(?: here| in praxis| we have)?",
+                rf"(?:what (?:is|are)|explain|define|tell me about) "
+                rf"(?:(?:the|an|a) )?{re.escape(alias)}"
+                rf"(?: here| in praxis| we have)?(?: mean| means)?",
+                normalized,
+            )
+            or re.fullmatch(
+                rf"what (?:does|do) (?:(?:the|an|a) )?{re.escape(alias)}"
+                rf"(?: here| in praxis| we have)? (?:mean|means)",
+                normalized,
+            )
+            or re.fullmatch(
+                rf"what is (?:the )?meaning of (?:(?:the|an|a) )?{re.escape(alias)}"
+                rf"(?: here| in praxis)?",
                 normalized,
             )
             or re.fullmatch(

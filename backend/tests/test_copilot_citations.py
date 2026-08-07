@@ -24,10 +24,13 @@ def test_product_questions_are_answered_without_regulatory_search(monkeypatch):
 
     examples = {
         "what is obligations?": "specific requirements Praxis identifies",
+        "what is obligation means?": "specific requirements Praxis identifies",
         "what is compliance map here?": "relationship view",
+        "what does compliance map means?": "relationship view",
         "what is command centre we have?": "live summary",
         "what is evidence centre?": "proof required for compliance",
         "what is regulations?": "source documents in Praxis",
+        "what do regulations mean?": "source documents in Praxis",
     }
 
     for question, expected in examples.items():
@@ -81,12 +84,13 @@ def test_greeting_is_answered_without_querying_the_model():
 
 
 def test_identity_question_is_not_treated_as_workspace_search():
-    response = _workspace_response(None, "who are you?")
+    for question in ("who are you?", "who r u?", "who t u?", "what are you?"):
+        response = _workspace_response(None, question)
 
-    assert response is not None
-    assert response["response_type"] == "greeting"
-    assert response["citations"] == []
-    assert "Praxis Copilot" in response["answer"]
+        assert response is not None
+        assert response["response_type"] == "greeting"
+        assert response["citations"] == []
+        assert "Praxis Copilot" in response["answer"]
 
 
 def test_ambiguous_one_word_follow_up_asks_for_clarification():
