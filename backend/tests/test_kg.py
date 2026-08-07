@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from xml.dom import minidom
 
 import schemas
@@ -58,9 +58,66 @@ def test_cross_document_modifies_edge_targets_prior_obligation():
     assert g["stats"]["cross_document_modifies"] >= 1
 
 
+def test_document_graph_keeps_linked_obligation_from_another_document():
+    suffix = uuid.uuid4().hex[:8]
+    with session_scope() as s:
+        prior_doc = crud.create_document(
+            s, reference=f"SEBI/KG/PRIOR/{suffix}", title="Prior Circular",
+            file_path="", content_hash=f"kg-prior-{suffix}",
+        )
+        prior = crud.create_obligation(s, schemas.Obligation(
+            identifier=f"PRIOR-{suffix}", document_id=prior_doc.id,
+            description="Prior requirement", source_text="prior source",
+        ))
+        current_doc = crud.create_document(
+            s, reference=f"SEBI/KG/CURRENT/{suffix}", title="Current Circular",
+            file_path="", content_hash=f"kg-current-{suffix}",
+        )
+        current = crud.create_obligation(s, schemas.Obligation(
+            identifier=f"CURRENT-{suffix}", document_id=current_doc.id,
+            description="Current requirement", source_text="current source",
+            linked_prior_obligation_id=prior.id,
+        ))
+        prior_id = prior.id
+        current_id = current.id
+        graph = build_graph(s, document_id=current_doc.id)
+
+    node_ids = {node["id"] for node in graph["nodes"]}
+    assert f"ob:{prior_id}" in node_ids
+    assert any(
+        edge["source"] == f"ob:{current_id}"
+        and edge["target"] == f"ob:{prior_id}"
+        and edge["type"] == "MODIFIES"
+        for edge in graph["edges"]
+    )
+
+
 def test_graphml_export_is_wellformed_xml():
     doc_id, _ob_id, _prior_id = _seed()
     with session_scope() as s:
         xml = to_graphml(build_graph(s, document_id=doc_id))
     minidom.parseString(xml)  # raises on malformed XML
     assert "<graphml" in xml and "</graphml>" in xml
+
+
+def test_graph_risk_uses_overdue_task_signal():
+    doc_id, ob_id, _prior_id = _seed()
+    with session_scope() as s:
+        ob = crud.get_obligation(s, ob_id)
+        ob.status = "approved"
+        task = crud.list_tasks(s, obligation_id=ob_id)[0]
+        task.deadline = date.today() - timedelta(days=1)
+        graph = build_graph(s, document_id=doc_id)
+
+    risk = next(node for node in graph["nodes"] if node["id"] == f"risk:{ob_id}")
+    assert risk["level"] == "high"
+    assert risk["label"] == "Implementation task overdue"
+
+
+def test_graph_contains_no_edges_to_missing_nodes():
+    doc_id, _ob_id, _prior_id = _seed()
+    with session_scope() as s:
+        graph = build_graph(s, document_id=doc_id)
+
+    node_ids = {node["id"] for node in graph["nodes"]}
+    assert all(edge["source"] in node_ids and edge["target"] in node_ids for edge in graph["edges"])

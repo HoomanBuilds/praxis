@@ -1,6 +1,8 @@
 """Build and export the compliance knowledge graph from the relational store."""
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,20 +26,20 @@ def _risk_score(
     """Compute a risk level and human-readable label from objective compliance signals.
 
     Signal priority (highest wins):
-    1. Rejected                    → critical
-    2. Superseded (modification_type=supersedes) → high
-    3. Task overdue                → high
-    4. Evidence missing on approved obligation → high
-    5. Pending review > 30 days    → high
-    6. Low confidence, unreviewed  → high
-    7. Below confidence threshold  → medium
-    8. Needs review                → low
-    9. Approved / compliant        → minimal
+    1. Rejected                    -> critical
+    2. Superseded (modification_type=supersedes) -> high
+    3. Task overdue                -> high
+    4. Evidence missing on approved obligation -> high
+    5. Pending review > 30 days    -> high
+    6. Low confidence, unreviewed  -> high
+    7. Below confidence threshold  -> medium
+    8. Needs review                -> low
+    9. Approved / compliant        -> minimal
     """
     if ob.status == "rejected":
-        return ("critical", "Rejected — non-compliant")
+        return ("critical", "Rejected - non-compliant")
     if is_superseded:
-        return ("high", "Circular superseded — review required")
+        return ("high", "Circular superseded - review required")
     if task_overdue:
         return ("high", "Implementation task overdue")
     if evidence_missing and ob.status == "approved":
@@ -78,8 +80,28 @@ def build_graph(session: Session, document_id: str | None = None) -> dict:
                             ob.functional_area.replace("_", " ").title())
             edges.append({"source": ob_id, "target": dept_id, "type": "ASSIGNED_TO"})
 
-            # Risk node — derived from objective compliance signals.
-            risk_level, risk_label = _risk_score(ob)
+            evidence_missing = (
+                bool(ob.evidence_requirements)
+                and all(item.uploaded_at is None for item in ob.evidence_requirements)
+            )
+            task_overdue = any(
+                task.deadline
+                and task.deadline < date.today()
+                and task.status != "completed"
+                for task in ob.tasks
+            )
+            stale_review = (
+                ob.status == "pending_review"
+                and ob.updated_at is not None
+                and ob.updated_at.date() < date.today() - timedelta(days=30)
+            )
+            risk_level, risk_label = _risk_score(
+                ob,
+                evidence_missing=evidence_missing,
+                task_overdue=task_overdue,
+                is_superseded=ob.modification_type == "supersedes",
+                stale_review=stale_review,
+            )
             risk_id = f"risk:{ob.id}"
             _node(nodes, risk_id, "risk", risk_label, level=risk_level,
                   confidence=ob.confidence, status=ob.status)
@@ -87,7 +109,20 @@ def build_graph(session: Session, document_id: str | None = None) -> dict:
 
             if ob.linked_prior_obligation_id:
                 prior_id = f"ob:{ob.linked_prior_obligation_id}"
-                edges.append({"source": ob_id, "target": prior_id, "type": "MODIFIES"})
+                prior = crud.get_obligation(session, ob.linked_prior_obligation_id)
+                if prior:
+                    _node(
+                        nodes,
+                        prior_id,
+                        "obligation",
+                        prior.identifier,
+                        description=prior.description,
+                        confidence=prior.confidence,
+                        status=prior.status,
+                        extraction_method=prior.extraction_method,
+                        source_paragraph_ref=prior.source_paragraph_ref,
+                    )
+                    edges.append({"source": ob_id, "target": prior_id, "type": "MODIFIES"})
 
             for rule in ob.rules:
                 rule_id = _node(nodes, f"rule:{rule.id}", "rule",
@@ -105,6 +140,11 @@ def build_graph(session: Session, document_id: str | None = None) -> dict:
             for ev in ob.evidence_requirements:
                 ev_id = _node(nodes, f"ev:{ev.id}", "evidence", ev.document_type)
                 edges.append({"source": ob_id, "target": ev_id, "type": "REQUIRES"})
+
+    edges = [
+        edge for edge in edges
+        if edge["source"] in nodes and edge["target"] in nodes
+    ]
 
     type_counts: dict[str, int] = {}
     for n in nodes.values():

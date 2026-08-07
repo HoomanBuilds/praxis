@@ -272,7 +272,7 @@ export default function KnowledgeGraphPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4" data-tour="compliance-map">
         <div>
           <h1 className="text-xl font-semibold">{vocab.t("kg.title")}</h1>
           <p className="text-sm text-muted-foreground">
@@ -417,7 +417,18 @@ export default function KnowledgeGraphPage() {
                 typeOf={(id) => positioned!.get(id)?.type ?? ""}
                 onSelect={setSelected}
                 onClose={() => setSelected(null)}
-                onOpenDoc={(id) => navigate(`/documents/${id}/review`)}
+                onOpenResource={(node, connections) => {
+                  if (node.type === "regulation") {
+                    navigate(`/documents/${node.id.replace(/^reg:/, "")}/review`);
+                    return;
+                  }
+                  if (node.type === "obligation") {
+                    navigate(`/obligations/${node.id.replace(/^ob:/, "")}`);
+                    return;
+                  }
+                  const obligation = connections.find((connection) => positioned!.get(connection.other)?.type === "obligation");
+                  if (obligation) navigate(`/obligations/${obligation.other.replace(/^ob:/, "")}`);
+                }}
               />
             )}
           </CardContent>
@@ -427,14 +438,14 @@ export default function KnowledgeGraphPage() {
   );
 }
 
-function NodeInspector({ node, connections, labelOf, typeOf, onSelect, onClose, onOpenDoc }: {
+function NodeInspector({ node, connections, labelOf, typeOf, onSelect, onClose, onOpenResource }: {
   node: SimNode;
   connections: { edge: GraphEdge; other: string; dir: "out" | "in" }[];
   labelOf: (id: string) => string;
   typeOf: (id: string) => string;
   onSelect: (id: string) => void;
   onClose: () => void;
-  onOpenDoc: (docId: string) => void;
+  onOpenResource: (node: SimNode, connections: { edge: GraphEdge; other: string; dir: "out" | "in" }[]) => void;
 }) {
   const vocab = useVocab();
   const props = Object.entries(node).filter(
@@ -446,6 +457,8 @@ function NodeInspector({ node, connections, labelOf, typeOf, onSelect, onClose, 
       // mean something to a compliance officer; engineering mode shows everything.
       (!vocab.isBusiness || k in PROPERTY_LABELS),
   );
+  const canOpen = node.type === "regulation" || node.type === "obligation" || connections.some((connection) => typeOf(connection.other) === "obligation");
+  const openLabel = node.type === "regulation" ? "Open regulation review" : "Open source obligation";
   return (
     <div className="animate-in">
       <div className="flex items-start justify-between gap-2">
@@ -456,9 +469,9 @@ function NodeInspector({ node, connections, labelOf, typeOf, onSelect, onClose, 
         <button aria-label="Close inspector" className="grid h-11 w-11 place-items-center rounded-md hover:bg-accent sm:h-9 sm:w-9" onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
       </div>
 
-      {node.type === "regulation" && (
-        <Button size="sm" variant="outline" className="mt-3 w-full" onClick={() => onOpenDoc(node.id.replace(/^reg:/, ""))}>
-          Open document <ArrowRight className="h-3.5 w-3.5" />
+      {canOpen && (
+        <Button size="sm" variant="outline" className="mt-3 w-full" onClick={() => onOpenResource(node, connections)}>
+          {openLabel} <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       )}
 
