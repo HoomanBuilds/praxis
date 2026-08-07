@@ -29,6 +29,14 @@ def test_identity_question_is_not_treated_as_workspace_search():
     assert "Praxis Copilot" in response["answer"]
 
 
+def test_ambiguous_one_word_follow_up_asks_for_clarification():
+    response = _workspace_response(None, "what?")
+
+    assert response is not None
+    assert response["citations"] == []
+    assert "which part" in response["answer"]
+
+
 def test_general_sebi_question_does_not_request_workspace_context():
     assert _needs_workspace_context("What do you know about SEBI?") is False
     assert _needs_workspace_context("What compliance obligations mention KYC?") is True
@@ -53,6 +61,20 @@ def test_pending_review_query_uses_workspace_records(monkeypatch):
     assert response["response_type"] == "obligation_list"
     assert response["sources"] == ["ABC-OB-001"]
     assert "1 pending-review obligations" in response["answer"]
+
+
+def test_compliance_status_reports_only_active_priorities(monkeypatch):
+    obligations = [SimpleNamespace(status="pending_review", functional_area="compliance")]
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session, **kwargs: obligations)
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session, **kwargs: [])
+
+    response = _workspace_response(None, "summarize compliance status")
+
+    assert response is not None
+    assert response["response_type"] == "workspace_summary"
+    assert "Priority: clear the pending obligation review queue." in response["answer"]
+    assert "resolve overdue work" not in response["answer"]
+    assert "assign unowned tasks" not in response["answer"]
 
 
 def test_urgent_risk_query_returns_actionable_workspace_priorities(monkeypatch):
@@ -141,7 +163,7 @@ def test_follow_up_uses_full_history_without_repeating_keyword_results(monkeypat
 
     monkeypatch.setattr("llm.copilot_structured_complete", complete)
     payload = CopilotRequest(
-        question="what?",
+        question="Can you clarify that?",
         history=[
             {"role": "user", "content": "Summarize compliance status"},
             {"role": "assistant", "content": "There are 12 obligations pending review."},
@@ -201,7 +223,7 @@ def test_general_question_uses_model_without_workspace_citations(monkeypatch):
     ))
     monkeypatch.setattr("llm.copilot_structured_complete", lambda *args, **kwargs: SimpleNamespace(
         parsed=CopilotAnswer(
-            answer="SEBI is India's securities market regulator.",
+            answer="Securities regulators protect investors through disclosure and enforcement.",
             source_ids=[],
             grounded=False,
             confidence=0.95,
@@ -210,10 +232,10 @@ def test_general_question_uses_model_without_workspace_citations(monkeypatch):
 
     response = copilot.__wrapped__(
         SimpleNamespace(),
-        CopilotRequest(question="What do you know about SEBI?"),
+        CopilotRequest(question="How do securities regulators protect retail investors?"),
         None,
     )
 
-    assert response["answer"] == "SEBI is India's securities market regulator."
+    assert response["answer"].startswith("Securities regulators protect")
     assert response["citations"] == []
     assert response["grounded"] is False

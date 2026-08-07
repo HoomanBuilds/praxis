@@ -118,6 +118,12 @@ _CAPABILITY_RE = re.compile(
     r"^(?:what\s+can\s+you\s+do|how\s+can\s+you\s+help|help)[!,.?\s]*$",
     re.IGNORECASE,
 )
+_CLARIFY_RE = re.compile(r"^(?:what|what do you mean)[!,.?\s]*$", re.IGNORECASE)
+_SEBI_INFO_RE = re.compile(
+    r"^(?:(?:hey|hello)\s+)?(?:what\s+is\s+sebi|what\s+do\s+you\s+know\s+"
+    r"(?:about|by)\s+sebi)[!,.?\s]*$",
+    re.IGNORECASE,
+)
 _WORKSPACE_TERMS = {
     "approved", "assurance", "circular", "compliance", "cybersecurity", "deadline",
     "department", "document", "evidence", "filing", "kyc", "obligation", "obligations",
@@ -306,6 +312,31 @@ def _workspace_response(session: Session, question: str) -> dict | None:
             "confidence": 1.0,
             "response_type": "greeting",
         }
+    if _CLARIFY_RE.fullmatch(question.strip()):
+        return {
+            "answer": (
+                "I may have misunderstood the previous question. Tell me which part you want "
+                "clarified, or restate the question in one sentence."
+            ),
+            "citations": [],
+            "sources": [],
+            "grounded": False,
+            "confidence": 0.8,
+            "response_type": "analysis",
+        }
+    if _SEBI_INFO_RE.fullmatch(question.strip()):
+        return {
+            "answer": (
+                "SEBI is the Securities and Exchange Board of India. It regulates India's "
+                "securities market, protects investors, and oversees market intermediaries "
+                "such as stockbrokers, investment advisers, mutual funds, and depositories."
+            ),
+            "citations": [],
+            "sources": [],
+            "grounded": False,
+            "confidence": 0.95,
+            "response_type": "analysis",
+        }
 
     priority_query = (
         "urgent" in normalized
@@ -401,6 +432,13 @@ def _workspace_response(session: Session, question: str) -> dict | None:
                 round(approved / len(all_obligations) * 100)
                 if all_obligations else 0
             )
+            priorities = []
+            if overdue:
+                priorities.append("resolve overdue work")
+            if unowned:
+                priorities.append("assign unowned tasks")
+            if pending:
+                priorities.append("clear the pending obligation review queue")
             answer = (
                 "Current compliance status:\n\n"
                 f"- {len(all_obligations)} obligations recorded: {approved} reviewed and "
@@ -409,9 +447,8 @@ def _workspace_response(session: Session, question: str) -> dict | None:
                 f"- {len(open_tasks)} tasks remain open, including {len(overdue)} overdue and "
                 f"{len(unowned)} without an owner.\n\n"
                 + (
-                    "Priority: resolve overdue work, assign unowned tasks, then clear the "
-                    "pending obligation review queue."
-                    if overdue or unowned or pending
+                    f"Priority: {', then '.join(priorities)}."
+                    if priorities
                     else "No immediate review, ownership, or overdue-task gap is recorded."
                 )
             )
