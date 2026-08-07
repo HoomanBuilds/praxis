@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { FileDown, Loader2, Bot, FileText, Building2, Copy, Check } from "lucide-react";
 
 const AI_REPORTS = [
@@ -15,7 +16,8 @@ const AI_REPORTS = [
 ];
 
 export default function Reports() {
-  const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
+  const documentsQuery = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
+  const documents = documentsQuery.data;
   const [scope, setScope] = useState("firm");
   const [files, setFiles] = useState<string[]>([]);
   const [aiText, setAiText] = useState<{ label: string; text: string } | null>(null);
@@ -34,18 +36,34 @@ export default function Reports() {
     },
   });
 
+  if (documentsQuery.isLoading) {
+    return <PageSkeleton label="Loading reports" cards={0} rows={3} />;
+  }
+
+  if (documentsQuery.isError && documents === undefined) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-semibold">Reports</h1>
+          <p className="text-sm text-muted-foreground">Examination-ready audit packages and summaries built from platform data.</p>
+        </div>
+        <QueryError title="Reports could not be loaded" onRetry={() => void documentsQuery.refetch()} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold">Reports</h1>
-        <p className="text-sm text-muted-foreground">Examination-ready audit packages and AI-generated summaries — all built from real platform data.</p>
+        <p className="text-sm text-muted-foreground">Examination-ready audit packages and AI-generated summaries built from real platform data.</p>
       </div>
 
       <Card>
         <CardHeader><CardTitle className="text-sm flex items-center gap-2"><FileDown className="h-4 w-4" /> Audit Package (PDF + XLSX)</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center gap-2">
-            <select value={scope} onChange={(e) => setScope(e.target.value)} className="h-9 rounded-lg border bg-card px-3 text-sm">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <select aria-label="Audit package scope" value={scope} onChange={(e) => setScope(e.target.value)} className="h-11 min-w-0 w-full rounded-lg border bg-card px-3 text-sm sm:h-9 sm:flex-1">
               <option value="firm">Entire firm</option>
               {documents?.map((d) => <option key={d.id} value={d.id}>{d.title || d.reference || d.id.slice(0, 8)}</option>)}
             </select>
@@ -53,6 +71,7 @@ export default function Reports() {
               {audit.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} Generate
             </Button>
           </div>
+          {audit.isError && <div role="alert" className="text-sm text-destructive">{audit.error.message}</div>}
           {files.length > 0 && (
             <div className="rounded-lg border border-success/40 bg-success/5 p-3 text-sm">
               Package ready:{" "}
@@ -73,11 +92,12 @@ export default function Reports() {
             ))}
           </div>
           {aiReport.isPending && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> generating from your data…</div>}
+          {aiReport.isError && <div role="alert" className="text-sm text-destructive">{aiReport.error.message}</div>}
           {aiText && (
             <div className="rounded-lg border p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-medium">{aiText.label}</div>
-                <button className="text-muted-foreground hover:text-foreground" onClick={() => { navigator.clipboard.writeText(aiText.text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
+                <button aria-label={copied ? "Copied report" : "Copy report"} className="grid h-11 w-11 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground sm:h-9 sm:w-9" onClick={() => { navigator.clipboard.writeText(aiText.text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
                   {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>

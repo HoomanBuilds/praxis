@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { timeAgo } from "@/lib/format";
 import { useVocab } from "@/hooks/useVocab";
 import { useActivityLabel, useActorLabel } from "@/components/vocab/ActivityLabel";
@@ -16,7 +17,8 @@ const ACTION_TONE: Record<string, "success" | "warning" | "destructive" | "muted
 };
 
 export default function AuditTrail() {
-  const { data: events } = useQuery({ queryKey: ["activity", "audit"], queryFn: () => api.activity(200), refetchInterval: 10000 });
+  const eventsQuery = useQuery({ queryKey: ["activity", "audit"], queryFn: () => api.activity(200), refetchInterval: 10000 });
+  const events = eventsQuery.data;
   const [q, setQ] = useState("");
   const { t, e } = useVocab();
   const activityLabel = useActivityLabel();
@@ -26,7 +28,7 @@ export default function AuditTrail() {
     const needle = q.trim().toLowerCase();
     return (events ?? []).filter((ev) =>
       !needle ||
-      // Raw stored values — the audit log is evidence, so the exact codes stay findable.
+      // Raw stored values - the audit log is evidence, so the exact codes stay findable.
       ev.action.toLowerCase().includes(needle) ||
       ev.actor.toLowerCase().includes(needle) ||
       (ev.resource_id || "").toLowerCase().includes(needle) ||
@@ -37,6 +39,22 @@ export default function AuditTrail() {
     );
   }, [events, q, activityLabel, e]);
 
+  if (eventsQuery.isLoading) {
+    return <PageSkeleton label="Loading audit trail" cards={0} />;
+  }
+
+  if (eventsQuery.isError && events === undefined) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-semibold"><ShieldCheck className="h-5 w-5" /> Audit Trail</h1>
+          <p className="text-sm text-muted-foreground">{t("audit.subtitle")}</p>
+        </div>
+        <QueryError title="Audit trail could not be loaded" onRetry={() => void eventsQuery.refetch()} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -46,12 +64,12 @@ export default function AuditTrail() {
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("audit.search")} className="pl-9" />
+        <Input aria-label={t("audit.search")} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("audit.search")} className="pl-9" />
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
+        <CardContent className="overflow-x-auto p-0">
+          <table className="min-w-[680px] w-full text-sm">
             <thead className="text-left text-muted-foreground border-b">
               <tr>
                 <th className="py-3 px-4 font-medium">Action</th>

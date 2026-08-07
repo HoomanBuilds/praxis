@@ -9,10 +9,11 @@ import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { cn, titleCase } from "@/lib/utils";
 import type { GraphEdge, GraphNode } from "@/lib/types";
 import { useVocab } from "@/hooks/useVocab";
-import { X, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Minus, Plus, RotateCcw, X } from "lucide-react";
 
 const COLORS: Record<string, string> = {
   regulation: "#111111", obligation: "#333333", department: "#4d4d4d",
@@ -40,7 +41,7 @@ type SimNode = GraphNode & SimulationNodeDatum;
 const W = 1200, H = 900;
 
 // Simple view (business mode default): the operational path a compliance officer
-// actually walks — Regulation → Obligation → Department → Task → Evidence → Rule.
+// actually walks - Regulation -> Obligation -> Department -> Task -> Evidence -> Rule.
 // Same graph data and the same D3 simulation, just fewer node types (owners and risk
 // signals stay in the advanced view) so the map reads clearly on first load.
 const SIMPLE_TYPES = new Set(["regulation", "obligation", "department", "task", "evidence", "rule"]);
@@ -96,7 +97,8 @@ function capNodes(nodes: GraphNode[], edges: GraphEdge[], max: number) {
 
 export default function KnowledgeGraphPage() {
   const navigate = useNavigate();
-  const { data: raw, isLoading } = useQuery({ queryKey: ["kg"], queryFn: () => api.knowledgeGraph() });
+  const graphQuery = useQuery({ queryKey: ["kg"], queryFn: () => api.knowledgeGraph() });
+  const raw = graphQuery.data;
   const vocab = useVocab();
   const { isBusiness } = vocab;
   const [selected, setSelected] = useState<string | null>(null);
@@ -131,7 +133,7 @@ export default function KnowledgeGraphPage() {
   // nulls dragRef before the click handler runs).
   const justDraggedRef = useRef(false);
 
-  // Simple view is a filter over the same payload — no second graph component. Both
+  // Simple view is a filter over the same payload - no second graph component. Both
   // views are then capped: the firm's graph grows with every circular ingested, and
   // laying out thousands of nodes on the main thread freezes the tab.
   const { data, dropped } = useMemo(() => {
@@ -252,6 +254,22 @@ export default function KnowledgeGraphPage() {
   const selNode = selected && positioned ? positioned.get(selected) : null;
   const fill = (n: SimNode) => n.type === "risk" && n.level ? RISK_COLORS[n.level as string] ?? COLORS.risk : COLORS[n.type] ?? "#808080";
 
+  if (graphQuery.isLoading) {
+    return <PageSkeleton label="Loading knowledge graph" />;
+  }
+
+  if (graphQuery.isError && raw === undefined) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-semibold">{vocab.t("kg.title")}</h1>
+          <p className="text-sm text-muted-foreground">{vocab.t(simple ? "kg.subtitle.simple" : "kg.subtitle.full")}</p>
+        </div>
+        <QueryError title="Knowledge graph could not be loaded" onRetry={() => void graphQuery.refetch()} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
@@ -281,7 +299,7 @@ export default function KnowledgeGraphPage() {
       {dropped > 0 && data && (
         <p className="text-xs text-muted-foreground">
           Showing the {data.stats.node_count.toLocaleString()} most connected of{" "}
-          {(data.stats.node_count + dropped).toLocaleString()} items in this view —{" "}
+          {(data.stats.node_count + dropped).toLocaleString()} items in this view. {" "}
           {dropped.toLocaleString()} less-connected items are hidden to keep the map readable.
           Nothing is deleted; every item remains on its own page.
         </p>
@@ -293,7 +311,7 @@ export default function KnowledgeGraphPage() {
           <button
             key={t}
             onClick={() => toggleType(t)}
-            className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-opacity",
+            className={cn("flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-opacity sm:min-h-8 sm:px-2.5",
               hidden.has(t) ? "opacity-40" : "")}
           >
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />
@@ -306,9 +324,7 @@ export default function KnowledgeGraphPage() {
       <div className="grid lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2 relative overflow-hidden">
           <CardContent className="p-0">
-            {isLoading ? (
-              <div className="p-8 text-sm text-muted-foreground">Loading…</div>
-            ) : !data?.nodes.length ? (
+            {!data?.nodes.length ? (
               <div className="p-8 text-sm text-muted-foreground">{vocab.t("kg.empty")}</div>
             ) : positioned ? (
               <svg
@@ -364,23 +380,23 @@ export default function KnowledgeGraphPage() {
           {positioned && (
             <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full border bg-background/95 p-1 shadow-sm">
               <button
-                title="Zoom in"
-                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Zoom in"
+                className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground sm:h-9 sm:w-9"
                 onClick={() => zoomAt(innerWidth / 2, innerHeight / 2, transform.scale * 1.25)}
-              >+</button>
+              ><Plus className="h-4 w-4" /></button>
               <span className="min-w-[44px] text-center text-[11px] tabular tabular-nums text-muted-foreground">
                 {Math.round(transform.scale * 100)}%
               </span>
               <button
-                title="Zoom out"
-                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Zoom out"
+                className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground sm:h-9 sm:w-9"
                 onClick={() => zoomAt(innerWidth / 2, innerHeight / 2, transform.scale / 1.25)}
-              >−</button>
+              ><Minus className="h-4 w-4" /></button>
               <button
-                title="Reset view"
-                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Reset view"
+                className="grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground sm:h-9 sm:w-9"
                 onClick={() => setTransform({ x: 0, y: 0, scale: 1 })}
-              >⟲</button>
+              ><RotateCcw className="h-4 w-4" /></button>
             </div>
           )}
         </Card>
@@ -437,7 +453,7 @@ function NodeInspector({ node, connections, labelOf, typeOf, onSelect, onClose, 
           <Badge variant="outline" className="mb-1.5" style={{ color: COLORS[node.type] }}>{vocab.e("kg.node", node.type)}</Badge>
           <div className="text-sm font-medium">{node.label}</div>
         </div>
-        <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
+        <button aria-label="Close inspector" className="grid h-11 w-11 place-items-center rounded-md hover:bg-accent sm:h-9 sm:w-9" onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
       </div>
 
       {node.type === "regulation" && (
@@ -466,7 +482,7 @@ function NodeInspector({ node, connections, labelOf, typeOf, onSelect, onClose, 
             <button key={i} onClick={() => onSelect(c.other)}
               className="w-full text-left rounded-md border px-2 py-1.5 hover:border-primary/40 transition-colors">
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <span>{c.dir === "out" ? "→" : "←"}</span>
+                {c.dir === "out" ? <ArrowRight className="h-3 w-3" /> : <ArrowLeft className="h-3 w-3" />}
                 <span title={c.edge.type}>{vocab.e("kg.edge", c.edge.type)}</span>
                 <span className="ml-auto" style={{ color: COLORS[typeOf(c.other)] }}>{vocab.e("kg.node", typeOf(c.other))}</span>
               </div>

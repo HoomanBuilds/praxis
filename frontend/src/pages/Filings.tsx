@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,8 @@ const STATUS_ICON: Record<string, any> = {
 
 export default function Filings() {
   const qc = useQueryClient();
-  const { data: filings } = useQuery({ queryKey: ["filings"], queryFn: () => api.listFilings() });
+  const filingsQuery = useQuery({ queryKey: ["filings"], queryFn: () => api.listFilings() });
+  const filings = filingsQuery.data;
   const [statusFilter, setStatusFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [view, setView] = useState<"table" | "timeline">("table");
@@ -62,29 +64,47 @@ export default function Filings() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["filings"] }),
   });
 
+  if (filingsQuery.isLoading) {
+    return <PageSkeleton label="Loading filings" cards={0} />;
+  }
+
+  if (filingsQuery.isError && filings === undefined) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-semibold"><FileOutput className="h-5 w-5" /> Filing Tracker</h1>
+          <p className="text-sm text-muted-foreground">Track regulatory submissions and filing confirmations.</p>
+        </div>
+        <QueryError title="Filings could not be loaded" onRetry={() => void filingsQuery.refetch()} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col items-start gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2"><FileOutput className="h-5 w-5" /> Filing Tracker</h1>
           <p className="text-sm text-muted-foreground">Track regulatory submissions and filing confirmations.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border overflow-hidden text-sm">
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
+          <div className="flex rounded-lg border overflow-hidden text-sm" role="group" aria-label="Filing view">
             <button
-              className={`px-3 py-1.5 flex items-center gap-1.5 ${view === "table" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+              className={`flex min-h-11 items-center gap-1.5 px-3 py-1.5 sm:min-h-9 ${view === "table" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
               onClick={() => setView("table")}
+              aria-pressed={view === "table"}
             >
               <LayoutList className="h-3.5 w-3.5" /> Table
             </button>
             <button
-              className={`px-3 py-1.5 flex items-center gap-1.5 border-l ${view === "timeline" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+              className={`flex min-h-11 items-center gap-1.5 border-l px-3 py-1.5 sm:min-h-9 ${view === "timeline" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
               onClick={() => setView("timeline")}
+              aria-pressed={view === "timeline"}
             >
               <AlignLeft className="h-3.5 w-3.5" /> Timeline
             </button>
           </div>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 rounded-lg border bg-card px-3 text-sm">
+          <select aria-label="Filter by filing status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-11 min-w-0 flex-1 rounded-lg border bg-card px-3 text-sm sm:h-9 sm:flex-none">
             <option value="all">All statuses</option>
             {FILING_STATUSES.map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
           </select>
@@ -94,8 +114,8 @@ export default function Filings() {
 
       {view === "table" ? (
         <Card>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
+          <CardContent className="overflow-x-auto p-0">
+            <table className="min-w-[760px] w-full text-sm">
               <thead className="text-left text-muted-foreground border-b">
                 <tr>
                   <th className="py-3 px-4 font-medium">Obligation</th>
@@ -116,14 +136,14 @@ export default function Filings() {
                           {f.obligation_summary?.identifier ?? f.obligation_id.slice(0, 8)}
                         </Link>
                       </td>
-                      <td className="py-3 px-4">{f.filing_type || "—"}</td>
+                      <td className="py-3 px-4">{f.filing_type || "-"}</td>
                       <td className="py-3 px-4">
                         <Badge variant={eff === "delayed" ? "destructive" : (FILING_BADGE[f.status] ?? "muted")}>
                           {eff === "delayed" ? "Delayed" : titleCase(f.status)}
                         </Badge>
                       </td>
-                      <td className="py-3 px-4 text-muted-foreground">{f.submitted_at || "—"}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{f.confirmation_reference || "—"}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{f.submitted_at || "-"}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{f.confirmation_reference || "-"}</td>
                       <td className="py-3 px-4">
                         {f.status === "not_filed" && (
                           <Button size="sm" variant="outline" onClick={() => submitMut.mutate(f.id)}>
@@ -195,13 +215,28 @@ export default function Filings() {
         </div>
       )}
 
+      {(createMut.isError || submitMut.isError) && (
+        <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {createMut.error?.message || submitMut.error?.message || "The filing update could not be completed."}
+        </div>
+      )}
+
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>New Filing</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input placeholder="Obligation ID" value={form.obligation_id} onChange={(e) => setForm({ ...form, obligation_id: e.target.value })} />
-            <Input placeholder="Filing type (e.g. quarterly_return)" value={form.filing_type} onChange={(e) => setForm({ ...form, filing_type: e.target.value })} />
-            <Input placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <div className="space-y-1.5">
+              <label htmlFor="filing-obligation" className="text-sm font-medium">Obligation ID</label>
+              <Input id="filing-obligation" placeholder="Obligation ID" value={form.obligation_id} onChange={(e) => setForm({ ...form, obligation_id: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="filing-type" className="text-sm font-medium">Filing type</label>
+              <Input id="filing-type" placeholder="For example, quarterly_return" value={form.filing_type} onChange={(e) => setForm({ ...form, filing_type: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="filing-notes" className="text-sm font-medium">Notes</label>
+              <Input id="filing-notes" placeholder="Optional notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>

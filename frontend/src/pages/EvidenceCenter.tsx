@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { FileCheck, AlertTriangle, CheckCircle, Upload, HardDrive, Cloud, Loader2 } from "lucide-react";
 import type { EvidenceRequirement } from "@/lib/types";
 
@@ -39,15 +40,19 @@ function RequirementRow({ item, onUpload }: { item: EvidenceRequirement; onUploa
 
 export default function EvidenceCenter() {
   const qc = useQueryClient();
-  const { data: evidence } = useQuery({ queryKey: ["evidence"], queryFn: () => api.listEvidence() });
-  const { data: obligations } = useQuery({ queryKey: ["obligations", "all"], queryFn: () => api.listAllObligations() });
-  const { data: integrations } = useQuery({ queryKey: ["integrations"], queryFn: api.listIntegrations });
-  useQuery({ queryKey: ["rules"], queryFn: () => api.listRules() });
+  const evidenceQuery = useQuery({ queryKey: ["evidence"], queryFn: () => api.listEvidence() });
+  const obligationsQuery = useQuery({ queryKey: ["obligations", "all"], queryFn: () => api.listAllObligations() });
+  const integrationsQuery = useQuery({ queryKey: ["integrations"], queryFn: api.listIntegrations });
+  const evidence = evidenceQuery.data;
+  const obligations = obligationsQuery.data;
+  const integrations = integrationsQuery.data;
 
   const evidenceCount = evidence?.length ?? 0;
   const obligationsWithEvidence = new Set((evidence ?? []).map((e) => e.obligation_id)).size;
   const gapsCount = Math.max(0, (obligations?.length ?? 0) - obligationsWithEvidence);
   const driveConnected = (integrations ?? []).find((i) => i.type === "drive")?.status === "connected";
+
+  const queries = [evidenceQuery, obligationsQuery, integrationsQuery];
 
   const uploadMut = useMutation({
     mutationFn: ({ id, file }: { id: string; file: File }) => api.uploadEvidence(id, file),
@@ -64,6 +69,22 @@ export default function EvidenceCenter() {
     const k = e.collector || "unassigned";
     if (!byCollector.has(k)) byCollector.set(k, []);
     byCollector.get(k)!.push(e);
+  }
+
+  if (queries.some((query) => query.isLoading)) {
+    return <PageSkeleton label="Loading evidence center" />;
+  }
+
+  if (queries.some((query) => query.isError && query.data === undefined)) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-semibold"><FileCheck className="h-5 w-5" /> Evidence Center</h1>
+          <p className="text-sm text-muted-foreground">Track evidence requirements, uploads, and compliance gaps.</p>
+        </div>
+        <QueryError title="Evidence center could not be loaded" onRetry={() => queries.forEach((query) => void query.refetch())} />
+      </div>
+    );
   }
 
   return (
@@ -90,7 +111,7 @@ export default function EvidenceCenter() {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">Total Requirements</CardTitle></CardHeader>
           <CardContent><div className="text-2xl font-semibold tabular">{evidenceCount}</div></CardContent>
@@ -163,12 +184,12 @@ export default function EvidenceCenter() {
               .filter((o) => !(evidence ?? []).some((e) => e.obligation_id === o.id))
               .slice(0, 20)
               .map((o) => (
-                <div key={o.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
-                  <div>
-                    <span className="font-medium">{o.identifier || o.id.slice(0, 8)}</span>
-                    <span className="text-muted-foreground ml-2 truncate">{o.description.slice(0, 80)}</span>
+                <div key={o.id} className="flex min-w-0 items-start justify-between gap-3 rounded-lg border p-3 text-sm">
+                  <div className="min-w-0">
+                    <span className="block font-medium">{o.identifier || o.id.slice(0, 8)}</span>
+                    <span className="mt-0.5 block break-words text-muted-foreground">{o.description.slice(0, 80)}</span>
                   </div>
-                  <Badge variant="destructive">No evidence</Badge>
+                  <Badge variant="destructive" className="shrink-0">No evidence</Badge>
                 </div>
               ))}
             {obligations && evidence && (obligations ?? []).filter((o) => !(evidence ?? []).some((e) => e.obligation_id === o.id)).length === 0 && (

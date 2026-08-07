@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState, PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { Bell, CheckCheck, Circle } from "lucide-react";
 import { timeAgo } from "@/lib/format";
 import { apiFetch } from "@/lib/api";
@@ -20,25 +21,28 @@ interface NotificationRow {
 export default function Notifications() {
   const qc = useQueryClient();
 
-  const { data } = useQuery({
+  const notificationsQuery = useQuery({
     queryKey: ["notifications"],
     queryFn: async (): Promise<{ items: NotificationRow[]; total: number }> => {
       const res = await apiFetch("/api/notifications");
-      if (!res.ok) return { items: [], total: 0 };
+      if (!res.ok) throw new Error("Notifications could not be loaded.");
       return res.json();
     },
   });
+  const data = notificationsQuery.data;
 
   const markReadMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiFetch(`/api/notifications/${id}/read`, { method: "POST" });
+      const res = await apiFetch(`/api/notifications/${id}/read`, { method: "POST" });
+      if (!res.ok) throw new Error("The notification could not be updated.");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
   const markAllMutation = useMutation({
     mutationFn: async () => {
-      await apiFetch("/api/notifications/read-all", { method: "POST" });
+      const res = await apiFetch("/api/notifications/read-all", { method: "POST" });
+      if (!res.ok) throw new Error("Notifications could not be updated.");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
@@ -46,9 +50,17 @@ export default function Notifications() {
   const items = data?.items ?? [];
   const unread = items.filter((n) => !n.is_read).length;
 
+  if (notificationsQuery.isLoading) {
+    return <PageSkeleton label="Loading notifications" cards={0} />;
+  }
+
+  if (notificationsQuery.isError && data === undefined) {
+    return <QueryError title="Notifications could not be loaded" onRetry={() => void notificationsQuery.refetch()} />;
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2"><Bell className="h-5 w-5" /> Notifications</h1>
           <p className="text-sm text-muted-foreground">System alerts, task updates, and deadline reminders.</p>
@@ -57,6 +69,12 @@ export default function Notifications() {
           <Button size="sm" variant="outline" onClick={() => markAllMutation.mutate()}><CheckCheck className="h-3.5 w-3.5" /> Mark all read</Button>
         )}
       </div>
+
+      {(markReadMutation.isError || markAllMutation.isError) && (
+        <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {markReadMutation.error?.message || markAllMutation.error?.message}
+        </div>
+      )}
 
       <div className="flex gap-2 mb-2">
         <Badge variant="muted">{items.length} total</Badge>
@@ -87,10 +105,7 @@ export default function Notifications() {
             </div>
           ))}
           {items.length === 0 && (
-            <div className="text-sm text-muted-foreground text-center py-8">
-              <Bell className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
-              No notifications yet.
-            </div>
+            <div className="p-5"><EmptyState icon={Bell} title="No notifications" description="System alerts, task updates, and deadline reminders will appear here." /></div>
           )}
         </CardContent>
       </Card>

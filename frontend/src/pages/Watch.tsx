@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { EmptyState, PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Radar, Plus, ExternalLink, CheckCircle, Trash2 } from "lucide-react";
 import { timeAgo } from "@/lib/format";
@@ -43,23 +44,25 @@ export default function Watch() {
   const [form, setForm] = useState({ name: "", url: "", source_type: "regulatory" });
   const [formError, setFormError] = useState("");
 
-  const { data: sources } = useQuery({
+  const sourcesQuery = useQuery({
     queryKey: ["watch-sources"],
     queryFn: async (): Promise<WatchSourceRow[]> => {
       const res = await apiFetch("/api/watch/sources");
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error("Watch sources could not be loaded.");
       return res.json();
     },
   });
 
-  const { data: hits } = useQuery({
+  const hitsQuery = useQuery({
     queryKey: ["watch-hits"],
     queryFn: async (): Promise<WatchHitRow[]> => {
       const res = await apiFetch("/api/watch/hits");
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error("Watch hits could not be loaded.");
       return res.json();
     },
   });
+  const sources = sourcesQuery.data;
+  const hits = hitsQuery.data;
 
   const addSourceMutation = useMutation({
     mutationFn: async (data: typeof form) => {
@@ -84,23 +87,41 @@ export default function Watch() {
 
   const deleteSourceMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiFetch(`/api/watch/sources/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/watch/sources/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("The source could not be deleted.");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["watch-sources"] }),
   });
 
   const reviewHitMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiFetch(`/api/watch/hits/${id}/review`, { method: "POST" });
+      const res = await apiFetch(`/api/watch/hits/${id}/review`, { method: "POST" });
+      if (!res.ok) throw new Error("The hit could not be marked as reviewed.");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["watch-hits"] }),
   });
 
   const unreviewedHits = (hits ?? []).filter((h) => !h.is_reviewed).length;
 
+  if (sourcesQuery.isLoading || hitsQuery.isLoading) {
+    return <PageSkeleton label="Loading regulatory watch" cards={2} />;
+  }
+
+  if ((sourcesQuery.isError && sources === undefined) || (hitsQuery.isError && hits === undefined)) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-semibold"><Radar className="h-5 w-5" /> Regulatory Watch</h1>
+          <p className="text-sm text-muted-foreground">Monitor regulatory sources for changes and updates.</p>
+        </div>
+        <QueryError title="Regulatory watch could not be loaded" onRetry={() => { void sourcesQuery.refetch(); void hitsQuery.refetch(); }} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2"><Radar className="h-5 w-5" /> Regulatory Watch</h1>
           <p className="text-sm text-muted-foreground">Monitor regulatory sources for changes and updates.</p>
@@ -123,13 +144,13 @@ export default function Watch() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge variant="muted">{s.source_type}</Badge>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteSourceMutation.mutate(s.id)}>
+                  <Button aria-label={`Delete ${s.name}`} variant="ghost" size="icon" onClick={() => deleteSourceMutation.mutate(s.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
               </div>
             ))}
-            {(!sources || sources.length === 0) && <div className="text-sm text-muted-foreground text-center py-4">No sources configured. Add one to start monitoring.</div>}
+            {(!sources || sources.length === 0) && <EmptyState icon={Radar} title="No watch sources" description="Add a regulatory source to begin monitoring for updates." />}
           </CardContent>
         </Card>
 
@@ -140,7 +161,7 @@ export default function Watch() {
               <div key={h.id} className={`rounded-lg border p-3 ${h.is_reviewed ? "opacity-60" : ""}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="text-sm font-medium">{h.title}</div>
-                  {!h.is_reviewed && <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => reviewHitMutation.mutate(h.id)}><CheckCircle className="h-3.5 w-3.5" /></Button>}
+                  {!h.is_reviewed && <Button aria-label={`Mark ${h.title} as reviewed`} variant="ghost" size="icon" className="shrink-0" onClick={() => reviewHitMutation.mutate(h.id)}><CheckCircle className="h-3.5 w-3.5" /></Button>}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{h.summary}</p>
                 <div className="flex items-center gap-2 mt-2">
@@ -149,10 +170,16 @@ export default function Watch() {
                 </div>
               </div>
             ))}
-            {(!hits || hits.length === 0) && <div className="text-sm text-muted-foreground text-center py-4">No hits yet. Add a source and run a check.</div>}
+            {(!hits || hits.length === 0) && <EmptyState icon={CheckCircle} title="No updates found" description="New regulatory updates will appear here after a source check." />}
           </CardContent>
         </Card>
       </div>
+
+      {(deleteSourceMutation.isError || reviewHitMutation.isError) && (
+        <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {deleteSourceMutation.error?.message || reviewHitMutation.error?.message}
+        </div>
+      )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
@@ -161,9 +188,18 @@ export default function Watch() {
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); addSourceMutation.mutate(form); }} className="space-y-3">
             {formError && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{formError}</div>}
-            <Input placeholder="Source name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <Input placeholder="URL" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required />
-            <Select options={SOURCE_TYPES} value={form.source_type} onChange={(e) => setForm({ ...form, source_type: e.target.value })} />
+            <div className="space-y-1.5">
+              <label htmlFor="watch-source-name" className="text-sm font-medium">Source name</label>
+              <Input id="watch-source-name" placeholder="Source name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="watch-source-url" className="text-sm font-medium">URL</label>
+              <Input id="watch-source-url" placeholder="https://" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="watch-source-type" className="text-sm font-medium">Source type</label>
+              <Select id="watch-source-type" options={SOURCE_TYPES} value={form.source_type} onChange={(e) => setForm({ ...form, source_type: e.target.value })} />
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={addSourceMutation.isPending}>{addSourceMutation.isPending ? "Adding…" : "Add"}</Button>

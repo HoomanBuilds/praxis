@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Pager } from "@/components/ui/pager";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { OBLIGATION_STATUSES, RISK_LEVELS } from "@/lib/constants";
 import { useAreas } from "@/hooks/useAreas";
 import { useVocab } from "@/hooks/useVocab";
@@ -33,7 +34,7 @@ export default function RiskRegister() {
 
   useEffect(() => setOffset(0), [area, status, riskLevel]);
 
-  const { data: page } = useQuery({
+  const riskQuery = useQuery({
     queryKey: ["risk-register", area, status, riskLevel, offset],
     queryFn: () =>
       api.riskRegister({
@@ -44,35 +45,52 @@ export default function RiskRegister() {
         limit: PAGE_SIZE,
       }),
   });
+  const page = riskQuery.data;
 
   const items = page?.items ?? [];
   const total = page?.total ?? 0;
-  // Firm-wide distribution — computed server-side across every obligation, independent
+  // Firm-wide distribution - computed server-side across every obligation, independent
   // of the filters/pagination above, so these totals never understate real exposure.
   const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, minimal: 0, ...(page?.counts ?? {}) };
 
+  if (riskQuery.isLoading) {
+    return <PageSkeleton label="Loading risk register" cards={5} />;
+  }
+
+  if (riskQuery.isError && page === undefined) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-semibold"><Shield className="h-5 w-5" /> Risk Register</h1>
+          <p className="text-sm text-muted-foreground">Obligations sorted by computed risk level from objective compliance signals.</p>
+        </div>
+        <QueryError title="Risk register could not be loaded" onRetry={() => void riskQuery.refetch()} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col items-start gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2"><Shield className="h-5 w-5" /> Risk Register</h1>
-          <p className="text-sm text-muted-foreground">Obligations sorted by computed risk level — derived from objective compliance signals.</p>
+          <p className="text-sm text-muted-foreground">Obligations sorted by computed risk level from objective compliance signals.</p>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <select value={area} onChange={(e) => setArea(e.target.value)} className="h-9 rounded-lg border bg-card px-3">
+        <div className="grid w-full grid-cols-1 gap-2 text-sm sm:grid-cols-3 lg:w-auto">
+          <select aria-label="Filter by department" value={area} onChange={(e) => setArea(e.target.value)} className="h-11 min-w-0 rounded-lg border bg-card px-3 sm:h-9">
             {areas.map((a) => <option key={a} value={a}>{a === "all" ? "All departments" : titleCase(a)}</option>)}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border bg-card px-3">
+          <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className="h-11 min-w-0 rounded-lg border bg-card px-3 sm:h-9">
             {OBLIGATION_STATUSES.map((s) => <option key={s} value={s}>{s === "all" ? "All statuses" : titleCase(s)}</option>)}
           </select>
-          <select value={riskLevel} onChange={(e) => setRiskLevel(e.target.value)} className="h-9 rounded-lg border bg-card px-3">
+          <select aria-label="Filter by risk level" value={riskLevel} onChange={(e) => setRiskLevel(e.target.value)} className="h-11 min-w-0 rounded-lg border bg-card px-3 sm:h-9">
             <option value="all">All risk levels</option>
             {RISK_LEVELS.map((r) => <option key={r} value={r}>{titleCase(r)}</option>)}
           </select>
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {RISK_LEVELS.map((level) => (
           <Card key={level}>
             <CardHeader className="pb-1"><CardTitle className="text-xs text-muted-foreground">{titleCase(level)}</CardTitle></CardHeader>
@@ -82,8 +100,8 @@ export default function RiskRegister() {
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
+        <CardContent className="overflow-x-auto p-0">
+          <table className="min-w-[860px] w-full text-sm">
             <thead className="text-left text-muted-foreground border-b">
               <tr>
                 <th className="py-3 px-4 font-medium">ID</th>
