@@ -28,7 +28,7 @@ const STEPS = [
     target: "regulation-upload",
     eyebrow: "Bring in source material",
     title: "Upload a regulation",
-    description: "Open Regulations and upload the official PDF here. Processing extracts candidate obligations while retaining the source text for review.",
+    description: "Open Regulations and upload the official PDF here. Processing extracts reviewable obligations while retaining the source text for review.",
   },
   {
     route: "/obligations",
