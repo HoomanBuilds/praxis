@@ -61,7 +61,7 @@ export default function Obligations() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between" data-tour="obligations">
         <div>
           <h1 className="text-xl font-semibold">Obligations</h1>
           <p className="text-sm text-muted-foreground">{t("obligations.subtitle")}</p>

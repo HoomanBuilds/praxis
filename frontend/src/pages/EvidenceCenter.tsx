@@ -89,7 +89,7 @@ export default function EvidenceCenter() {
 
   return (
     <div className="space-y-5">
-      <div>
+      <div data-tour="evidence">
         <h1 className="text-xl font-semibold flex items-center gap-2"><FileCheck className="h-5 w-5" /> Evidence Center</h1>
         <p className="text-sm text-muted-foreground">Track evidence requirements, uploads, and compliance gaps.</p>
       </div>

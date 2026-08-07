@@ -4,7 +4,7 @@ import {
   LayoutDashboard, ScrollText, ListChecks, ClipboardList, Share2, Bot, BarChart3,
   FileBarChart, History, Settings as SettingsIcon, Search, Command, Bell,
   FileCheck, CalendarClock, Radar, LogOut, Shield, FileOutput, BookOpen,
-  Menu, X,
+  CircleHelp, Menu, X,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -18,6 +18,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useVocab } from "@/hooks/useVocab";
 import type { TermKey } from "@/lib/vocab/terms";
 import { preloadRoute, preloadWorkspaceRoutes } from "@/lib/routePreload";
+import { OnboardingTour, openOnboardingTour } from "@/components/OnboardingTour";
 
 // `termKey` overrides `label` when set, so a nav entry can read differently in business
 // and engineering mode. Routes never change - deep links and the command palette depend
@@ -114,6 +115,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   <NavLink
                     key={n.to}
                     to={n.to}
+                    data-tour={`${n.label.toLowerCase().replace(/\s+/g, "-")}-nav`}
                     className={navItem(active)}
                     onMouseEnter={() => void preloadRoute(n.to)}
                     onFocus={() => void preloadRoute(n.to)}
@@ -159,6 +161,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className={cn("min-h-screen bg-background p-0 transition-[padding] duration-200 sm:p-3 lg:p-4", copilot.open && "xl:pr-[25rem]")}>
       <CommandPalette />
       <CopilotSidebar />
+      {user?.id && <OnboardingTour userId={user.id} />}
       {mobileNavOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
@@ -201,6 +204,15 @@ export function Layout({ children }: { children: ReactNode }) {
               </kbd>
             </button>
             <div className="ml-auto flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={openOnboardingTour}
+                aria-label="Open guided tour"
+                title="Guided tour"
+                className="grid h-11 w-11 place-items-center rounded-xl border bg-secondary text-muted-foreground transition-colors hover:text-foreground sm:h-9 sm:w-9"
+              >
+                <CircleHelp className="h-4 w-4" />
+              </button>
               <ThemeToggle />
               <Link to="/notifications" aria-label="Notifications" title="Notifications" className="relative grid h-11 w-11 place-items-center rounded-xl border bg-secondary text-muted-foreground hover:text-foreground transition-colors sm:h-9 sm:w-9">
                 <Bell className="h-4 w-4" />

@@ -65,8 +65,11 @@ export default function Documents() {
       {/* Automatic Monitoring card */}
       <SebiMonitorCard />
 
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2 text-sm font-medium"><Upload className="h-4 w-4" /> Manual Upload</CardTitle></CardHeader>
+      <Card data-tour="regulation-upload">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm font-medium"><Upload className="h-4 w-4" /> Manual Upload</CardTitle>
+          <p className="text-xs leading-5 text-muted-foreground">Upload the official regulatory PDF. Praxis processes it into reviewable obligations while preserving the source text.</p>
+        </CardHeader>
 
         <CardContent className="space-y-3">
           <div className="grid md:grid-cols-3 gap-3">

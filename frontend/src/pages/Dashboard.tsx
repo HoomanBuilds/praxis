@@ -194,7 +194,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-w-0 space-y-6">
-      <div>
+      <div data-tour="command-center">
         <h1 className="text-xl font-semibold">Command Center</h1>
         <p className="text-sm text-muted-foreground">{t("dashboard.subtitle")}</p>
       </div>
