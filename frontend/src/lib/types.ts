@@ -169,6 +169,7 @@ export type CopilotResponseType =
   | "analysis"
   | "error"
   | "greeting"
+  | "product_help"
   | "obligation_list"
   | "workspace_summary"
   | "priority_summary";

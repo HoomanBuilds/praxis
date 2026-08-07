@@ -53,9 +53,12 @@ SYSTEM_PROMPT = (
     "You may answer stable general educational questions, such as what SEBI is, from general "
     "knowledge. Such answers are not workspace-grounded, so set grounded to false and leave "
     "source_ids empty. If a follow-up is ambiguous, use the conversation to resolve it or ask "
-    "one short clarifying question."
+    "one short clarifying question. Praxis product questions refer to the actual workspace "
+    "screens: Command Center summarizes current posture, Regulations holds source documents, "
+    "Obligations holds extracted requirements, Evidence Center tracks required proof, Calendar "
+    "shows exact dates and relative timing rules, and Compliance Map shows their relationships."
 )
-PROMPT_VERSION = "3.0.0"
+PROMPT_VERSION = "3.1.0"
 PROMPT_HASH = hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:12]
 
 
@@ -124,6 +127,75 @@ _SEBI_INFO_RE = re.compile(
     r"(?:about|by)\s+sebi)[!,.?\s]*$",
     re.IGNORECASE,
 )
+
+_PRODUCT_HELP = (
+    (
+        ("command center",),
+        "The Command Center is the live summary of this Praxis workspace. It shows compliance "
+        "coverage, obligations waiting for review, overdue tasks, processed regulations, and "
+        "recent activity. Use it to decide what needs attention first.",
+    ),
+    (
+        ("compliance map", "knowledge graph"),
+        "The Compliance Map is the relationship view of the workspace. It connects regulations "
+        "to obligations, rules, tasks, evidence, risks, filings, departments, and owners so you "
+        "can trace a requirement from its source to operational action.",
+    ),
+    (
+        ("evidence center",),
+        "The Evidence Center tracks the proof required for compliance. It shows each evidence "
+        "requirement, what the artefact must contain, who should collect it, whether a file has "
+        "been uploaded, and which obligations still have evidence gaps.",
+    ),
+    (
+        ("filing tracker", "filings"),
+        "The Filing Tracker records filing obligations, due dates, owners, submission status, "
+        "and acknowledgement references generated from reviewed obligations.",
+    ),
+    (
+        ("risk register",),
+        "The Risk Register ranks obligations using current compliance signals such as review "
+        "status, deadlines, task progress, and evidence gaps.",
+    ),
+    (
+        ("audit trail",),
+        "The Audit Trail is the append-only record of workspace actions, including imports, "
+        "reviews, assignments, evidence uploads, and other compliance decisions.",
+    ),
+    (
+        ("regulations", "regulation"),
+        "Regulations are the source documents in Praxis, such as SEBI circulars and "
+        "notifications. Processing a regulation identifies its actionable obligations while "
+        "keeping every downstream record traceable to the source text.",
+    ),
+    (
+        ("obligations", "obligation"),
+        "Obligations are the specific requirements Praxis identifies from regulations. Each "
+        "one keeps its source paragraph, functional area, review status, assurance score, and "
+        "any timing requirement. Reviewed obligations can drive rules, tasks, and evidence.",
+    ),
+    (
+        ("calendar",),
+        "The Calendar combines exact regulatory dates and task deadlines. Relative timing "
+        "rules, such as 'within 10 working days', stay in the scheduling list until an "
+        "operational start date is known instead of being assigned a fake date.",
+    ),
+    (
+        ("tasks", "task"),
+        "Tasks are the operational work created from reviewed obligations. They carry an owner, "
+        "department, deadline, status, reviewer, and links back to the originating obligation.",
+    ),
+    (
+        ("copilot",),
+        "Praxis Copilot answers product and compliance questions, summarizes current workspace "
+        "status, and cites stored obligation records when an answer depends on regulatory data.",
+    ),
+)
+
+_PRODUCT_HELP_CUES = (
+    "what is", "what are", "what does", "what do", "explain", "tell me about",
+    "how does", "where is", "we have",
+)
 _FOLLOW_UP_RE = re.compile(
     r"\b(?:it|that|this|those|these|them|previous|earlier|clarify|more detail|you mean)\b",
     re.IGNORECASE,
@@ -158,6 +230,86 @@ def _query_terms(question: str) -> list[str]:
 def _needs_workspace_context(question: str) -> bool:
     tokens = set(re.findall(r"[a-z0-9]+", question.lower()))
     return bool(tokens & _WORKSPACE_TERMS)
+
+
+def _product_help_response(question: str) -> dict | None:
+    normalized = " ".join(question.lower().replace("centre", "center").split()).strip(" !,.?")
+    if not any(cue in normalized for cue in _PRODUCT_HELP_CUES):
+        return None
+    for aliases, answer in _PRODUCT_HELP:
+        if any(re.search(rf"\b{re.escape(alias)}\b", normalized) for alias in aliases):
+            return {
+                "answer": answer,
+                "citations": [],
+                "sources": [],
+                "grounded": False,
+                "confidence": 1.0,
+                "response_type": "product_help",
+            }
+    return None
+
+
+def _is_workspace_overview_query(normalized: str) -> bool:
+    return (
+        "workspace overview" in normalized
+        or "whole overview" in normalized
+        or "overall status of us" in normalized
+        or "where we are" in normalized
+        or (
+            "what we have" in normalized
+            and ("status" in normalized or "what not" in normalized)
+        )
+    )
+
+
+def _workspace_overview_response(session: Session) -> dict:
+    documents = crud.list_documents(session)
+    obligations = crud.list_obligations(session)
+    tasks = crud.list_tasks(session)
+    evidence = crud.list_evidence_requirements(session)
+    filings = crud.list_filings(session)
+    reviewed = [item for item in obligations if item.status in {"approved", "edited", "implemented"}]
+    pending = [item for item in obligations if item.status == "pending_review"]
+    open_tasks = [item for item in tasks if item.status != "completed"]
+    today = date.today()
+    overdue = [item for item in open_tasks if item.deadline and item.deadline < today]
+    uploaded_evidence = [item for item in evidence if item.uploaded_at]
+
+    gaps = []
+    if pending:
+        gaps.append(f"{len(pending)} obligations still need human review")
+    if obligations and not tasks:
+        gaps.append("no operational tasks have been generated yet")
+    if obligations and not evidence:
+        gaps.append("no evidence requirements have been generated yet")
+    if overdue:
+        gaps.append(f"{len(overdue)} open tasks are overdue")
+    if evidence and len(uploaded_evidence) < len(evidence):
+        gaps.append(f"{len(evidence) - len(uploaded_evidence)} evidence artefacts are missing")
+
+    lines = [
+        "Current Praxis workspace overview:",
+        "",
+        f"- {len(documents)} regulations are recorded.",
+        f"- {len(obligations)} obligations are recorded: {len(reviewed)} reviewed and "
+        f"{len(pending)} pending review.",
+        f"- {len(open_tasks)} tasks are open, with {len(overdue)} overdue.",
+        f"- {len(evidence)} evidence requirements exist and {len(uploaded_evidence)} have files.",
+        f"- {len(filings)} filing records exist.",
+        "",
+        "Current gaps:",
+    ]
+    lines.extend(f"- {gap}." for gap in gaps)
+    if not gaps:
+        lines.append("- No review, task, deadline, or evidence gap is currently recorded.")
+    return {
+        "answer": "\n".join(lines),
+        "citations": [],
+        "sources": [],
+        "grounded": True,
+        "confidence": 1.0,
+        "response_type": "workspace_summary",
+    }
 
 
 def _conversation_history(question: str, turns: list[CopilotTurn]) -> list[dict[str, str]]:
@@ -204,12 +356,12 @@ def _direct_matches(
 
 
 def _iso_deadline(value: str | None) -> date | None:
-    if not value:
+    from api.routes_calendar import _calendar_date
+
+    parsed = _calendar_date(value)
+    if not parsed:
         return None
-    try:
-        return date.fromisoformat(value)
-    except ValueError:
-        return None
+    return date.fromisoformat(parsed)
 
 
 def _priority_response(session: Session) -> dict:
@@ -351,6 +503,13 @@ def _workspace_response(session: Session, question: str) -> dict | None:
             "confidence": 0.95,
             "response_type": "analysis",
         }
+
+    product_help = _product_help_response(question)
+    if product_help:
+        return product_help
+
+    if _is_workspace_overview_query(normalized):
+        return _workspace_overview_response(session)
 
     priority_query = (
         "urgent" in normalized

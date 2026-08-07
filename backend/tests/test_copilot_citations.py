@@ -13,6 +13,55 @@ from api.routes_copilot import (
 )
 
 
+def test_product_questions_are_answered_without_regulatory_search(monkeypatch):
+    monkeypatch.setattr(
+        "api.routes_copilot.crud.list_obligations",
+        lambda session, **kwargs: (_ for _ in ()).throw(
+            AssertionError("product help must not search obligations")
+        ),
+    )
+
+    examples = {
+        "what is obligations?": "specific requirements Praxis identifies",
+        "what is compliance map here?": "relationship view",
+        "what is command centre we have?": "live summary",
+        "what is evidence centre?": "proof required for compliance",
+        "what is regulations?": "source documents in Praxis",
+    }
+
+    for question, expected in examples.items():
+        response = _workspace_response(None, question)
+        assert response is not None
+        assert response["response_type"] == "product_help"
+        assert expected in response["answer"]
+        assert response["citations"] == []
+
+
+def test_whole_workspace_overview_reports_real_gaps(monkeypatch):
+    monkeypatch.setattr("api.routes_copilot.crud.list_documents", lambda session: [SimpleNamespace()])
+    monkeypatch.setattr(
+        "api.routes_copilot.crud.list_obligations",
+        lambda session, **kwargs: [SimpleNamespace(status="pending_review") for _ in range(3)],
+    )
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session, **kwargs: [])
+    monkeypatch.setattr(
+        "api.routes_copilot.crud.list_evidence_requirements",
+        lambda session, **kwargs: [],
+    )
+    monkeypatch.setattr("api.routes_copilot.crud.list_filings", lambda session, **kwargs: [])
+
+    response = _workspace_response(
+        None,
+        "okay give me whole overview where we are what we have what not what is status of us",
+    )
+
+    assert response is not None
+    assert response["response_type"] == "workspace_summary"
+    assert "3 obligations are recorded" in response["answer"]
+    assert "3 obligations still need human review" in response["answer"]
+    assert "no operational tasks have been generated yet" in response["answer"]
+
+
 def test_greeting_is_answered_without_querying_the_model():
     response = _workspace_response(None, "hi")
     assert response is not None
