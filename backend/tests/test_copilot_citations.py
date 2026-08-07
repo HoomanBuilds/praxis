@@ -4,9 +4,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from api.routes_copilot import (
+    CopilotAnswer,
+    CopilotRequest,
     _direct_matches,
-    _extractive_response,
+    _needs_workspace_context,
     _workspace_response,
+    copilot,
 )
 
 
@@ -15,6 +18,20 @@ def test_greeting_is_answered_without_querying_the_model():
     assert response is not None
     assert response["response_type"] == "greeting"
     assert response["answer"].startswith("Hello.")
+
+
+def test_identity_question_is_not_treated_as_workspace_search():
+    response = _workspace_response(None, "who are you?")
+
+    assert response is not None
+    assert response["response_type"] == "greeting"
+    assert response["citations"] == []
+    assert "Praxis Copilot" in response["answer"]
+
+
+def test_general_sebi_question_does_not_request_workspace_context():
+    assert _needs_workspace_context("What do you know about SEBI?") is False
+    assert _needs_workspace_context("What compliance obligations mention KYC?") is True
 
 
 def test_pending_review_query_uses_workspace_records(monkeypatch):
@@ -77,6 +94,11 @@ def test_urgent_risk_query_returns_actionable_workspace_priorities(monkeypatch):
     assert "2 obligations are pending review" in response["answer"]
     assert "Review obligations with the earliest recorded dates" in response["answer"]
 
+    review_response = _workspace_response(None, "review obligations")
+    assert review_response is not None
+    assert review_response["response_type"] == "priority_summary"
+    assert "2 obligations are pending review" in review_response["answer"]
+
 
 def test_direct_match_uses_the_subject_instead_of_generic_request_words(monkeypatch):
     obligations = [
@@ -104,36 +126,94 @@ def test_direct_match_uses_the_subject_instead_of_generic_request_words(monkeypa
     assert [item.identifier for item in matches] == ["ABC-OB-003"]
 
 
-def test_extractive_evidence_response_reports_missing_checklist(monkeypatch):
+def test_follow_up_uses_full_history_without_repeating_keyword_results(monkeypatch):
+    captured = {}
+
+    def complete(system_prompt, history, user_prompt, schema, retries):
+        captured["history"] = history
+        captured["prompt"] = user_prompt
+        return SimpleNamespace(parsed=CopilotAnswer(
+            answer="I was describing the current compliance review queue.",
+            source_ids=[],
+            grounded=False,
+            confidence=0.8,
+        ))
+
+    monkeypatch.setattr("llm.copilot_structured_complete", complete)
+    payload = CopilotRequest(
+        question="what?",
+        history=[
+            {"role": "user", "content": "Summarize compliance status"},
+            {"role": "assistant", "content": "There are 12 obligations pending review."},
+        ],
+    )
+
+    response = copilot(SimpleNamespace(), payload, None)
+
+    assert response["answer"].startswith("I was describing")
+    assert captured["history"] == [
+        {"role": "user", "content": "Summarize compliance status"},
+        {"role": "assistant", "content": "There are 12 obligations pending review."},
+    ]
+    assert "OBLIGATION" not in captured["prompt"]
+
+
+def test_model_sources_are_verified_against_workspace_context(monkeypatch):
     obligation = SimpleNamespace(
         id="kyc",
         identifier="ABC-OB-003",
         description="Complete KYC verification before account activation",
         source_text="The intermediary shall complete KYC verification.",
+        document_id=None,
+        source_paragraph_ref="4",
         functional_area="client_services",
         status="pending_review",
+        deadline_hint=None,
+        confidence=0.9,
     )
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session: [obligation])
+    monkeypatch.setattr("api.routes_copilot.crud.list_rules", lambda session, **kwargs: [])
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session, **kwargs: [])
     monkeypatch.setattr("api.routes_copilot.crud.list_evidence_requirements", lambda session, **kwargs: [])
-    monkeypatch.setattr("api.routes_copilot._citable", lambda session, item: {
-        "obligation_id": item.id,
-        "obligation_identifier": item.identifier,
-        "circular_reference": "SEBI/TEST/1",
-        "paragraph": "4",
-        "functional_area": "client_services",
-        "status": "pending_review",
-        "quote": item.source_text,
-    })
+    monkeypatch.setattr("llm.copilot_structured_complete", lambda *args, **kwargs: SimpleNamespace(
+        parsed=CopilotAnswer(
+            answer="KYC must be completed before account activation.",
+            source_ids=["ABC-OB-003", "MADE-UP-OB-999"],
+            grounded=True,
+            confidence=1.0,
+        )
+    ))
 
-    response = _extractive_response(None, "What evidence is required for KYC?", [obligation])
+    response = copilot(
+        SimpleNamespace(),
+        CopilotRequest(question="What is required for KYC obligations?"),
+        None,
+    )
 
-    assert response["grounded"] is True
     assert response["sources"] == ["ABC-OB-003"]
-    assert "No generated evidence checklist exists" in response["answer"]
+    assert response["grounded"] is True
+    assert response["confidence"] == 0.95
 
 
-def test_extractive_response_rejects_an_unrelated_question():
-    response = _extractive_response(None, "What is the lunch menu?", [])
+def test_general_question_uses_model_without_workspace_citations(monkeypatch):
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session: (_ for _ in ()).throw(
+        AssertionError("general questions must not search obligations")
+    ))
+    monkeypatch.setattr("llm.copilot_structured_complete", lambda *args, **kwargs: SimpleNamespace(
+        parsed=CopilotAnswer(
+            answer="SEBI is India's securities market regulator.",
+            source_ids=[],
+            grounded=False,
+            confidence=0.95,
+        )
+    ))
 
-    assert response["grounded"] is False
+    response = copilot(
+        SimpleNamespace(),
+        CopilotRequest(question="What do you know about SEBI?"),
+        None,
+    )
+
+    assert response["answer"] == "SEBI is India's securities market regulator."
     assert response["citations"] == []
-    assert "could not find" in response["answer"]
+    assert response["grounded"] is False
