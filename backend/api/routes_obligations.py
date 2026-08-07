@@ -1,4 +1,4 @@
-"""Obligation review endpoints — the human-in-the-loop gate (§6.1, §10.5, §7.7)."""
+"""Obligation review endpoints - the human-in-the-loop gate (sections 6.1, 10.5, 7.7)."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -76,7 +76,7 @@ def edit(obligation_id: str, edit: schemas.ObligationEdit, session: Session = De
 
 @router.get("/{obligation_id}/explain")
 def explain(obligation_id: str, session: Session = Depends(get_db)):
-    """Real, recomputed explainability for an extraction — no black box, no fabrication.
+    """Real, recomputed explainability for an extraction - no black box, no fabrication.
     Reasoning is derived from the same deterministic signals the pipeline used."""
     ob = _require(session, obligation_id)
     src = ob.source_text or ""
@@ -128,11 +128,11 @@ def explain(obligation_id: str, session: Session = Depends(get_db)):
         "extraction_method": ob.extraction_method,
         "why_method": why_method,
         "confidence": ob.confidence,
-        "confidence_note": "Calibrated from objective signals and capped at 98% — the system never claims full certainty.",
+        "confidence_note": "Calibrated from objective signals and capped at 98% - the system never claims full certainty.",
         "confidence_factors": factors,
         "source_paragraph_ref": ob.source_paragraph_ref,
         "source_text": ob.source_text,
-        "model": "llama3.1:8b (local)" if ob.extraction_method == "llm" else "deterministic regex engine",
+        "model": "AI-assisted extraction" if ob.extraction_method == "llm" else "deterministic regex engine",
         "related_obligations": related[:3],
     }
 
