@@ -52,6 +52,7 @@ const SIMPLE_TYPES = new Set(["regulation", "obligation", "department", "task", 
  * the tab for seconds and produce an unreadable hairball anyway.
  */
 const MAX_RENDERED_NODES = 400;
+const MAX_SIMPLE_RENDERED_NODES = 180;
 
 function layout(nodes: GraphNode[], edges: GraphEdge[], spacious = false) {
   const simNodes: SimNode[] = nodes.map((n) => ({ ...n }));
@@ -60,7 +61,7 @@ function layout(nodes: GraphNode[], edges: GraphEdge[], spacious = false) {
   // Ticks are the dominant cost and scale with node count. A small structural map can
   // afford a fully-settled layout; a large one trades a little tidiness for a UI that
   // does not lock up.
-  const ticks = simNodes.length > 250 ? 90 : simNodes.length > 120 ? 180 : 340;
+  const ticks = simNodes.length > 250 ? 70 : simNodes.length > 120 ? 100 : 220;
   forceSimulation(simNodes)
     .force("link", forceLink(links as any).id((d: any) => d.id).distance(spacious ? 95 : 58).strength(0.35))
     .force("charge", forceManyBody().strength(spacious ? -340 : -190).distanceMax(spacious ? 600 : 400))
@@ -142,7 +143,11 @@ export default function KnowledgeGraphPage() {
     const typedKeep = new Set(typed.map((n) => n.id));
     const typedEdges = raw.edges.filter((e) => typedKeep.has(e.source) && typedKeep.has(e.target));
 
-    const capped = capNodes(typed, typedEdges, MAX_RENDERED_NODES);
+    const capped = capNodes(
+      typed,
+      typedEdges,
+      simple ? MAX_SIMPLE_RENDERED_NODES : MAX_RENDERED_NODES,
+    );
     const nodes_by_type: Record<string, number> = {};
     for (const n of capped.nodes) nodes_by_type[n.type] = (nodes_by_type[n.type] ?? 0) + 1;
     return {

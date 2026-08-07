@@ -123,13 +123,14 @@ export const api = {
   listAllObligations: async (params: { document_id?: string; status?: string; functional_area?: string } = {}) => {
     const pageSize = 200;
     const first = await api.listObligations({ ...params, offset: 0, limit: pageSize });
-    const items = [...first.items];
-    while (items.length < first.total) {
-      const page = await api.listObligations({ ...params, offset: items.length, limit: pageSize });
-      items.push(...page.items);
-      if (page.items.length === 0) break;
-    }
-    return items;
+    const offsets = Array.from(
+      { length: Math.max(0, Math.ceil(first.total / pageSize) - 1) },
+      (_, index) => (index + 1) * pageSize,
+    );
+    const remaining = await Promise.all(
+      offsets.map((offset) => api.listObligations({ ...params, offset, limit: pageSize })),
+    );
+    return [first, ...remaining].flatMap((page) => page.items);
   },
   getObligation: (id: string) => req<Obligation>(`/obligations/${id}`),
   approveObligation: (id: string, reviewer = "compliance_officer", note = "") =>

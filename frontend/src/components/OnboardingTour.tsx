@@ -106,6 +106,7 @@ export function OnboardingTour({ userId }: { userId: string }) {
   useLayoutEffect(() => {
     if (!open) return;
     setTarget(null);
+    let updateFrame = 0;
     const updateTarget = () => {
       const element = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
       if (!element || element.offsetParent === null) {
@@ -113,24 +114,40 @@ export function OnboardingTour({ userId }: { userId: string }) {
         return;
       }
       const rect = element.getBoundingClientRect();
-      setTarget({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+      const next = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+      setTarget((current) => current
+        && Math.abs(current.top - next.top) < 0.5
+        && Math.abs(current.left - next.left) < 0.5
+        && Math.abs(current.width - next.width) < 0.5
+        && Math.abs(current.height - next.height) < 0.5
+        ? current
+        : next);
+    };
+    const scheduleTargetUpdate = () => {
+      if (updateFrame) return;
+      updateFrame = window.requestAnimationFrame(() => {
+        updateFrame = 0;
+        updateTarget();
+      });
     };
     const frame = window.requestAnimationFrame(() => {
       const element = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
       if (typeof element?.scrollIntoView === "function") {
-        element.scrollIntoView({ block: "center", behavior: "smooth" });
+        const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        element.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
       }
-      updateTarget();
+      scheduleTargetUpdate();
     });
-    const observer = new MutationObserver(updateTarget);
+    const observer = new MutationObserver(scheduleTargetUpdate);
     observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("resize", updateTarget);
-    window.addEventListener("scroll", updateTarget, true);
+    window.addEventListener("resize", scheduleTargetUpdate);
+    window.addEventListener("scroll", scheduleTargetUpdate, true);
     return () => {
       window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(updateFrame);
       observer.disconnect();
-      window.removeEventListener("resize", updateTarget);
-      window.removeEventListener("scroll", updateTarget, true);
+      window.removeEventListener("resize", scheduleTargetUpdate);
+      window.removeEventListener("scroll", scheduleTargetUpdate, true);
     };
   }, [location.pathname, open, step.target]);
 

@@ -84,3 +84,35 @@ describe("req() error sanitization", () => {
     expect(err.message).not.toContain("Traceback");
   });
 });
+
+describe("listAllObligations", () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("loads remaining pages in parallel and preserves page order", async () => {
+    const pending = new Map<number, (response: Response) => void>();
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = new URL(String(input), "http://localhost");
+      const offset = Number(url.searchParams.get("offset"));
+      if (offset === 0) {
+        return Promise.resolve(new Response(JSON.stringify({
+          items: [{ id: "first" }], total: 401, offset: 0, limit: 200,
+        }), { status: 200 }));
+      }
+      return new Promise<Response>((resolve) => pending.set(offset, resolve));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = api.listAllObligations();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    pending.get(400)?.(new Response(JSON.stringify({
+      items: [{ id: "third" }], total: 401, offset: 400, limit: 200,
+    }), { status: 200 }));
+    pending.get(200)?.(new Response(JSON.stringify({
+      items: [{ id: "second" }], total: 401, offset: 200, limit: 200,
+    }), { status: 200 }));
+
+    const result = await resultPromise;
+
+    expect(result.map((item) => item.id)).toEqual(["first", "second", "third"]);
+  });
+});

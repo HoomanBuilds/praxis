@@ -107,7 +107,7 @@ function HealthTile({ icon: Icon, label, value, sub, tone, onClick }: {
 
 /* ----------------------------- agent pipeline ----------------------------- */
 
-function AgentPipeline({ doc, kgNodes }: { doc: DocumentT | undefined; kgNodes: number }) {
+function AgentPipeline({ doc, kgNodes }: { doc: DocumentT | undefined; kgNodes: number | undefined }) {
   const { t } = useVocab();
   const f = doc?.funnel;
   if (!f) return <div className="text-sm text-muted-foreground">{t("pipeline.empty")}</div>;
@@ -126,7 +126,9 @@ function AgentPipeline({ doc, kgNodes }: { doc: DocumentT | undefined; kgNodes: 
     { icon: Bot, name: t("pipeline.stage.ai"),
       metric: `${f.llm_sections} ${t("pipeline.sections_needing")} ${t("pipeline.ai_reviewed")}` },
     { icon: Network, name: t("pipeline.stage.graph"),
-      metric: `${kgNodes} ${t("pipeline.relationships")}` },
+      metric: kgNodes === undefined
+        ? <span aria-label="Loading relationship count" className="inline-block h-3 w-32 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+        : `${kgNodes} ${t("pipeline.relationships")}` },
   ];
   return (
     <div className="space-y-1">
@@ -168,7 +170,7 @@ export default function Dashboard() {
   const activity = activityQuery.data;
   const tasks = tasksQuery.data;
   const kg = graphQuery.data;
-  const queries = [summaryQuery, documentsQuery, activityQuery, tasksQuery, graphQuery];
+  const queries = [summaryQuery, documentsQuery, activityQuery, tasksQuery];
 
   const latestProcessed = documents?.find((d) => d.funnel);
   const today = new Date().toISOString().slice(0, 10);
@@ -265,7 +267,7 @@ export default function Dashboard() {
             <CardHeader><CardTitle className="flex items-center gap-2"><Cpu className="h-4 w-4" /> {t("pipeline.title")}</CardTitle></CardHeader>
             <CardContent>
               {latestProcessed && <div className="text-xs text-muted-foreground mb-3 truncate">{latestProcessed.title || latestProcessed.reference}</div>}
-              <AgentPipeline doc={latestProcessed} kgNodes={kg?.stats.node_count ?? 0} />
+              <AgentPipeline doc={latestProcessed} kgNodes={kg?.stats.node_count} />
             </CardContent>
           </Card>
 
