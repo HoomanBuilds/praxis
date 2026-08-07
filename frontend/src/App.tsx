@@ -30,6 +30,7 @@ const Watch = lazy(() => import("@/pages/Watch"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
 const DocsHome = lazy(() => import("@/pages/docs/DocsHome"));
 const DocsPage = lazy(() => import("@/pages/docs/DocsPage"));
+const Landing = lazy(() => import("@/pages/Landing"));
 
 function PageLoader() {
   return (
@@ -52,6 +53,9 @@ function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
+        {/* Public marketing page — reachable signed in or out, like /docs. */}
+        <Route path="/landing" element={<Landing />} />
+
         <Route path="/docs" element={<DocsHome />} />
         <Route path="/docs/:slug" element={<DocsPage />} />
         <Route path="/docs/*" element={<Navigate to="/docs" replace />} />
