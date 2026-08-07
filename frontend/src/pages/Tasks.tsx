@@ -4,13 +4,14 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useVocab } from "@/hooks/useVocab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState, PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/badges";
 import { titleCase } from "@/lib/utils";
 import type { Task } from "@/lib/types";
 import { User, CalendarClock, CheckSquare, Circle } from "lucide-react";
 
-// Derive priority label from obligation risk score (0-1 float → label)
+// Derive priority label from obligation risk score (0-1 float -> label)
 function priorityFromRisk(riskScore: number | undefined | null): "critical" | "high" | "medium" | "low" {
   if (riskScore == null) return "low";
   if (riskScore >= 0.85) return "critical";
@@ -53,8 +54,10 @@ function ProgressBar({ total, done }: { total: number; done: number }) {
 export default function Tasks() {
   const navigate = useNavigate();
   const { t } = useVocab();
-  const { data: tasks } = useQuery({ queryKey: ["tasks", "all"], queryFn: () => api.listTasks() });
-  const { data: evidence } = useQuery({ queryKey: ["evidence"], queryFn: () => api.listEvidence() });
+  const tasksQuery = useQuery({ queryKey: ["tasks", "all"], queryFn: () => api.listTasks() });
+  const evidenceQuery = useQuery({ queryKey: ["evidence"], queryFn: () => api.listEvidence() });
+  const tasks = tasksQuery.data;
+  const evidence = evidenceQuery.data;
   const today = new Date().toISOString().slice(0, 10);
 
   // Build evidence count map per obligation_id
@@ -78,6 +81,22 @@ export default function Tasks() {
   const totalTasks = tasks?.length ?? 0;
   const completedTasks = (tasks ?? []).filter((t) => t.status === "completed").length;
   const overdue = (tasks ?? []).filter((t) => t.deadline && t.deadline < today && t.status !== "completed").length;
+
+  if (tasksQuery.isLoading || evidenceQuery.isLoading) {
+    return <PageSkeleton label="Loading tasks" cards={2} />;
+  }
+
+  if ((tasksQuery.isError && tasks === undefined) || (evidenceQuery.isError && evidence === undefined)) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-semibold">Tasks</h1>
+          <p className="text-sm text-muted-foreground">{t("tasks.subtitle")}</p>
+        </div>
+        <QueryError title="Tasks could not be loaded" onRetry={() => { void tasksQuery.refetch(); void evidenceQuery.refetch(); }} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -142,7 +161,13 @@ export default function Tasks() {
             </Card>
           );
         })}
-        {byDept.length === 0 && <div className="text-sm text-muted-foreground">{t("tasks.empty")}</div>}
+        {byDept.length === 0 && (
+          <Card className="md:col-span-2">
+            <CardContent className="pt-5">
+              <EmptyState icon={CheckSquare} title="No tasks yet" description={t("tasks.empty")} />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

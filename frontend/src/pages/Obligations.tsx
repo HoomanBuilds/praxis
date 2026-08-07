@@ -6,6 +6,7 @@ import { useVocab } from "@/hooks/useVocab";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Pager } from "@/components/ui/pager";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { titleCase } from "@/lib/utils";
 import { OBLIGATION_STATUSES } from "@/lib/constants";
@@ -22,11 +23,11 @@ export default function Obligations() {
   const [status, setStatus] = useState("all");
   const [offset, setOffset] = useState(0);
 
-  // Filters are sent to the backend, which already supports them — resetting offset
+  // Filters are sent to the backend, which already supports them - resetting offset
   // whenever they change avoids landing past the end of a smaller filtered result set.
   useEffect(() => setOffset(0), [area, status]);
 
-  const { data: page } = useQuery({
+  const obligationsQuery = useQuery({
     queryKey: ["obligations", area, status, offset],
     queryFn: () =>
       api.listObligations({
@@ -36,10 +37,27 @@ export default function Obligations() {
         limit: PAGE_SIZE,
       }),
   });
+  const page = obligationsQuery.data;
 
   const rows = page?.items ?? [];
   const total = page?.total ?? 0;
   const flagged = rows.filter((o) => o.needs_review).length;
+
+  if (obligationsQuery.isLoading) {
+    return <PageSkeleton label="Loading obligations" cards={0} />;
+  }
+
+  if (obligationsQuery.isError && page === undefined) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-semibold">Obligations</h1>
+          <p className="text-sm text-muted-foreground">{t("obligations.subtitle")}</p>
+        </div>
+        <QueryError title="Obligations could not be loaded" onRetry={() => void obligationsQuery.refetch()} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">

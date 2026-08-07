@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ListSkeleton } from "@/components/ui/data-state";
 import { Tabs, TabContent, TabList, TabTrigger } from "@/components/ui/tabs";
 import { useAreas } from "@/hooks/useAreas";
 import { api, apiFetch } from "@/lib/api";
@@ -279,9 +280,7 @@ export default function Calendar() {
         </CardHeader>
         <CardContent>
           {calendarQuery.isLoading ? (
-            <div className="flex min-h-80 items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading calendar...
-            </div>
+            <div className="min-h-80 p-4"><ListSkeleton label="Loading calendar" rows={6} /></div>
           ) : calendarQuery.isError ? (
             <div className="flex min-h-80 flex-col items-center justify-center gap-3 text-center">
               <AlertTriangle className="h-6 w-6 text-destructive" />

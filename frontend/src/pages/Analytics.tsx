@@ -4,6 +4,7 @@ import { useVocab } from "@/hooks/useVocab";
 import { PipelineSummary } from "@/components/vocab/PipelineStrip";
 import { fromAggregate } from "@/lib/vocab/pipeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { titleCase } from "@/lib/utils";
 import { dayKey } from "@/lib/format";
 import type { DocumentT } from "@/lib/types";
@@ -49,10 +50,15 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 
 export default function Analytics() {
   const { t } = useVocab();
-  const { data: summary } = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
-  const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
-  const { data: activity } = useQuery({ queryKey: ["activity", "analytics"], queryFn: () => api.activity(200) });
-  const { data: kg } = useQuery({ queryKey: ["kg"], queryFn: () => api.knowledgeGraph() });
+  const summaryQuery = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
+  const documentsQuery = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
+  const activityQuery = useQuery({ queryKey: ["activity", "analytics"], queryFn: () => api.activity(200) });
+  const graphQuery = useQuery({ queryKey: ["kg"], queryFn: () => api.knowledgeGraph() });
+  const summary = summaryQuery.data;
+  const documents = documentsQuery.data;
+  const activity = activityQuery.data;
+  const kg = graphQuery.data;
+  const queries = [summaryQuery, documentsQuery, activityQuery, graphQuery];
 
   const funnel = documents ? aggFunnel(documents) : null;
   const savedPct = funnel && funnel.naive ? Math.round(((funnel.naive - funnel.llm_calls) / funnel.naive) * 100) : 0;
@@ -71,6 +77,22 @@ export default function Analytics() {
     if (days.includes(k)) trend[k.slice(5)] = (trend[k.slice(5)] || 0) + 1;
   }
 
+  if (queries.some((query) => query.isLoading)) {
+    return <PageSkeleton label="Loading analytics" />;
+  }
+
+  if (queries.some((query) => query.isError && query.data === undefined)) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-semibold">Analytics</h1>
+          <p className="text-sm text-muted-foreground">{t("analytics.subtitle")}</p>
+        </div>
+        <QueryError title="Analytics could not be loaded" onRetry={() => queries.forEach((query) => void query.refetch())} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -80,7 +102,7 @@ export default function Analytics() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Metric label="Compliance Score" value={`${summary?.compliance_score ?? 0}%`} sub={`${summary?.approved ?? 0} approved`} />
-        <Metric label={t("pipeline.savings")} value={`${savedPct}%`} sub={funnel ? `${funnel.deterministic} of ${funnel.candidates} ${t("pipeline.savings_sub")}` : "—"} />
+        <Metric label={t("pipeline.savings")} value={`${savedPct}%`} sub={funnel ? `${funnel.deterministic} of ${funnel.candidates} ${t("pipeline.savings_sub")}` : "-"} />
         <Metric label={t("analytics.relationships")} value={`${kg?.stats.node_count ?? 0}`} sub={`${kg?.stats.edge_count ?? 0} ${t("kg.count_links").toLowerCase()}`} />
         <Metric label="Human Overrides" value={`${overrides}`} sub={t("analytics.review_activity")} />
       </div>
@@ -99,7 +121,7 @@ export default function Analytics() {
           <CardContent><BarList data={summary?.tasks_by_status ?? {}} tone="bg-muted-foreground" /></CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-sm">Activity — last 7 days</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Activity - last 7 days</CardTitle></CardHeader>
           <CardContent><BarList data={trend} tone="bg-primary" /></CardContent>
         </Card>
       </div>

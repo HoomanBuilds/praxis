@@ -5,6 +5,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { cn, titleCase } from "@/lib/utils";
 import { useVocab } from "@/hooks/useVocab";
 import { PipelineSummary } from "@/components/vocab/PipelineStrip";
@@ -28,7 +29,7 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-/** Icon + tone only — the wording lives in the shared audit-action vocabulary. */
+/** Icon + tone only - the wording lives in the shared audit-action vocabulary. */
 const ACTION_META: Record<string, { icon: any; tone: string }> = {
   "document.ingested": { icon: Upload, tone: "text-foreground" },
   "obligation.extracted": { icon: FileSearch, tone: "text-foreground" },
@@ -157,17 +158,39 @@ export default function Dashboard() {
   const { t } = useVocab();
   const activityLabel = useActivityLabel();
   const actorLabel = useActorLabel();
-  const { data: summary } = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
-  const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
-  const { data: activity } = useQuery({ queryKey: ["activity"], queryFn: () => api.activity(8), refetchInterval: 8000 });
-  const { data: tasks } = useQuery({ queryKey: ["tasks", "all"], queryFn: () => api.listTasks() });
-  const { data: kg } = useQuery({ queryKey: ["kg"], queryFn: () => api.knowledgeGraph() });
+  const summaryQuery = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
+  const documentsQuery = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
+  const activityQuery = useQuery({ queryKey: ["activity"], queryFn: () => api.activity(8), refetchInterval: 8000 });
+  const tasksQuery = useQuery({ queryKey: ["tasks", "all"], queryFn: () => api.listTasks() });
+  const graphQuery = useQuery({ queryKey: ["kg"], queryFn: () => api.knowledgeGraph() });
+  const summary = summaryQuery.data;
+  const documents = documentsQuery.data;
+  const activity = activityQuery.data;
+  const tasks = tasksQuery.data;
+  const kg = graphQuery.data;
+  const queries = [summaryQuery, documentsQuery, activityQuery, tasksQuery, graphQuery];
 
   const latestProcessed = documents?.find((d) => d.funnel);
   const today = new Date().toISOString().slice(0, 10);
   const overdue = (tasks ?? []).filter((t) => t.deadline && t.deadline < today && t.status !== "completed").length;
   const recentActivity = (activity ?? []).slice(0, 6);
   const approvedCount = useCountUp(summary?.approved ?? 0);
+
+  if (queries.some((query) => query.isLoading)) {
+    return <PageSkeleton label="Loading command center" />;
+  }
+
+  if (queries.some((query) => query.isError && query.data === undefined)) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-semibold">Command Center</h1>
+          <p className="text-sm text-muted-foreground">{t("dashboard.subtitle")}</p>
+        </div>
+        <QueryError title="Command center could not be loaded" onRetry={() => queries.forEach((query) => void query.refetch())} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-w-0 space-y-6">
@@ -198,7 +221,7 @@ export default function Dashboard() {
 
       <div className="grid min-w-0 grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Activity feed */}
-        <Card className="lg:col-span-2">
+        <Card className="self-start lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2"><Boxes className="h-4 w-4" /> {t("dashboard.activity")}</CardTitle>
             <div className="flex items-center gap-3">

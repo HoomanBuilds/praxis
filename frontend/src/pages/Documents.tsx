@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState, ListSkeleton } from "@/components/ui/data-state";
 import { StatusBadge } from "@/components/badges";
 import { titleCase } from "@/lib/utils";
 import { Upload, Play, Loader2, ArrowRight, Radar, CheckCircle2, AlertCircle } from "lucide-react";
@@ -70,16 +71,16 @@ export default function Documents() {
         <CardContent className="space-y-3">
           <div className="grid md:grid-cols-3 gap-3">
             <div className="md:col-span-1">
-              <label className="text-xs text-muted-foreground">PDF file</label>
-              <Input type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              <label htmlFor="document-file" className="text-xs text-muted-foreground">PDF file</label>
+              <Input id="document-file" type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Reference (optional)</label>
-              <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="SEBI/HO/.../CIR/2026/1" />
+              <label htmlFor="document-reference" className="text-xs text-muted-foreground">Reference (optional)</label>
+              <Input id="document-reference" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="SEBI/HO/.../CIR/2026/1" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Title (optional)</label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Cyber Security Circular" />
+              <label htmlFor="document-title" className="text-xs text-muted-foreground">Title (optional)</label>
+              <Input id="document-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Cyber Security Circular" />
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -87,7 +88,7 @@ export default function Documents() {
               {uploadMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               Upload
             </Button>
-            {uploadMut.isError && <span className="text-sm text-destructive">Upload failed.</span>}
+            {uploadMut.isError && <span role="alert" className="text-sm text-destructive">{uploadMut.error.message || "Upload failed."}</span>}
             {uploadNotice && <span className="text-sm text-success">{uploadNotice}</span>}
           </div>
         </CardContent>
@@ -97,7 +98,7 @@ export default function Documents() {
         <CardHeader><CardTitle>All Documents</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading documents...</div>
+            <ListSkeleton label="Loading documents" rows={4} />
           ) : documentsFailed ? (
             <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               <span>Documents could not be loaded.</span>
@@ -156,7 +157,7 @@ export default function Documents() {
               </table>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No documents yet.</div>
+            <EmptyState icon={Upload} title="No documents yet" description="Upload a regulatory PDF to begin processing and review." />
           )}
           {processMut.isError && <div className="text-sm text-destructive mt-2">{t("documents.process_failed")}</div>}
         </CardContent>

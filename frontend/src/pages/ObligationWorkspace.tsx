@@ -7,6 +7,7 @@ import { useActivityLabel, useActorLabel } from "@/components/vocab/ActivityLabe
 import { useCopilot } from "@/context/CopilotContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageSkeleton, QueryError } from "@/components/ui/data-state";
 import { Textarea, Input } from "@/components/ui/input";
 import { AreaBadge, ConfidenceBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { ObligationArtifacts } from "@/components/ObligationArtifacts";
@@ -36,10 +37,14 @@ export default function ObligationWorkspace() {
   const activityLabel = useActivityLabel();
   const actorLabel = useActorLabel();
 
-  const { data: ob } = useQuery({ queryKey: ["obligation", id], queryFn: () => api.getObligation(id) });
-  const { data: explain } = useQuery({ queryKey: ["explain", id], queryFn: () => api.explain(id) });
-  const { data: history } = useQuery({ queryKey: ["activity", id], queryFn: () => api.activity(30, id) });
-  const { data: comments } = useQuery({ queryKey: ["comments", id], queryFn: () => api.listComments(id) });
+  const obligationQuery = useQuery({ queryKey: ["obligation", id], queryFn: () => api.getObligation(id) });
+  const explainQuery = useQuery({ queryKey: ["explain", id], queryFn: () => api.explain(id) });
+  const historyQuery = useQuery({ queryKey: ["activity", id], queryFn: () => api.activity(30, id) });
+  const commentsQuery = useQuery({ queryKey: ["comments", id], queryFn: () => api.listComments(id) });
+  const ob = obligationQuery.data;
+  const explain = explainQuery.data;
+  const history = historyQuery.data;
+  const comments = commentsQuery.data;
 
   const [editing, setEditing] = useState(false);
   const [desc, setDesc] = useState("");
@@ -68,7 +73,19 @@ export default function ObligationWorkspace() {
     onSuccess: () => { setComment(""); qc.invalidateQueries({ queryKey: ["comments", id] }); },
   });
 
-  if (!ob) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  const queries = [obligationQuery, explainQuery, historyQuery, commentsQuery];
+
+  if (queries.some((query) => query.isLoading)) {
+    return <PageSkeleton label="Loading obligation workspace" cards={3} />;
+  }
+
+  if (!ob || queries.some((query) => query.isError && query.data === undefined)) {
+    return (
+      <div className="space-y-5">
+        <QueryError title="Obligation workspace could not be loaded" onRetry={() => queries.forEach((query) => void query.refetch())} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -98,6 +115,12 @@ export default function ObligationWorkspace() {
         <Button size="sm" variant="ghost" disabled={reject.isPending} onClick={() => reject.mutate()}><X className="h-3.5 w-3.5" /> Reject</Button>
       </div>
 
+      {(approve.isError || reject.isError || edit.isError || addComment.isError) && (
+        <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {approve.error?.message || reject.error?.message || edit.error?.message || addComment.error?.message || "The update could not be completed."}
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           <div className="grid md:grid-cols-3 gap-4">
@@ -106,10 +129,11 @@ export default function ObligationWorkspace() {
               <CardContent className="text-sm space-y-2">
                 {editing ? (
                   <div className="space-y-2">
-                    <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
+                    <label htmlFor="obligation-description" className="text-xs font-medium text-muted-foreground">Description</label>
+                    <Textarea id="obligation-description" value={desc} onChange={(e) => setDesc(e.target.value)} />
                     <div>
-                      <label className="text-xs font-medium text-muted-foreground">SCORES reference (manual)</label>
-                      <Input value={scoresRef} onChange={(e) => setScoresRef(e.target.value)} placeholder="e.g. 2026/GREF/000123" className="mt-1" />
+                      <label htmlFor="scores-reference" className="text-xs font-medium text-muted-foreground">SCORES reference (manual)</label>
+                      <Input id="scores-reference" value={scoresRef} onChange={(e) => setScoresRef(e.target.value)} placeholder="e.g. 2026/GREF/000123" className="mt-1" />
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" disabled={edit.isPending} onClick={() => edit.mutate()}>Save</Button>
@@ -130,7 +154,7 @@ export default function ObligationWorkspace() {
                 <blockquote className="text-sm border-l-2 border-primary/40 pl-3 text-muted-foreground italic">"{ob.source_text}"</blockquote>
               </CardContent>
             </Card>
-            {/* Impact card — Part D */}
+            {/* Impact card - Part D */}
             <Card>
               <CardHeader><CardTitle className="text-sm flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> Impact</CardTitle></CardHeader>
               <CardContent className="text-sm space-y-2">
@@ -172,7 +196,7 @@ export default function ObligationWorkspace() {
             </Card>
           </div>
 
-          {/* AI reasoning — real, recomputed explainability */}
+          {/* AI reasoning - real, recomputed explainability */}
           {explain && (
             <Card className="border-primary/25">
               <CardHeader><CardTitle className="text-sm flex items-center gap-1.5"><Cpu className="h-4 w-4 text-primary" /> {t("obligation.reasoning")}</CardTitle></CardHeader>
@@ -185,7 +209,7 @@ export default function ObligationWorkspace() {
                     {explain.confidence_factors.map((f, i) => (
                       <div key={i} className="flex items-start gap-2 text-xs">
                         <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
-                        <span><span className="text-foreground">{f.signal}:</span> <span className="text-muted-foreground">{String(f.value)} — {f.effect}</span></span>
+                        <span><span className="text-foreground">{f.signal}:</span> <span className="text-muted-foreground">{String(f.value)} - {f.effect}</span></span>
                       </div>
                     ))}
                   </div>
@@ -254,7 +278,7 @@ export default function ObligationWorkspace() {
                 </div>
               )) : <div className="text-xs text-muted-foreground">No comments yet.</div>}
               <div className="flex items-end gap-2 pt-1">
-                <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add a comment…" className="text-xs min-h-0" />
+                <Textarea aria-label="Add a comment" value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add a comment…" className="text-xs min-h-0" />
                 <Button size="sm" disabled={!comment.trim() || addComment.isPending} onClick={() => addComment.mutate()}>Post</Button>
               </div>
             </CardContent>
