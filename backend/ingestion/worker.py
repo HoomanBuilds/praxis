@@ -19,6 +19,7 @@ from ingestion.service import ensure_group, get_redis
 from services import process_document
 
 _RUNNING = True
+_INTERRUPTED_STATUSES = {"parsing", "extracting", "generating"}
 
 
 def _stop(*_):
@@ -26,11 +27,28 @@ def _stop(*_):
     _RUNNING = False
 
 
+def _recover_interrupted_documents() -> int:
+    recovered = 0
+    with session_scope() as session:
+        for document in crud.list_documents(session):
+            if document.status not in _INTERRUPTED_STATUSES:
+                continue
+            crud.set_document_status(session, document, "extraction_failed")
+            document.error = (
+                "Processing was interrupted. Select Retry to process this regulation again."
+            )
+            recovered += 1
+    return recovered
+
+
 def run() -> None:
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
 
     init_db()
+    recovered = _recover_interrupted_documents()
+    if recovered:
+        print(f"[worker] made {recovered} interrupted documents retryable")
     ensure_group()
     client = get_redis()
     consumer = f"{socket.gethostname()}-{os.getpid()}"

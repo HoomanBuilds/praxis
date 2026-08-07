@@ -201,3 +201,54 @@ def test_disallowed_index_yields_no_links(monkeypatch):
 
     _install_requests(monkeypatch, handler)
     assert scraper._fetch_circular_links(scraper.SEBI_CIRCULARS_URL) == []
+
+
+def test_queue_document_publishes_to_worker(monkeypatch):
+    from db import crud
+    from db.session import get_session_factory, session_scope
+    from ingestion import service
+
+    with session_scope() as session:
+        document = crud.create_document(
+            session,
+            reference="SEBI/QUEUE/SUCCESS",
+            title="Queued circular",
+            file_path="/tmp/queued-circular.pdf",
+            content_hash="sebi-queue-success",
+        )
+        document_id = document.id
+
+    published = []
+    monkeypatch.setattr(service, "publish_process_event", published.append)
+
+    assert scraper._queue_document(get_session_factory(), document_id) is True
+    assert published == [document_id]
+    with session_scope() as session:
+        assert crud.get_document(session, document_id).status == "queued"
+
+
+def test_queue_document_failure_is_retryable(monkeypatch):
+    from db import crud
+    from db.session import get_session_factory, session_scope
+    from ingestion import service
+
+    with session_scope() as session:
+        document = crud.create_document(
+            session,
+            reference="SEBI/QUEUE/FAILURE",
+            title="Unqueued circular",
+            file_path="/tmp/unqueued-circular.pdf",
+            content_hash="sebi-queue-failure",
+        )
+        document_id = document.id
+
+    def fail_publish(_document_id):
+        raise ConnectionError("redis unavailable")
+
+    monkeypatch.setattr(service, "publish_process_event", fail_publish)
+
+    assert scraper._queue_document(get_session_factory(), document_id) is False
+    with session_scope() as session:
+        document = crud.get_document(session, document_id)
+        assert document.status == "extraction_failed"
+        assert "Select Retry" in document.error

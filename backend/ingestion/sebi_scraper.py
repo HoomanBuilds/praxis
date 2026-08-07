@@ -292,6 +292,35 @@ def _ensure_source(session, name: str, url: str):
     return crud.create_watch_source(session, name=name, url=url, source_type="regulatory")
 
 
+def _queue_document(session_factory, document_id: str) -> bool:
+    from db import crud
+    from ingestion.service import publish_process_event
+    import schemas
+
+    with session_factory() as session:
+        document = crud.get_document(session, document_id)
+        if not document:
+            return False
+        crud.set_document_status(session, document, schemas.DocumentStatus.QUEUED.value)
+        document.error = None
+        session.commit()
+
+    try:
+        publish_process_event(document_id)
+        return True
+    except Exception as exc:
+        logger.warning("Could not queue document %s: %s", document_id, exc)
+        with session_factory() as session:
+            document = crud.get_document(session, document_id)
+            if document:
+                crud.set_document_status(
+                    session, document, schemas.DocumentStatus.EXTRACTION_FAILED.value
+                )
+                document.error = "Processing could not be queued. Select Retry to try again."
+                session.commit()
+        return False
+
+
 def _run_once() -> int:
     """Perform one scrape-and-ingest cycle.  Returns number of new documents ingested.
 
@@ -407,26 +436,9 @@ def _run_once() -> int:
             if not doc_id:
                 continue
 
-            # Extraction is a separate transaction. A failure here (typically the
-            # local model being unavailable) must leave a visible, retryable state
-            # rather than a document silently stuck with zero obligations.
-            try:
-                with SessionFactory() as session:
-                    services.process_document(session, doc_id)
-                    session.commit()
+            if _queue_document(SessionFactory, doc_id):
                 new_count += 1
-                logger.info("Ingested new circular: %s (%s)", item["title"], reference)
-            except Exception as exc:
-                logger.warning("Extraction failed for %s: %s", detail_url, exc)
-                try:
-                    with SessionFactory() as session:
-                        d = crud.get_document(session, doc_id)
-                        if d:
-                            import schemas
-                            d.status = schemas.DocumentStatus.EXTRACTION_FAILED.value
-                            session.commit()
-                except Exception:
-                    pass
+                logger.info("Queued new circular: %s (%s)", item["title"], reference)
             time.sleep(_EXTRACT_COOLDOWN)
 
     return new_count
