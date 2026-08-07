@@ -43,8 +43,8 @@ export default function CopilotPage() {
   }, [messages, sending, slow]);
 
   return (
-    <div className="flex h-[calc(100vh-11rem)] min-h-[420px] flex-col" data-tour="copilot">
-      <div className="mb-4 flex items-center justify-between gap-4">
+    <div className="flex h-[calc(100vh-11rem)] min-h-[420px] flex-col">
+      <div className="mb-4 flex items-center justify-between gap-4" data-tour="copilot">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-semibold">
             <Bot className="h-5 w-5 text-primary" /> Copilot
