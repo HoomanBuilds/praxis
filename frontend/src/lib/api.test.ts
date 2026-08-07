@@ -133,12 +133,16 @@ describe("downloadAuditFile", () => {
   it("downloads through the authenticated API request", async () => {
     localStorage.setItem("praxis_token", "download-token");
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(new Blob(["pdf-data"], { type: "application/pdf" }), { status: 200 })
+      {
+        ok: true,
+        status: 200,
+        blob: vi.fn().mockResolvedValue(new Blob(["pdf-data"], { type: "application/pdf" })),
+      } as Response
     );
     vi.stubGlobal("fetch", fetchMock);
     const createObjectURL = vi.fn().mockReturnValue("blob:report");
     const revokeObjectURL = vi.fn();
-    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
     let downloadedFilename = "";
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
       downloadedFilename = this.download;

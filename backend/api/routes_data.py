@@ -4,28 +4,29 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from api.deps import AuthedActor, require_role
-from db import crud
+from config import settings
+from db import models
+from db.session import get_db
 
 router = APIRouter(prefix="/api/data", tags=["data"])
 
 
 @router.get("/retention-status")
-def retention_status():
-    cfg = crud.read_org_config()
-    from config import settings
-    retention_days = settings.audit_retention_days
+def retention_status(session: Session = Depends(get_db)):
+    oldest_entry = session.scalar(select(func.min(models.AuditLog.timestamp)))
     return {
-        "audit_log_retention_days": retention_days,
-        "org_config_path": str(crud._org_config_path()),
-        "firm_name": cfg.get("firm_name", ""),
+        "retention_days": settings.audit_retention_days,
+        "audit_log_entries": session.scalar(select(func.count()).select_from(models.AuditLog)) or 0,
+        "oldest_entry": oldest_entry.isoformat() if oldest_entry else None,
     }
 
 
 @router.post("/export")
 def export_audit_log(actor: AuthedActor = Depends(require_role("admin"))):
-    from db.session import get_db
     session = next(get_db())
     try:
         from db.models import AuditLog

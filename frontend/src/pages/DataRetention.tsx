@@ -9,7 +9,7 @@ import { Database, Download } from "lucide-react";
 export default function DataRetention() {
   const statusQuery = useQuery({ queryKey: ["retention-status"], queryFn: api.retentionStatus });
   const status = statusQuery.data;
-  const exportMut = useMutation({ mutationFn: api.exportAudit });
+  const exportMut = useMutation({ mutationFn: () => api.auditReport("firm", {}) });
 
   if (statusQuery.isLoading) {
     return <PageSkeleton label="Loading data retention settings" cards={3} />;

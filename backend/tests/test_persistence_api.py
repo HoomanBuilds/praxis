@@ -81,6 +81,38 @@ def test_api_dashboard_summary(seeded):
     assert body["audit_log_entries"] > 0
 
 
+def test_data_retention_status_matches_frontend_contract(seeded):
+    response = TestClient(app).get("/api/data/retention-status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["retention_days"] > 0
+    assert body["audit_log_entries"] > 0
+    assert body["oldest_entry"] is not None
+
+
+def test_audit_package_downloads_pdf_and_xlsx(tmp_path, seeded, monkeypatch):
+    from config import settings
+
+    monkeypatch.setattr(settings, "export_path", str(tmp_path))
+    client = TestClient(app)
+    generated = client.post(
+        "/api/audit/report",
+        json={"scope": "firm", "formats": ["pdf", "xlsx"]},
+    )
+
+    assert generated.status_code == 200
+    files = generated.json()["files"]
+    pdf = client.get(f"/api/audit/download/{files['pdf']}")
+    xlsx = client.get(f"/api/audit/download/{files['xlsx']}")
+    assert pdf.status_code == 200
+    assert pdf.content.startswith(b"%PDF")
+    assert "attachment" in pdf.headers["content-disposition"]
+    assert xlsx.status_code == 200
+    assert xlsx.content.startswith(b"PK")
+    assert "attachment" in xlsx.headers["content-disposition"]
+
+
 def test_calendar_separates_dates_from_relative_timing(seeded):
     with session_scope() as session:
         dated = crud.get_obligation(session, seeded["ob_id"])

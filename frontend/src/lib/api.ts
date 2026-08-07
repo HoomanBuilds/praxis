@@ -275,7 +275,6 @@ export const api = {
   revokeApiKey: (id: string) => req<unknown>(`/api-keys/${id}/revoke`, { method: "POST" }),
 
   retentionStatus: () => req<{ retention_days: number; audit_log_entries: number; oldest_entry: string | null }>("/data/retention-status"),
-  exportAudit: () => req<{ files: Record<string, string>; generated_at: string; obligation_count: number }>("/data/export", { method: "POST" }),
 
   listIntegrations: () => req<Integration[]>("/integrations"),
   connectIntegration: (type: string, fields: Record<string, string>) =>
