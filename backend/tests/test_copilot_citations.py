@@ -253,6 +253,82 @@ def test_direct_match_uses_the_subject_instead_of_generic_request_words(monkeypa
     assert [item.identifier for item in matches] == ["ABC-OB-003"]
 
 
+def test_task_question_prioritizes_matching_approved_obligation(monkeypatch):
+    approved = SimpleNamespace(
+        id="approved",
+        identifier="PARRVA-OB-001",
+        description="Advisers must enrol with PaRRVA before communicating performance data.",
+        source_text="Advisers shall enrol with PaRRVA within three months.",
+        functional_area="client_services",
+        status="approved",
+        confidence=0.84,
+    )
+    pending = SimpleNamespace(
+        id="pending",
+        identifier="PARRVA-OB-002",
+        description="The PaRRVA committee must have at least five members.",
+        source_text="The committee shall consist of five members.",
+        functional_area="compliance",
+        status="pending_review",
+        confidence=0.99,
+    )
+    task = SimpleNamespace(
+        obligation_id="approved",
+        title="Complete PaRRVA enrolment",
+        primary_owner="Head of Client Servicing",
+        status="in_progress",
+    )
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session: [pending, approved])
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session: [task])
+
+    matches = _direct_matches(
+        None,
+        "What does the approved PaRRVA obligation require, and who owns its task?",
+    )
+
+    assert matches[0].identifier == "PARRVA-OB-001"
+
+
+def test_task_question_uses_structured_owner_and_status(monkeypatch):
+    obligation = SimpleNamespace(
+        id="approved",
+        identifier="PARRVA-OB-001",
+        description="Advisers must enrol with PaRRVA before communicating performance data.",
+        source_text="Advisers shall enrol with PaRRVA within three months.",
+        document_id=None,
+        source_paragraph_ref="3",
+        functional_area="client_services",
+        status="approved",
+        deadline_hint="within three months",
+        confidence=0.84,
+    )
+    task = SimpleNamespace(
+        obligation_id="approved",
+        title="Complete PaRRVA enrolment",
+        primary_owner="Head of Client Servicing",
+        status="in_progress",
+        deadline=None,
+    )
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session: [obligation])
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session, **kwargs: [task])
+    monkeypatch.setattr(
+        "llm.copilot_structured_complete",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("model should not run")),
+    )
+
+    response = copilot.__wrapped__(
+        SimpleNamespace(),
+        CopilotRequest(
+            question="What does the approved PaRRVA obligation require, and who owns its task?"
+        ),
+        None,
+    )
+
+    assert response["sources"] == ["PARRVA-OB-001"]
+    assert "Head of Client Servicing" in response["answer"]
+    assert "In Progress" in response["answer"]
+
+
 def test_follow_up_uses_full_history_without_repeating_keyword_results(monkeypatch):
     captured = {}
 

@@ -435,19 +435,75 @@ def _direct_matches(
     if not terms:
         return []
     obligations = scope if scope is not None else crud.list_obligations(session)
-    ranked: list[tuple[int, float, models.Obligation]] = []
+    normalized = question.lower()
+    asks_about_tasks = any(
+        term in normalized
+        for term in ("task", "owner", "owns", "assigned", "assignee")
+    )
+    subject_terms = [term for term in terms if term not in {"assigned", "assignee", "owned", "owns"}]
+    tasks_by_obligation: dict[str, list[models.Task]] = {}
+    if asks_about_tasks:
+        for task in crud.list_tasks(session):
+            tasks_by_obligation.setdefault(task.obligation_id, []).append(task)
+
+    ranked: list[tuple[int, int, float, models.Obligation]] = []
     for obligation in obligations:
+        tasks = tasks_by_obligation.get(obligation.id, [])
         text = " ".join([
             obligation.identifier or "",
             obligation.description or "",
             obligation.source_text or "",
             obligation.functional_area or "",
+            obligation.status or "",
+            " ".join(
+                f"{task.title} {task.primary_owner or ''} {task.status}"
+                for task in tasks
+            ),
         ]).lower()
         matches = sum(_term_matches(term, text) for term in terms)
-        if matches:
-            ranked.append((matches, obligation.confidence, obligation))
-    ranked.sort(key=lambda item: (-item[0], -item[1], item[2].identifier))
-    return [item[2] for item in ranked[:5]]
+        relationship_score = 2 if asks_about_tasks and tasks and (matches or not subject_terms) else 0
+        if matches or relationship_score:
+            ranked.append((matches + relationship_score, matches, obligation.confidence, obligation))
+    ranked.sort(key=lambda item: (-item[0], -item[1], -item[2], item[3].identifier))
+    return [item[3] for item in ranked[:5]]
+
+
+def _task_response(
+    session: Session,
+    question: str,
+    matches: list[models.Obligation],
+) -> dict | None:
+    normalized = question.lower()
+    if not any(term in normalized for term in ("task", "owner", "owns", "assigned", "assignee")):
+        return None
+
+    records = []
+    for obligation in matches:
+        tasks = crud.list_tasks(session, obligation_id=obligation.id)
+        if tasks:
+            records.append((obligation, tasks[:3]))
+    if not records:
+        return None
+
+    lines = ["Matching operational work in this workspace:", ""]
+    for obligation, tasks in records[:3]:
+        lines.append(f"- {obligation.identifier}: {obligation.description[:400]}")
+        for task in tasks:
+            lines.append(
+                f"  Task: {task.title[:240]}. Owner: {task.primary_owner or 'Unassigned'}. "
+                f"Status: {task.status.replace('_', ' ').title()}. "
+                f"Due: {task.deadline.isoformat() if task.deadline else 'Not set'}."
+            )
+
+    citations = [_citable(session, obligation) for obligation, _ in records[:3]]
+    return {
+        "answer": "\n".join(lines),
+        "citations": citations,
+        "sources": [item["obligation_identifier"] for item in citations],
+        "grounded": True,
+        "confidence": 0.95,
+        "response_type": "analysis",
+    }
 
 
 def _iso_deadline(value: str | None) -> date | None:
@@ -881,6 +937,8 @@ def copilot(request: Request, payload: CopilotRequest, session: Session = Depend
     matches = _direct_matches(session, payload.question, scoped or None) if needs_context else []
     if not matches and scoped:
         matches = scoped[:5]
+    if matches and (task_response := _task_response(session, payload.question, matches)):
+        return task_response
     if matches and (evidence_response := _evidence_response(session, payload.question, matches)):
         return evidence_response
 
