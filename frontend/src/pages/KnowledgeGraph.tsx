@@ -255,7 +255,7 @@ export default function KnowledgeGraphPage() {
   const fill = (n: SimNode) => n.type === "risk" && n.level ? RISK_COLORS[n.level as string] ?? COLORS.risk : COLORS[n.type] ?? "#808080";
 
   if (graphQuery.isLoading) {
-    return <PageSkeleton label="Loading knowledge graph" />;
+    return <PageSkeleton label={`Loading ${vocab.t("kg.title").toLowerCase()}`} />;
   }
 
   if (graphQuery.isError && raw === undefined) {
@@ -265,7 +265,7 @@ export default function KnowledgeGraphPage() {
           <h1 className="text-xl font-semibold">{vocab.t("kg.title")}</h1>
           <p className="text-sm text-muted-foreground">{vocab.t(simple ? "kg.subtitle.simple" : "kg.subtitle.full")}</p>
         </div>
-        <QueryError title="Knowledge graph could not be loaded" onRetry={() => void graphQuery.refetch()} />
+        <QueryError title={`${vocab.t("kg.title")} could not be loaded`} onRetry={() => void graphQuery.refetch()} />
       </div>
     );
   }
