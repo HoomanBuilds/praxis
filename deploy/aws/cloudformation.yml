@@ -34,6 +34,11 @@ Parameters:
     Default: main
     Description: GitHub branch allowed to deploy.
     AllowedPattern: "^[A-Za-z0-9._/-]+$"
+  CopilotApiKeyParameterName:
+    Type: String
+    Default: /praxis/production/zerog-api-key
+    Description: SSM SecureString containing the production 0G Router API key.
+    AllowedPattern: "^/[A-Za-z0-9_./-]+$"
 
 Resources:
   GitHubOidcProvider:
@@ -117,6 +122,13 @@ Resources:
               - Effect: Allow
                 Action: s3:GetObject
                 Resource: !Sub ${ReleaseBucket.Arn}/releases/*
+        - PolicyName: ReadCopilotApiKey
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CopilotApiKeyParameterName}
       Tags:
         - Key: Project
           Value: !Ref ProjectName
