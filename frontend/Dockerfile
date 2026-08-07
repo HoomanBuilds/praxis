@@ -42,7 +42,8 @@ COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 # normally live under root-owned paths, so repoint and chown them for the nginx user.
 RUN chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /etc/nginx/conf.d \
     && touch /var/run/nginx.pid \
-    && chown nginx:nginx /var/run/nginx.pid
+    && chown nginx:nginx /var/run/nginx.pid \
+    && nginx -t
 USER nginx
 
 EXPOSE 8080
