@@ -217,6 +217,89 @@ def test_model_sources_are_verified_against_workspace_context(monkeypatch):
     assert response["confidence"] == 0.95
 
 
+def test_standalone_workspace_question_drops_unrelated_history(monkeypatch):
+    captured = {}
+    obligation = SimpleNamespace(
+        id="kyc",
+        identifier="ABC-OB-003",
+        description="Complete KYC verification before account activation",
+        source_text="The intermediary shall complete KYC verification.",
+        document_id=None,
+        source_paragraph_ref="4",
+        functional_area="client_services",
+        status="pending_review",
+        deadline_hint=None,
+        confidence=0.9,
+    )
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session: [obligation])
+    monkeypatch.setattr("api.routes_copilot.crud.list_rules", lambda session, **kwargs: [])
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session, **kwargs: [])
+    monkeypatch.setattr("api.routes_copilot.crud.list_evidence_requirements", lambda session, **kwargs: [])
+
+    def complete(_system, history, prompt, _schema, retries):
+        captured["history"] = history
+        captured["prompt"] = prompt
+        return SimpleNamespace(parsed=CopilotAnswer(
+            answer="KYC verification is required before account activation.",
+            source_ids=["ABC-OB-003"],
+            grounded=True,
+            confidence=0.9,
+        ))
+
+    monkeypatch.setattr("llm.copilot_structured_complete", complete)
+    payload = CopilotRequest(
+        question="What evidence is required for KYC obligations?",
+        history=[
+            {"role": "user", "content": "Review obligations"},
+            {"role": "assistant", "content": "Start with the pending review queue."},
+        ],
+    )
+
+    response = copilot.__wrapped__(SimpleNamespace(), payload, None)
+
+    assert response["grounded"] is True
+    assert captured["history"] == []
+    assert "Use only the workspace context" in captured["prompt"]
+
+
+def test_ungrounded_workspace_answer_is_replaced_with_verified_context(monkeypatch):
+    obligation = SimpleNamespace(
+        id="kyc",
+        identifier="ABC-OB-003",
+        description="Do not seek KYC documents from the surviving joint holder except a death certificate.",
+        source_text="No KYC documents shall be sought except a copy of the death certificate.",
+        document_id=None,
+        source_paragraph_ref="4",
+        functional_area="client_services",
+        status="pending_review",
+        deadline_hint=None,
+        confidence=0.9,
+    )
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session: [obligation])
+    monkeypatch.setattr("api.routes_copilot.crud.list_rules", lambda session, **kwargs: [])
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session, **kwargs: [])
+    monkeypatch.setattr("api.routes_copilot.crud.list_evidence_requirements", lambda session, **kwargs: [])
+    monkeypatch.setattr("llm.copilot_structured_complete", lambda *args, **kwargs: SimpleNamespace(
+        parsed=CopilotAnswer(
+            answer="Submit a PAN card and address proof.",
+            source_ids=[],
+            grounded=False,
+            confidence=0.0,
+        )
+    ))
+
+    response = copilot.__wrapped__(
+        SimpleNamespace(),
+        CopilotRequest(question="What evidence is required for KYC obligations?"),
+        None,
+    )
+
+    assert "does not define a general KYC evidence checklist" in response["answer"]
+    assert "PAN card" not in response["answer"]
+    assert response["sources"] == ["ABC-OB-003"]
+    assert response["grounded"] is True
+
+
 def test_general_question_uses_model_without_workspace_citations(monkeypatch):
     monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session: (_ for _ in ()).throw(
         AssertionError("general questions must not search obligations")

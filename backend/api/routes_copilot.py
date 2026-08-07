@@ -124,6 +124,10 @@ _SEBI_INFO_RE = re.compile(
     r"(?:about|by)\s+sebi)[!,.?\s]*$",
     re.IGNORECASE,
 )
+_FOLLOW_UP_RE = re.compile(
+    r"\b(?:it|that|this|those|these|them|previous|earlier|clarify|more detail|you mean)\b",
+    re.IGNORECASE,
+)
 _WORKSPACE_TERMS = {
     "approved", "assurance", "circular", "compliance", "cybersecurity", "deadline",
     "department", "document", "evidence", "filing", "kyc", "obligation", "obligations",
@@ -154,6 +158,16 @@ def _query_terms(question: str) -> list[str]:
 def _needs_workspace_context(question: str) -> bool:
     tokens = set(re.findall(r"[a-z0-9]+", question.lower()))
     return bool(tokens & _WORKSPACE_TERMS)
+
+
+def _conversation_history(question: str, turns: list[CopilotTurn]) -> list[dict[str, str]]:
+    words = re.findall(r"[a-z0-9]+", question.lower())
+    if len(words) > 5 and not _FOLLOW_UP_RE.search(question):
+        return []
+    return [
+        {"role": turn.role, "content": turn.content}
+        for turn in turns[-6:]
+    ]
 
 
 def _term_matches(term: str, text: str) -> bool:
@@ -495,23 +509,7 @@ def _fallback_response(
             "response_type": "analysis",
         }
     if matches:
-        selected = matches[:3]
-        citations = [_citable(session, obligation) for obligation in selected]
-        lines = [
-            "AI analysis is temporarily unavailable. These workspace records may be relevant:",
-            "",
-            *[f"- {ob.identifier}: {ob.description[:180]}" for ob in selected],
-            "",
-            "Retry shortly for a synthesized answer.",
-        ]
-        return {
-            "answer": "\n".join(lines),
-            "citations": citations,
-            "sources": [item["obligation_identifier"] for item in citations],
-            "grounded": True,
-            "confidence": 0.6,
-            "response_type": "analysis",
-        }
+        return _grounding_guard_response(session, question, matches)
     if history:
         return {
             "answer": (
@@ -532,6 +530,36 @@ def _fallback_response(
         "grounded": False,
         "confidence": 0.0,
         "response_type": "error",
+    }
+
+
+def _grounding_guard_response(
+    session: Session,
+    question: str,
+    matches: list[models.Obligation],
+) -> dict:
+    selected = matches[:2]
+    citations = [_citable(session, obligation) for obligation in selected]
+    normalized = question.lower()
+    if "kyc" in normalized and ("evidence" in normalized or "document" in normalized):
+        opening = "The matching workspace record does not define a general KYC evidence checklist."
+        closing = (
+            "Use the cited paragraph only for this recorded scenario, not as a general KYC "
+            "document requirement."
+        )
+    else:
+        opening = "I could not verify a complete answer from the matching workspace records."
+        closing = "Open the cited source before treating this as an operational requirement."
+    lines = [opening, "", "Closest verified requirement:"]
+    lines.extend(f"- {ob.identifier}: {ob.description[:300]}" for ob in selected)
+    lines.extend(["", closing])
+    return {
+        "answer": "\n".join(lines),
+        "citations": citations,
+        "sources": [item["obligation_identifier"] for item in citations],
+        "grounded": True,
+        "confidence": 0.85,
+        "response_type": "analysis",
     }
 
 
@@ -561,14 +589,18 @@ def copilot(request: Request, payload: CopilotRequest, session: Session = Depend
     context = "\n\n".join(_obligation_block(session, ob) for ob in matches)
     if not context:
         context = "No matching workspace records were provided for this question."
+    scope_instruction = (
+        "This is a workspace-scoped question. Use only the workspace context. Do not "
+        "substitute a general-knowledge answer. If the context does not specify the answer, "
+        "say that clearly and identify the closest relevant source."
+        if needs_context else
+        "This is a general question. Do not claim that the answer comes from workspace records."
+    )
     user_prompt = (
         f"<workspace_context>\n{context}\n</workspace_context>\n\n"
-        f"Question: {payload.question}"
+        f"{scope_instruction}\n\nQuestion: {payload.question}"
     )
-    history = [
-        {"role": turn.role, "content": turn.content}
-        for turn in payload.history[-6:]
-    ]
+    history = _conversation_history(payload.question, payload.history)
 
     try:
         from llm import copilot_structured_complete
@@ -594,6 +626,8 @@ def copilot(request: Request, payload: CopilotRequest, session: Session = Depend
             seen.add(identifier)
             citations.append(record)
     grounded = bool(parsed.grounded and citations)
+    if needs_context and matches and not grounded:
+        return _grounding_guard_response(session, payload.question, matches)
     confidence = min(parsed.confidence, 0.95) if grounded else parsed.confidence
     return {
         "answer": parsed.answer,
