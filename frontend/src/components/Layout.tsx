@@ -58,13 +58,19 @@ const navGroups: {
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { data: health } = useQuery({ queryKey: ["health"], queryFn: api.health, staleTime: 60000 });
+  const { data: health, isPending: healthPending } = useQuery({
+    queryKey: ["health"],
+    queryFn: api.health,
+    staleTime: 30000,
+    refetchInterval: 30000,
+  });
   const location = useLocation();
   const copilot = useCopilot();
   const { user, logout } = useAuth();
   const { t, isBusiness } = useVocab();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const llmUp = Boolean(health?.["llm"] && (health["llm"] as any).available);
+  const llm = health?.["llm"] as { available?: boolean; model?: string } | undefined;
+  const llmUp = llm?.available === true;
 
   useEffect(() => setMobileNavOpen(false), [location.pathname]);
 
@@ -136,10 +142,13 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
       <div className="mt-3 rounded-xl border bg-secondary px-3 py-2.5">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className={cn("h-1.5 w-1.5 rounded-full", llmUp ? "bg-success pulse-dot" : "bg-destructive")} />
+          <span className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            healthPending ? "animate-pulse bg-muted-foreground/50" : llmUp ? "bg-success pulse-dot" : "bg-destructive",
+          )} />
           <span className="truncate">
-            {t(llmUp ? "settings.online" : "settings.offline")}
-            {!isBusiness && health?.["model"] ? ` · ${health["model"]}` : ""}
+            {healthPending ? "Checking analysis engine" : t(llmUp ? "settings.online" : "settings.offline")}
+            {!isBusiness && llm?.model ? ` - ${llm.model}` : ""}
           </span>
         </div>
       </div>
