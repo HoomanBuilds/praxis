@@ -14,13 +14,50 @@ from api.deps import AuthedActor, require_user
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
+_MONTHS = {
+    name.lower(): index
+    for index, name in enumerate(
+        (
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ),
+        start=1,
+    )
+}
+_MONTH_PATTERN = "|".join(name.title() for name in _MONTHS)
+
 
 def _calendar_date(value: str | None) -> str | None:
-    match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", value or "")
-    if not match:
+    text = value or ""
+    iso_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
+    if iso_match:
+        try:
+            return date.fromisoformat(iso_match.group(1)).isoformat()
+        except ValueError:
+            return None
+
+    month_first = re.search(
+        rf"\b({_MONTH_PATTERN})\s+(\d{{1,2}})(?:st|nd|rd|th)?\s*,?\s*(20\d{{2}})\b",
+        text,
+        re.IGNORECASE,
+    )
+    day_first = re.search(
+        rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+({_MONTH_PATTERN})\s*,?\s*(20\d{{2}})\b",
+        text,
+        re.IGNORECASE,
+    )
+    if month_first:
+        month_name, day_value, year_value = month_first.groups()
+    elif day_first:
+        day_value, month_name, year_value = day_first.groups()
+    else:
         return None
     try:
-        return date.fromisoformat(match.group(1)).isoformat()
+        return date(
+            int(year_value),
+            _MONTHS[month_name.lower()],
+            int(day_value),
+        ).isoformat()
     except ValueError:
         return None
 

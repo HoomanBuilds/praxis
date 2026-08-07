@@ -54,4 +54,33 @@ describe("Calendar", () => {
     expect(screen.getByText("within 10 working days")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Resolve investor grievances" })).toHaveAttribute("href", "/obligations/ob-1");
   });
+
+  it("renders exact regulatory dates returned for the active month", async () => {
+    const now = new Date();
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-03`;
+    vi.mocked(apiFetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        events: [{
+          id: "ob-dated",
+          date,
+          type: "obligation",
+          title: "Complete the regulatory filing",
+          status: "pending_review",
+          owner: "",
+          resource_type: "obligation",
+          resource_id: "ob-dated",
+          obligation_id: "ob-dated",
+          functional_area: "compliance",
+        }],
+        unscheduled: [],
+      }),
+    } as Response);
+
+    renderCalendar();
+
+    expect(await screen.findByText("1 regulatory dates")).toBeInTheDocument();
+    expect(screen.getByText("Complete the regulatory filing")).toBeInTheDocument();
+    expect(screen.queryByText(/no exact deadlines are scheduled/i)).not.toBeInTheDocument();
+  });
 });

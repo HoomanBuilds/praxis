@@ -102,6 +102,29 @@ def test_calendar_separates_dates_from_relative_timing(seeded):
     assert all(event["date"] != "within 10 working days" for event in body["events"])
 
 
+@pytest.mark.parametrize(
+    ("hint", "expected"),
+    [
+        ("by August 03, 2026", "2026-08-03"),
+        ("1st September, 2026", "2026-09-01"),
+        ("May 07, 2026", "2026-05-07"),
+    ],
+)
+def test_calendar_parses_real_sebi_date_formats(seeded, hint, expected):
+    with session_scope() as session:
+        obligation = crud.get_obligation(session, seeded["ob_id"])
+        obligation.deadline_hint = hint
+
+    response = TestClient(app).get(
+        "/api/calendar",
+        params={"from": expected[:7] + "-01", "to": expected[:7] + "-31"},
+    )
+
+    assert response.status_code == 200
+    event = next(item for item in response.json()["events"] if item["id"] == seeded["ob_id"])
+    assert event["date"] == expected
+
+
 def test_api_audit_report_no_files(seeded):
     client = TestClient(app)
     # approve so it appears as covered, then request a package without file exports
