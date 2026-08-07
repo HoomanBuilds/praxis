@@ -182,6 +182,25 @@ def test_compliance_status_reports_only_active_priorities(monkeypatch):
     assert "assign unowned tasks" not in response["answer"]
 
 
+def test_executive_report_prompt_uses_the_complete_workspace(monkeypatch):
+    obligations = [
+        SimpleNamespace(status="pending_review", functional_area="compliance")
+        for _ in range(12)
+    ]
+    monkeypatch.setattr("api.routes_copilot.crud.list_obligations", lambda session, **kwargs: obligations)
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session, **kwargs: [])
+
+    response = _workspace_response(
+        None,
+        "Write a concise executive summary of the current compliance posture: how many "
+        "obligations exist, their status split, and any items needing attention.",
+    )
+
+    assert response is not None
+    assert response["response_type"] == "workspace_summary"
+    assert "12 obligations recorded" in response["answer"]
+
+
 def test_urgent_risk_query_returns_actionable_workspace_priorities(monkeypatch):
     obligations = [
         SimpleNamespace(

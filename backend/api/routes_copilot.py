@@ -714,7 +714,7 @@ def _workspace_response(session: Session, question: str) -> dict | None:
         }
 
     posture_query = (
-        "overall compliance posture" in normalized
+        "compliance posture" in normalized
         or "board-level compliance summary" in normalized
         or "compliance status" in normalized
         or "compliance summary" in normalized
