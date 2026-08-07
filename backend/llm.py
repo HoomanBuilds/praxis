@@ -143,12 +143,17 @@ def copilot_structured_complete(
     retries: int = 1,
 ) -> LLMResult:
     schema_json = schema.model_json_schema()
+    field_types = ", ".join(
+        f"{name} ({details.get('type', 'value')})"
+        for name, details in schema_json.get("properties", {}).items()
+    )
     messages = [
         {
             "role": "system",
             "content": (
-                f"{system_prompt}\n\nReturn only one JSON object matching this schema:\n"
-                f"{json.dumps(schema_json, separators=(',', ':'))}"
+                f"{system_prompt}\n\nReturn only one JSON object with these top-level "
+                f"fields: {field_types}. Do not return JSON Schema, field descriptions, "
+                "or a properties wrapper."
             ),
         },
         *history,
@@ -162,7 +167,12 @@ def copilot_structured_complete(
         if candidate.startswith("```"):
             candidate = re.sub(r"^```(?:json)?\s*|\s*```$", "", candidate, flags=re.IGNORECASE)
         try:
-            parsed = schema.model_validate(json.loads(candidate))
+            data = json.loads(candidate)
+            if isinstance(data, dict) and isinstance(data.get("properties"), dict):
+                nested = data["properties"]
+                if any(field in nested for field in schema.model_fields):
+                    data = nested
+            parsed = schema.model_validate(data)
             return LLMResult(parsed=parsed, raw=raw)
         except (json.JSONDecodeError, ValidationError) as exc:
             last_error = exc

@@ -101,6 +101,30 @@ def test_copilot_completion_preserves_conversation_history(monkeypatch):
     assert captured["schema"]["title"] == "Answer"
 
 
+def test_copilot_completion_unwraps_properties_object(monkeypatch):
+    class Answer(BaseModel):
+        answer: str
+        grounded: bool
+
+    monkeypatch.setattr(
+        "llm._copilot_chat",
+        lambda _messages, _schema: (
+            '{"properties":{"answer":"Grounded answer","grounded":true}}'
+        ),
+    )
+
+    result = copilot_structured_complete(
+        "system",
+        [],
+        "question",
+        Answer,
+        retries=0,
+    )
+
+    assert result.parsed.answer == "Grounded answer"
+    assert result.parsed.grounded is True
+
+
 def test_ollama_copilot_uses_json_mode(monkeypatch):
     calls = []
 
