@@ -578,7 +578,7 @@ def copilot(request: Request, payload: CopilotRequest, session: Session = Depend
             history,
             user_prompt,
             CopilotAnswer,
-            retries=0,
+            retries=1,
         )
     except Exception as exc:
         logger.warning("Copilot analysis failed: %s", exc)

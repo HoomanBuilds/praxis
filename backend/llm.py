@@ -92,7 +92,7 @@ def _copilot_chat(messages: list[dict[str, str]], schema_json: dict | None = Non
         ).chat(
             model=model,
             messages=messages,
-            format=schema_json,
+            format="json" if schema_json is not None else None,
             keep_alive=settings.llm_keep_alive,
             options={
                 "temperature": settings.llm_temperature,

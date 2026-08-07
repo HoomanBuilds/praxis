@@ -101,6 +101,28 @@ def test_copilot_completion_preserves_conversation_history(monkeypatch):
     assert captured["schema"]["title"] == "Answer"
 
 
+def test_ollama_copilot_uses_json_mode(monkeypatch):
+    calls = []
+
+    class ChatClient:
+        def chat(self, **kwargs):
+            calls.append(kwargs)
+            return {"message": {"content": '{"answer":"ok"}'}}
+
+    monkeypatch.setattr("llm.settings.copilot_provider", "ollama")
+    monkeypatch.setattr("llm.settings.copilot_model", "llama3.2:3b")
+    monkeypatch.setattr("llm._ollama.Client", lambda **_kwargs: ChatClient())
+
+    raw = _copilot_chat(
+        [{"role": "user", "content": "Hello"}],
+        {"type": "object"},
+    )
+
+    assert raw == '{"answer":"ok"}'
+    assert calls[0]["model"] == "llama3.2:3b"
+    assert calls[0]["format"] == "json"
+
+
 def test_0g_copilot_uses_openai_compatible_json_mode(monkeypatch):
     captured = {}
 
