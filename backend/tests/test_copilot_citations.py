@@ -148,7 +148,7 @@ def test_follow_up_uses_full_history_without_repeating_keyword_results(monkeypat
         ],
     )
 
-    response = copilot(SimpleNamespace(), payload, None)
+    response = copilot.__wrapped__(SimpleNamespace(), payload, None)
 
     assert response["answer"].startswith("I was describing")
     assert captured["history"] == [
@@ -184,7 +184,7 @@ def test_model_sources_are_verified_against_workspace_context(monkeypatch):
         )
     ))
 
-    response = copilot(
+    response = copilot.__wrapped__(
         SimpleNamespace(),
         CopilotRequest(question="What is required for KYC obligations?"),
         None,
@@ -208,7 +208,7 @@ def test_general_question_uses_model_without_workspace_citations(monkeypatch):
         )
     ))
 
-    response = copilot(
+    response = copilot.__wrapped__(
         SimpleNamespace(),
         CopilotRequest(question="What do you know about SEBI?"),
         None,
