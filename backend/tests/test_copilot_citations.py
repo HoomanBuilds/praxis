@@ -9,6 +9,7 @@ from api.routes_copilot import (
     _direct_matches,
     _needs_workspace_context,
     _product_help_response,
+    _workflow_help_response,
     _workspace_response,
     copilot,
 )
@@ -51,6 +52,28 @@ def test_regulatory_questions_are_not_mistaken_for_product_help():
     assert all(_product_help_response(question) is None for question in questions)
 
 
+def test_workflow_questions_explain_real_product_actions_without_search():
+    examples = {
+        "Where do I upload a regulatory document?": "Regulations and use Manual Upload",
+        "What does approving obligation mean?": "does not assign work by itself",
+        "What does approving an obligation mean?": "does not assign work by itself",
+        "Where do assigned members work on approved obligations?": "work from Tasks",
+        "Explain the Praxis workflow": "upload a regulation",
+    }
+
+    for question, expected in examples.items():
+        response = _workflow_help_response(question)
+        assert response is not None
+        assert response["response_type"] == "product_help"
+        assert expected in response["answer"]
+        assert response["citations"] == []
+
+
+def test_specific_obligation_questions_are_not_mistaken_for_workflow_help():
+    assert _workflow_help_response("Who owns the KYC obligation in this circular?") is None
+    assert _workflow_help_response("What does this approved obligation require?") is None
+
+
 def test_whole_workspace_overview_reports_real_gaps(monkeypatch):
     monkeypatch.setattr("api.routes_copilot.crud.list_documents", lambda session: [SimpleNamespace()])
     monkeypatch.setattr(
@@ -74,6 +97,24 @@ def test_whole_workspace_overview_reports_real_gaps(monkeypatch):
     assert "3 obligations are recorded" in response["answer"]
     assert "3 obligations still need human review" in response["answer"]
     assert "no operational tasks have been generated yet" in response["answer"]
+
+
+def test_natural_workspace_status_question_uses_complete_database_summary(monkeypatch):
+    monkeypatch.setattr("api.routes_copilot.crud.list_documents", lambda session: [SimpleNamespace()])
+    monkeypatch.setattr(
+        "api.routes_copilot.crud.list_obligations",
+        lambda session, **kwargs: [SimpleNamespace(status="pending_review") for _ in range(4)],
+    )
+    monkeypatch.setattr("api.routes_copilot.crud.list_tasks", lambda session, **kwargs: [])
+    monkeypatch.setattr("api.routes_copilot.crud.list_evidence_requirements", lambda session, **kwargs: [])
+    monkeypatch.setattr("api.routes_copilot.crud.list_filings", lambda session, **kwargs: [])
+
+    response = _workspace_response(None, "What is the current workspace status and main gaps?")
+
+    assert response is not None
+    assert response["response_type"] == "workspace_summary"
+    assert "4 obligations are recorded" in response["answer"]
+    assert response["citations"] == []
 
 
 def test_greeting_is_answered_without_querying_the_model():

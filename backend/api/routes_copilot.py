@@ -270,12 +270,86 @@ def _product_help_response(question: str) -> dict | None:
     return None
 
 
+def _workflow_help_response(question: str) -> dict | None:
+    normalized = " ".join(question.lower().replace("centre", "center").split()).strip(" !,.?")
+    upload_question = (
+        "upload" in normalized
+        and any(term in normalized for term in ("document", "regulation", "circular", "pdf"))
+        and any(term in normalized for term in ("where", "how", "which page"))
+    )
+    approval_question = (
+        any(term in normalized for term in (
+            "approve obligation",
+            "approve an obligation",
+            "approved obligation",
+            "approving obligation",
+            "approving an obligation",
+            "obligation approval",
+        ))
+        and any(term in normalized for term in ("mean", "means", "what happens", "does approval"))
+    )
+    assigned_work_question = (
+        any(term in normalized for term in ("assigned member", "assigned user", "assignee", "assigned work"))
+        and any(term in normalized for term in ("where", "work", "track"))
+    )
+    workflow_question = any(
+        phrase in normalized
+        for phrase in (
+            "how does praxis workflow work",
+            "how does the praxis workflow work",
+            "explain the praxis workflow",
+            "regulation to task workflow",
+        )
+    )
+
+    if upload_question:
+        answer = (
+            "Open Regulations and use Manual Upload to add the official PDF. Praxis processes "
+            "the document into candidate obligations and preserves the source paragraph for "
+            "human review."
+        )
+    elif approval_question:
+        answer = (
+            "Approving an obligation confirms that the extracted requirement is applicable and "
+            "accurately represents the source. Approval does not assign work by itself. After "
+            "approval, open the regulation review and select Generate rules & tasks to create "
+            "the operational tasks and evidence requirements."
+        )
+    elif assigned_work_question:
+        answer = (
+            "Assigned members work from Tasks. Generated tasks are grouped by department and "
+            "show their owner, deadline, and status. A member can update the task there and open "
+            "its source obligation for the regulatory context."
+        )
+    elif workflow_question:
+        answer = (
+            "The Praxis workflow is: upload a regulation, process it into candidate obligations, "
+            "review and approve what applies, generate rules, tasks, and evidence requirements, "
+            "then track owners and completion in Tasks and Evidence Center. Compliance Map keeps "
+            "the complete chain traceable to the source."
+        )
+    else:
+        return None
+
+    return {
+        "answer": answer,
+        "citations": [],
+        "sources": [],
+        "grounded": False,
+        "confidence": 1.0,
+        "response_type": "product_help",
+    }
+
+
 def _is_workspace_overview_query(normalized: str) -> bool:
     return (
         "workspace overview" in normalized
+        or "workspace status" in normalized
         or "whole overview" in normalized
         or "overall status of us" in normalized
+        or "where do we stand" in normalized
         or "where we are" in normalized
+        or ("main gaps" in normalized and ("workspace" in normalized or "current" in normalized))
         or (
             "what we have" in normalized
             and ("status" in normalized or "what not" in normalized)
@@ -525,7 +599,7 @@ def _workspace_response(session: Session, question: str) -> dict | None:
             "response_type": "analysis",
         }
 
-    product_help = _product_help_response(question)
+    product_help = _workflow_help_response(question) or _product_help_response(question)
     if product_help:
         return product_help
 
