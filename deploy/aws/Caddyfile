@@ -1,3 +1,7 @@
 {$PRAXIS_DOMAIN} {
 	reverse_proxy web:8080
 }
+
+bankgaurd.inferia.ai {
+	reverse_proxy bankguard-web:80
+}
