@@ -14,7 +14,7 @@ export function CopilotCitationBlock({
   responseType?: CopilotResponseType;
 }) {
   const { t, isBusiness } = useVocab();
-  if (responseType === "greeting" || responseType === "product_help") return null;
+  if (responseType === "greeting" || responseType === "product_help" || responseType === "out_of_scope") return null;
   if (responseType === "workspace_summary") {
     return (
       <div className="mt-2 flex items-start gap-1.5 border-t pt-2 text-[11px] text-muted-foreground">
